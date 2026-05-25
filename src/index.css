@@ -1,0 +1,150 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Red Hat Display', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: radial-gradient(circle at 50% 0%, #1a0f3d 0%, #0a0a0d 60%);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Hide scrollbar but keep functionality (inside phone frame) */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+/* ---------------------------------------------------------------- */
+/*  Tier 3 "fire" shimmer on the momio value                        */
+/*  Applied per-character so each digit gets its own gradient fill. */
+/*  Vertical light → lighter → light sweep on a 2s loop.            */
+/* ---------------------------------------------------------------- */
+@keyframes fireShimmer {
+  0% {
+    background-position: 50% 0%;
+  }
+  50% {
+    background-position: 50% 100%;
+  }
+  100% {
+    background-position: 50% 0%;
+  }
+}
+
+.fire-shimmer {
+  background-image: linear-gradient(
+    180deg,
+    #fbfbfb 0%,
+    #ffffff 35%,
+    #e8dcff 50%,
+    #ffffff 65%,
+    #fbfbfb 100%
+  );
+  background-size: 100% 300%;
+  background-position: 50% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: fireShimmer 2s linear infinite;
+}
+
+.fire-shimmer-slow {
+  animation-duration: 6s; /* used when debug speedScale=3 */
+}
+
+/* ---------------------------------------------------------------- */
+/*  Tier 3 cross-flicker — a faster secondary light pattern moving  */
+/*  across the entire button surface, blended with mix-blend-mode   */
+/*  so it lights up the gradient underneath without obscuring it.   */
+/* ---------------------------------------------------------------- */
+@keyframes fireShimmerOverlay {
+  0% {
+    background-position: 0% 100%;
+  }
+  50% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 0% 100%;
+  }
+}
+
+.fire-shimmer-overlay {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.18) 45%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.18) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 100% 220%;
+  background-repeat: no-repeat;
+  animation: fireShimmerOverlay 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire-shimmer-overlay {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/*  POLISH PASS — Tier 3 per-character brightness wave on the odds   */
+/*  A brief brightness spike runs L→R across each character every    */
+/*  3s, with 60ms stagger between chars. Per-char `--ci` comes from  */
+/*  SlotNumber's wrapper.                                            */
+/* ---------------------------------------------------------------- */
+@keyframes oddsCharBrightnessWave {
+  0% {
+    filter: brightness(1);
+  }
+  2% {
+    /* 60ms / 3000ms ≈ 2% — quick spike start */
+    filter: brightness(1.4);
+  }
+  4% {
+    /* 120ms / 3000ms = 4% — quick spike end */
+    filter: brightness(1);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
+.odds-char-wave {
+  animation: oddsCharBrightnessWave 3s linear infinite;
+  /* Stagger via SlotNumber's --ci. 60ms between adjacent chars. */
+  animation-delay: calc(var(--ci, 0) * 60ms);
+  display: inline-block;
+  will-change: filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .odds-char-wave {
+    animation: none;
+    filter: none;
+  }
+}
+
+/* Respect reduced-motion globally for the shimmer keyframe. */
+@media (prefers-reduced-motion: reduce) {
+  .fire-shimmer {
+    animation: none;
+    color: #fbfbfb;
+    -webkit-text-fill-color: #fbfbfb;
+  }
+}

@@ -1,0 +1,438 @@
+import { motion } from 'framer-motion';
+import type { Selection } from './types';
+
+/* ============================================================ */
+/*  Mock match data — six picks the user can add                */
+/* ============================================================ */
+export const MOCK_PICKS: Selection[] = [
+  { id: 'psg-w', match: 'PSG vs Real Madrid', pick: 'PSG gana', odds: 1.75 },
+  { id: 'rma-w', match: 'PSG vs Real Madrid', pick: 'Real Madrid gana', odds: 2.75 },
+  { id: 'draw', match: 'PSG vs Real Madrid', pick: 'Empate', odds: 3.8 },
+  { id: 'lewa', match: 'Anota gol — Lewandowski', pick: 'Lewandowski anota', odds: 1.95 },
+  { id: 'mbappe', match: 'Anota gol — Mbappé', pick: 'Mbappé anota', odds: 1.65 },
+  { id: 'vini', match: 'Anota gol — Vinicius', pick: 'Vinicius anota', odds: 2.1 },
+];
+
+/* ============================================================ */
+/*  Status bar                                                  */
+/* ============================================================ */
+function StatusBar() {
+  return (
+    <div className="flex h-11 w-full items-center justify-between px-6 pt-1">
+      <span className="text-[14px] font-semibold tracking-tight text-white">
+        9:41
+      </span>
+      <div className="flex items-center gap-1.5 text-white">
+        {/* signal */}
+        <svg width="18" height="11" viewBox="0 0 18 11" fill="none" aria-hidden>
+          <rect x="0" y="7" width="3" height="4" rx="0.5" fill="white" />
+          <rect x="5" y="4" width="3" height="7" rx="0.5" fill="white" />
+          <rect x="10" y="2" width="3" height="9" rx="0.5" fill="white" />
+          <rect x="15" y="0" width="3" height="11" rx="0.5" fill="white" />
+        </svg>
+        {/* wifi */}
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden>
+          <path
+            d="M8 10.5l-1.5-1.7M8 10.5l1.5-1.7M2 5.4a8.6 8.6 0 0112 0M4.5 7.7a5 5 0 017 0"
+            stroke="white"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+        {/* battery */}
+        <div className="relative ml-1 h-[10px] w-[22px] rounded-[2.5px] border border-white/80">
+          <div className="absolute inset-[1px] rounded-[1.5px] bg-white" />
+          <div className="absolute -right-[2px] top-1/2 h-[4px] w-[1.5px] -translate-y-1/2 rounded-r-sm bg-white/80" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Header — Draftea logo, balance, lightning, profile          */
+/* ============================================================ */
+function Header() {
+  return (
+    <div className="flex h-14 w-full items-center justify-between px-4">
+      {/* Draftea wordmark */}
+      <div className="flex items-center gap-1.5">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+          <path
+            d="M3 11a8 8 0 0116 0v8L11 16l-8 3v-8z"
+            fill="url(#dgrad)"
+          />
+          <defs>
+            <linearGradient id="dgrad" x1="0" y1="0" x2="22" y2="22">
+              <stop stopColor="#9730ff" />
+              <stop offset="1" stopColor="#4b20ff" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <span className="text-[15px] font-black tracking-wider text-white">
+          DRAFTEA
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col items-end leading-tight">
+          <span className="text-[13px] font-black text-white">$0.00</span>
+          <span className="text-[9px] font-medium uppercase tracking-wider text-white/50">
+            Balance
+          </span>
+        </div>
+        {/* lightning quick-deposit */}
+        <button
+          className="flex h-9 w-9 items-center justify-center rounded-full"
+          style={{
+            background:
+              'linear-gradient(135deg, #4b20ff 0%, #9730ff 100%)',
+          }}
+          aria-label="Quick deposit"
+        >
+          <svg width="14" height="16" viewBox="0 0 14 16" fill="none" aria-hidden>
+            <path
+              d="M8 0L0 9h5l-1 7 8-9H7l1-7z"
+              fill="white"
+            />
+          </svg>
+        </button>
+        {/* profile */}
+        <button
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5"
+          aria-label="Profile"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <circle cx="8" cy="6" r="2.6" stroke="white" strokeWidth="1.4" />
+            <path
+              d="M3 14a5 5 0 0110 0"
+              stroke="white"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Leagues row — circular sport/league tabs                    */
+/* ============================================================ */
+function LeaguesTab() {
+  const items = [
+    { id: 'todofut', label: 'TODOFUT', glyph: '⚽' },
+    { id: 'champ', label: 'CHAMPI…', glyph: '🏆' },
+    { id: 'nfl', label: 'NFL', glyph: '🏈' },
+    { id: 'mlb', label: 'MLB', glyph: '⚾' },
+    { id: 'tenis', label: 'TENIS', glyph: '🎾' },
+    { id: 'prem', label: 'PREMI…', glyph: '🦁' },
+  ];
+  return (
+    <div className="no-scrollbar flex w-full gap-3 overflow-x-auto px-3 py-2">
+      {items.map((it, i) => (
+        <div
+          key={it.id}
+          className="flex shrink-0 flex-col items-center gap-1.5"
+        >
+          <div
+            className={`flex h-[46px] w-[46px] items-center justify-center rounded-full border text-[18px] ${
+              i === 0
+                ? 'border-[#4b20ff] bg-gradient-to-br from-[#4b20ff] to-[#9730ff]'
+                : 'border-white/15 bg-white/5'
+            }`}
+          >
+            {it.glyph}
+          </div>
+          <span className="text-[9px] font-bold tracking-wider text-white/70">
+            {it.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Match tabs + pills row                                      */
+/* ============================================================ */
+function TabsAndPills() {
+  return (
+    <div className="flex w-full flex-col gap-2 px-3">
+      <div className="flex items-center gap-3 py-1">
+        <span className="text-[14px] font-black text-white">TODOS</span>
+        {['POPULARES', 'PARTIDOS', '1era MITAD', 'TIROS'].map((t, i) => (
+          <button
+            key={t}
+            className={`rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide ${
+              i === 0
+                ? 'bg-gradient-to-r from-[#4b20ff] to-[#9730ff] text-white'
+                : 'border border-white/15 text-white/70'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Promo carousel — Champions card with PSG vs Real Madrid     */
+/* ============================================================ */
+function PromoCarousel() {
+  return (
+    <div className="w-full px-3 py-2">
+      <div
+        className="relative h-[136px] w-full overflow-hidden rounded-2xl"
+        style={{
+          backgroundImage:
+            'linear-gradient(135deg, #2b1166 0%, #4b20ff 50%, #1a0a40 100%)',
+        }}
+      >
+        {/* Decorative glow */}
+        <div
+          className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-50 blur-2xl"
+          style={{ background: '#9730ff' }}
+        />
+        <div className="relative flex h-full flex-col justify-between p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold tracking-wider text-white/90">
+              ⭐ Champions x Hoy
+            </span>
+            <span className="text-[10px] font-medium text-white/70">
+              Hoy 18:00
+            </span>
+          </div>
+          <div className="flex items-end justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[9px] font-black text-black">
+                PSG
+              </div>
+              <span className="text-[12px] font-bold text-white">
+                Paris-Saint Germain
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-white/60">vs</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[12px] font-bold text-white">
+                Real Madrid
+              </span>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[9px] font-black text-black">
+                RMA
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { l: 'PSG', v: '1.75x' },
+              { l: 'EMPATE', v: '3.80x' },
+              { l: 'RMA', v: '2.75x' },
+            ].map((o) => (
+              <div
+                key={o.l}
+                className="rounded-lg bg-black/40 px-2 py-1.5 backdrop-blur"
+              >
+                <div className="text-[9px] font-medium text-white/70">
+                  {o.l}
+                </div>
+                <div className="text-[13px] font-black text-white">{o.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 flex justify-center gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full ${
+              i === 0 ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Market accordion — "Anota gol" with player cards            */
+/* ============================================================ */
+type MarketProps = {
+  picks: Selection[];
+  selectedIds: Set<string>;
+  onTogglePick: (id: string) => void;
+};
+
+function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
+  return (
+    <div className="w-full px-3 py-2">
+      <div className="rounded-2xl border border-white/10 bg-[#101015]/80 p-3 backdrop-blur">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-black text-white">
+              Anota gol en cualquier momento
+            </span>
+          </div>
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/80">
+            90'
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {picks.map((p) => {
+            const selected = selectedIds.has(p.id);
+            return (
+              <motion.button
+                key={p.id}
+                type="button"
+                onClick={() => onTogglePick(p.id)}
+                whileTap={{ scale: 0.97 }}
+                className={`relative flex flex-col items-start gap-1 rounded-xl border p-2 text-left transition-colors ${
+                  selected
+                    ? 'border-[#4b20ff] bg-gradient-to-br from-[#1a0a40] to-[#230c3e]'
+                    : 'border-white/10 bg-white/5'
+                }`}
+              >
+                <div className="flex w-full items-center gap-1.5">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[8px] font-black text-white/70">
+                    {p.pick.includes('PSG')
+                      ? 'PSG'
+                      : p.pick.includes('Real')
+                        ? 'RMA'
+                        : p.pick.includes('Empate')
+                          ? '—'
+                          : 'POS'}
+                  </div>
+                  <span className="truncate text-[10px] font-bold text-white">
+                    {p.pick}
+                  </span>
+                </div>
+                <div className="mt-1 flex w-full items-center justify-between">
+                  <span className="text-[9px] font-medium text-white/50">
+                    {selected ? 'En cupón' : 'Añadir'}
+                  </span>
+                  <span
+                    className={`text-[13px] font-black ${
+                      selected ? 'text-[#c4b3ff]' : 'text-white'
+                    }`}
+                  >
+                    {p.odds.toFixed(2)}x
+                  </span>
+                </div>
+                {selected && (
+                  <motion.span
+                    layoutId={`tick-${p.id}`}
+                    className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, #4b20ff, #9730ff)',
+                    }}
+                  >
+                    <svg
+                      width="9"
+                      height="9"
+                      viewBox="0 0 9 9"
+                      fill="none"
+                      aria-hidden
+                    >
+                      <path
+                        d="M1.5 4.7L3.7 6.9 7.5 2.1"
+                        stroke="white"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </motion.span>
+                )}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Bottom navbar (visual only)                                 */
+/* ============================================================ */
+function Navbar() {
+  const items = [
+    { id: 'bets', label: 'Bets', active: true },
+    { id: 'entradas', label: 'Mis entradas', active: false },
+    { id: 'gaming', label: 'Gaming', active: false },
+    { id: 'rewards', label: 'Rewards', active: false },
+  ];
+  return (
+    <div className="flex w-full items-center gap-2 px-4 pb-4">
+      <div className="flex h-[58px] flex-1 items-center justify-center gap-1 rounded-[56px] border border-white/15 bg-[#191919] p-1.5">
+        {items.map((it) => (
+          <div
+            key={it.id}
+            className={`flex h-[46px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[56px] px-1 ${
+              it.active ? 'bg-white/10' : ''
+            }`}
+          >
+            <div className="h-5 w-5 rounded bg-white/30" />
+            <span
+              className={`text-[10px] font-medium leading-[15px] ${
+                it.active ? 'text-white' : 'text-white/70'
+              }`}
+            >
+              {it.label}
+            </span>
+          </div>
+        ))}
+      </div>
+      <button
+        className="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-white/15 bg-[#191919]"
+        aria-label="Search"
+      >
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+          <circle cx="10" cy="10" r="6.5" stroke="white" strokeWidth="1.6" />
+          <path
+            d="M15 15l4 4"
+            stroke="white"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Combined HomeScreenChrome — everything above the button     */
+/* ============================================================ */
+type HomeScreenChromeProps = {
+  picks: Selection[];
+  selectedIds: Set<string>;
+  onTogglePick: (id: string) => void;
+};
+
+export function HomeScreenChrome({
+  picks,
+  selectedIds,
+  onTogglePick,
+}: HomeScreenChromeProps) {
+  return (
+    <div className="flex w-full flex-col">
+      <StatusBar />
+      <Header />
+      <LeaguesTab />
+      <TabsAndPills />
+      <PromoCarousel />
+      <MarketAccordion
+        picks={picks}
+        selectedIds={selectedIds}
+        onTogglePick={onTogglePick}
+      />
+    </div>
+  );
+}
+
+export { Navbar };
