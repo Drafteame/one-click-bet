@@ -326,6 +326,7 @@ export function ButtonPreviewMomios({
     yPctFromBottom: number;
     rise: number;
     drift: number;
+    sway: number;
     size: number;
     lifetimeMs: number;
   };
@@ -356,7 +357,10 @@ export function ButtonPreviewMomios({
               Math.random() *
                 (fs.spawnOriginYRangePct[1] - fs.spawnOriginYRangePct[0]),
             rise: fs.riseMinPx + Math.random() * (fs.riseMaxPx - fs.riseMinPx),
+            // Random end direction + an independent mid-path sway so each
+            // spark wanders on its own curved path (not a straight line).
             drift: (Math.random() * 2 - 1) * fs.driftMaxPx,
+            sway: (Math.random() * 2 - 1) * fs.driftMaxPx,
             size:
               fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
             lifetimeMs:
@@ -818,7 +822,9 @@ export function ButtonPreviewMomios({
         aria-hidden
         className="outer-glow-swirl pointer-events-none absolute"
         style={{
-          inset: '-12px 4px',
+          // Shifted up (top -20 / bottom -4) so the glow centers on the
+          // BUTTON, not the taller wrapper — otherwise it spread downward.
+          inset: '-20px 4px -4px 4px',
           // Concentrated glow (shorter fade) — closer to the original.
           WebkitMaskImage:
             'radial-gradient(ellipse 80% 78% at center, black 30%, transparent 78%)',
@@ -1288,7 +1294,7 @@ export function ButtonPreviewMomios({
               {fireSparks.map((s) => (
                 <motion.span
                   key={s.id}
-                  className="absolute rounded-full bg-white"
+                  className="absolute rounded-full"
                   style={{
                     left: `${s.xPct}%`,
                     // Position in PIXELS relative to BUTTON height (not
@@ -1296,15 +1302,18 @@ export function ButtonPreviewMomios({
                     // emerge at/near the top edge of the actual button.
                     bottom: s.yPctFromBottom * cfg.borderHeightPx,
                     width: s.size,
-                    height: s.size,
-                    // Bright white core + purple ember glow.
+                    // Elongated vertical streak (head at top, tail fading
+                    // downward) → motion-blur trail as it rises straight up.
+                    height: s.size * 5,
+                    background:
+                      'linear-gradient(to top, rgba(151,48,255,0) 0%, rgba(151,48,255,0.85) 70%, #9730ff 100%)',
                     boxShadow:
-                      '0 0 4px rgba(255,255,255,0.9), 0 0 8px rgba(151,48,255,0.7)',
+                      '0 0 6px rgba(151,48,255,0.95), 0 0 12px rgba(151,48,255,0.7)',
                   }}
-                  initial={{ y: 0, x: 0, opacity: 0, scale: 1 }}
+                  initial={{ y: 0, opacity: 0, scale: 1 }}
                   animate={{
+                    // Straight up — no horizontal drift, no tilt.
                     y: -s.rise,
-                    x: s.drift,
                     opacity: [0, 1, 1, 0],
                     scale: [1, 1, 0.7, 0.3],
                   }}

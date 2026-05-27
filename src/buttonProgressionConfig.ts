@@ -75,8 +75,8 @@ export const buttonProgressionConfig = {
     // button — like sparks just above a flame, not a tall fountain.
     riseMinPx: 22,
     riseMaxPx: 48,
-    // Horizontal drift range (px, ±).
-    driftMaxPx: 10,
+    // Horizontal drift/sway range (px, ±) — subtle wander.
+    driftMaxPx: 12,
     // Particle size range (px).
     sizeMinPx: 2,
     sizeMaxPx: 3.5,
