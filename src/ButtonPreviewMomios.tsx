@@ -1,4 +1,5 @@
 import {
+  animate,
   AnimatePresence,
   motion,
   useAnimation,
@@ -6,6 +7,7 @@ import {
   useMotionValue,
   useMotionValueEvent,
   useSpring,
+  useTransform,
 } from 'framer-motion';
 import {
   useCallback,
@@ -14,7 +16,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { BorderLight } from './BorderLight';
+// EXPLORATION — BorderLight import removed. The orbital traveling-head
+// glow has been replaced with a layered box-shadow stack on the pill
+// shell, driven by the same logic as the odds text-shadow. The file
+// BorderLight.tsx is intentionally left on disk in case we revert.
 import { buttonProgressionConfig as cfg } from './buttonProgressionConfig';
 import { OddsSmokeEffect } from './OddsEffects';
 import { OutlineRipple } from './OutlineRipple';
@@ -202,12 +207,16 @@ export function ButtonPreviewMomios({
     const env = (1 - Math.cos(phase * Math.PI * 2)) / 2;
     const base = cur.glowOpacityMin + (cur.glowOpacityMax - cur.glowOpacityMin) * env;
     glowProgress.set(env);
-    // Additive +40% flash boost when odds update (configured at T2 only,
-    // but we apply at any T≥2 since glow exists then).
+    // Additive +40% flash boost when odds update. BUGFIX: compare against
+    // performance.now() (the same clock used to SET flashUntil) instead of
+    // the frame loop's `t`. If those two clocks diverge, the `t < flashUntil`
+    // test could stay true forever and the glow would stick bright and
+    // "never dim". Using one clock guarantees the boost always expires.
+    const now = performance.now();
     const flashUntil = glowFlashUntilRef.current;
     let boosted = base;
-    if (t < flashUntil) {
-      const k = (flashUntil - t) / cfg.tier2.glowFlashDurationMs;
+    if (now < flashUntil) {
+      const k = (flashUntil - now) / cfg.tier2.glowFlashDurationMs;
       boosted = Math.min(1, base * (1 + cfg.tier2.glowFlashBoost * k));
     }
     glowOpacity.set(boosted);
@@ -221,15 +230,16 @@ export function ButtonPreviewMomios({
   // The motion value's role is now: drive the sibling div's opacity.
 
   /* =============================================================== */
-  /*  AMBIENT — inner highlight rim (Tier 2+) out of phase           */
+  /*  AMBIENT — inner highlight rim (Tier 3 ONLY now)                */
+  /*  Moved from T2 → T3 so T2 keeps only the outer glow.            */
   /* =============================================================== */
   const innerRimOpacity = useMotionValue(0);
   useAnimationFrame((t) => {
-    if (reduced || tier < 2) {
+    if (reduced || tier < 3) {
       innerRimOpacity.set(0);
       return;
     }
-    const cur = tier >= 3 ? cfg.tier3 : cfg.tier2;
+    const cur = cfg.tier3;
     const dur = cur.glowPulseDurationMs * speedScale;
     const offset = cfg.tier2.innerRimPhaseOffsetMs * speedScale;
     const phase = ((t + offset) % dur) / dur;
@@ -264,44 +274,24 @@ export function ButtonPreviewMomios({
   /*  AMBIENT — SVG border light sweeps (Tier 1+ primary; T3 second) */
   /*  Position is a 0..1 motion value driving strokeDashoffset.      */
   /* =============================================================== */
-  const sweepPos = useMotionValue(0);
-  const sweepOpacity = useMotionValue(0);
-  const sweepPhaseRef = useRef(0);
-  useAnimationFrame((t) => {
-    if (reduced || tier < 1) {
-      sweepOpacity.set(0);
-      sweepPos.set(0);
-      sweepPhaseRef.current = 0;
-      return;
-    }
-    const cur = tier >= 3 ? cfg.tier3 : tier === 2 ? cfg.tier2 : cfg.tier1;
-    const dur = cur.borderSweepDurationMs * speedScale;
-    const phase = (t % dur) / dur;
-    sweepPhaseRef.current = phase;
-    sweepPos.set(phase);
-
-    const active = cur.borderSweepActiveRatio;
-    if (active >= 1) {
-      sweepOpacity.set(cur.borderSweepOpacity);
-    } else if (phase < active) {
-      // Fade in/out inside the active region so on/off isn't harsh.
-      const local = phase / active;
-      sweepOpacity.set(Math.sin(local * Math.PI) * cur.borderSweepOpacity);
-    } else {
-      sweepOpacity.set(0);
-    }
-    // POLISH PASS — secondary head removed. Single traveling light only.
-  });
+  // EXPLORATION — orbital border-light sweep removed. The shell's
+  // outline glow is now a layered box-shadow stack driven by the same
+  // logic as the odds text-shadow (see borderBoxShadow above).
+  const sweepPhaseRef = useRef(0); // retained only for debug-overlay shape
 
   /* =============================================================== */
-  /*  AMBIENT — sparkle particles (Tier 3, sparse)                   */
+  /*  AMBIENT — sparkle edge flashes (T1+, density scales with tier) */
   /* =============================================================== */
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
   const sparkleIdRef = useRef(0);
   useEffect(() => {
-    if (tier < 3 || reduced) return;
+    if (tier < 1 || reduced) return;
+    const tierConf = cfg.sparkles.byTier[tier];
+    if (!tierConf) return;
     const interval = setInterval(() => {
-      const count = 2 + Math.floor(Math.random() * 3);
+      const count =
+        tierConf.countMin +
+        Math.floor(Math.random() * (tierConf.countMax - tierConf.countMin + 1));
       const fresh: Sparkle[] = [];
       for (let i = 0; i < count; i++) {
         const side = Math.floor(Math.random() * 4);
@@ -317,10 +307,82 @@ export function ButtonPreviewMomios({
       setSparkles((s) => [...s, ...fresh]);
       setTimeout(
         () => setSparkles((s) => s.slice(fresh.length)),
-        cfg.tier3.sparkleDurationMs,
+        cfg.sparkles.durationMs,
       );
-    }, cfg.tier3.sparkleIntervalMs);
+    }, tierConf.intervalMs);
     return () => clearInterval(interval);
+  }, [tier, reduced]);
+
+  /* =============================================================== */
+  /*  AMBIENT — Tier 3 fire sparks (rising particles)                */
+  /*  Continuous emission from inside the button — particles float    */
+  /*  upward past the top edge while fading and shrinking. Like       */
+  /*  embers rising from a fire.                                      */
+  /* =============================================================== */
+  type FireSpark = {
+    id: number;
+    spawnAtMs: number;
+    xPct: number;
+    yPctFromBottom: number;
+    rise: number;
+    drift: number;
+    size: number;
+    lifetimeMs: number;
+  };
+  const [fireSparks, setFireSparks] = useState<FireSpark[]>([]);
+  const fireSparkIdRef = useRef(0);
+
+  useEffect(() => {
+    if (tier < 3 || reduced) return;
+    const fs = cfg.fireSparks;
+    const tick = setInterval(() => {
+      setFireSparks((cur) => {
+        if (cur.length >= fs.maxActive) return cur;
+        const count =
+          fs.spawnCountMin +
+          Math.floor(Math.random() * (fs.spawnCountMax - fs.spawnCountMin + 1));
+        const fresh: FireSpark[] = [];
+        const now = performance.now();
+        for (let i = 0; i < count; i++) {
+          fresh.push({
+            id: fireSparkIdRef.current++,
+            spawnAtMs: now,
+            // Random horizontal position across the button width.
+            xPct: Math.random() * 100,
+            // Random Y origin in the lower portion of the button (so
+            // sparks visibly emerge from inside, not from the very edge).
+            yPctFromBottom:
+              fs.spawnOriginYRangePct[0] +
+              Math.random() *
+                (fs.spawnOriginYRangePct[1] - fs.spawnOriginYRangePct[0]),
+            rise: fs.riseMinPx + Math.random() * (fs.riseMaxPx - fs.riseMinPx),
+            drift: (Math.random() * 2 - 1) * fs.driftMaxPx,
+            size:
+              fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
+            lifetimeMs:
+              fs.lifetimeMinMs +
+              Math.random() * (fs.lifetimeMaxMs - fs.lifetimeMinMs),
+          });
+        }
+        return [...cur, ...fresh];
+      });
+    }, cfg.fireSparks.spawnIntervalMs);
+    return () => clearInterval(tick);
+  }, [tier, reduced]);
+
+  // GC expired fire sparks so the array doesn't grow unboundedly.
+  useEffect(() => {
+    if (tier < 3 || reduced) {
+      setFireSparks([]);
+      return;
+    }
+    const gc = setInterval(() => {
+      const now = performance.now();
+      setFireSparks((cur) =>
+        cur.filter((s) => now - s.spawnAtMs < s.lifetimeMs),
+      );
+    }, 500);
+    return () => clearInterval(gc);
   }, [tier, reduced]);
 
   /* =============================================================== */
@@ -331,7 +393,7 @@ export function ButtonPreviewMomios({
   const oddsSettleControls = useAnimation();
   const oddsBurstControls = useAnimation(); // POLISH PASS: T3 1.08 scale on add
   const [breath40, setBreath40] = useState(false); // anticipation 40ms compress
-  const [t3Burst, setT3Burst] = useState<number | null>(null); // radial burst key
+  const [addBurst, setAddBurst] = useState<number | null>(null); // center radial burst key (all tiers)
   // POLISH PASS — stacked outline ripples. Cap at 3 simultaneous.
   const [outlineRipples, setOutlineRipples] = useState<number[]>([]);
 
@@ -349,16 +411,61 @@ export function ButtonPreviewMomios({
   /*            layer with deterministic sum-of-sines opacity jitter.  */
   /*  T3 smoke : 4-layer baseline (smoke blobs render behind text).    */
   /* =============================================================== */
-  const oddsTextShadow = useMotionValue<string>('none');
-  const ganaTextShadow = useMotionValue<string>('none');
+  // Glow is a layered drop-shadow FILTER (not text-shadow). text-shadow
+  // was getting clipped into rectangles by each character's overflow:hidden
+  // slot wrapper ("purple boxes"); a filter on a non-clipped wrapper hugs
+  // the glyph shapes and extends freely.
+  const oddsGlowFilter = useMotionValue<string>('none');
+  const ganaGlowFilter = useMotionValue<string>('none');
+  // EXPLORATION v3 — uniform borderColor flicker REMOVED. The user wants
+  // a HORIZONTAL sweep across the stroke (like the odds shimmer), not a
+  // global brightness change. The stroke base stays static #4b20ff via
+  // the CSS class; an SVG overlay sibling renders the sweeping highlight,
+  // animated below via useMotionValue + useAnimationFrame (not SMIL —
+  // SMIL was rendering but its timing wasn't easy to verify; JS-driven
+  // is explicit and lets the cycle duration follow speedScale too).
+  const strokeSweepX = useMotionValue(-1);
+  // Ref to the SVG linearGradient so we can imperatively rewrite its
+  // gradientTransform each frame (cheaper than re-rendering React).
+  const sweepGradRef = useRef<SVGLinearGradientElement | null>(null);
+  useMotionValueEvent(strokeSweepX, 'change', (v) => {
+    sweepGradRef.current?.setAttribute(
+      'gradientTransform',
+      `translate(${v} 0)`,
+    );
+  });
+  // EXPLORATION — stroke sweep now runs at T2+ (was T3-only). The SVG
+  // renders at both tiers; T2 is dimmer (opacity factor) and slower
+  // (longer cycle) than T3. Driver lives in its own frame loop so it's
+  // independent of the T3-gated odds-halo loop.
+  useAnimationFrame((t) => {
+    if (reduced || tier < 2) {
+      strokeSweepX.set(-1);
+      return;
+    }
+    const dur =
+      (tier >= 3 ? 2000 : cfg.tier2.strokeSweepDurationMs) * speedScale;
+    const phase = (t % dur) / dur; // 0 → 1
+    strokeSweepX.set(-1 + phase * 2); // -1 → 1
+  });
   const oddsGlowIntensityRef = useRef(1); // multiplier driven by surges/breath
   const oddsHaloOverrideUntilRef = useRef(0);
   const oddsHaloOverrideMultRef = useRef(1);
+  // EXPLORATION — separate override channel for the border so tier-crossing
+  // can surge the border glow without affecting the odds glow.
+  const borderOverrideUntilRef = useRef(0);
+  const borderOverrideMultRef = useRef(1);
+  const borderOverrideTotalRef = useRef(0); // total surge duration for blend-out
 
   useAnimationFrame((t) => {
-    if (reduced || tier < 2) {
-      oddsTextShadow.set('none');
-      ganaTextShadow.set('none');
+    // EXPLORATION — odds glow halo (Momio + Gana text-shadow) is T3-ONLY.
+    // At T2 the odds carry no halo; T2 keeps only the outer diffuse glow,
+    // the dim stroke sweep, and the inherited T1 ambient life.
+    // NOTE: the stroke sweep is NOT driven here — it has its own frame
+    // loop above that runs at T2+ (dimmer/slower than T3).
+    if (reduced || tier < 3) {
+      oddsGlowFilter.set('none');
+      ganaGlowFilter.set('none');
       oddsGlowIntensityRef.current = 1;
       return;
     }
@@ -370,7 +477,6 @@ export function ButtonPreviewMomios({
       const dur = cfg.tier3.oddsHaloBreatheDurationMs * speedScale;
       const phase = (t % dur) / dur;
       const env = (1 - Math.cos(phase * Math.PI * 2)) / 2;
-      // Maps glow min/max opacity range to a stack multiplier.
       mult =
         cfg.tier3.oddsHaloOpacityMin / cfg.tier2.oddsHaloStaticOpacity +
         ((cfg.tier3.oddsHaloOpacityMax - cfg.tier3.oddsHaloOpacityMin) /
@@ -378,28 +484,44 @@ export function ButtonPreviewMomios({
           env;
     }
 
-    // ---- one-shot surge blends out linearly ----
+    // ---- odds one-shot surge blends out linearly ----
+    let oddsMult = mult;
     if (t < oddsHaloOverrideUntilRef.current) {
       const remaining = oddsHaloOverrideUntilRef.current - t;
       const total = cfg.tier2.oddsHaloUpdateDurationMs;
       const k = Math.min(1, remaining / total);
-      mult = Math.max(mult, mult + (oddsHaloOverrideMultRef.current - mult) * k);
+      oddsMult = Math.max(
+        oddsMult,
+        oddsMult + (oddsHaloOverrideMultRef.current - oddsMult) * k,
+      );
+    }
+    oddsGlowIntensityRef.current = oddsMult;
+
+    // ---- border surge (independent: used by tier-crossings) ----
+    let borderMult = mult;
+    if (t < borderOverrideUntilRef.current) {
+      const remaining = borderOverrideUntilRef.current - t;
+      const total = borderOverrideTotalRef.current || 1;
+      const k = Math.min(1, remaining / total);
+      borderMult = Math.max(
+        borderMult,
+        borderMult + (borderOverrideMultRef.current - borderMult) * k,
+      );
     }
 
-    oddsGlowIntensityRef.current = mult;
+    // ---- shared helper to build a layered drop-shadow FILTER stack ----
+    // (drop-shadow, not text-shadow, so the glow isn't clipped per-char.)
+    const buildStack = (m: number) =>
+      cfg.flames.layers
+        .map(([blur, opa]) => {
+          const a = Math.min(1, opa * m).toFixed(3);
+          return `drop-shadow(0 0 ${blur}px rgba(151,48,255,${a}))`;
+        })
+        .join(' ');
 
-    // ---- compose the layered text-shadow string ----
-    // Four base halo layers (always present at T2+). At T3 they breathe.
-    const baseLayers = cfg.flames.layers
-      .map(([blur, opa]) => {
-        const a = Math.min(1, opa * mult).toFixed(3);
-        return `0 0 ${blur}px rgba(151,48,255,${a})`;
-      })
-      .join(', ');
-
-    // Fifth flicker layer — only at T3 + flames variant. Deterministic
-    // sum-of-sines for reproducible, debuggable, reduced-motion-safe jitter.
-    let flicker = '';
+    // ---- deterministic flicker (used for shadow + stroke) ----
+    // Sum-of-sines from cfg.flames.flickerSines, normalized to [0, 1].
+    let flickerNorm = 0;
     if (tier === 3 && tier3OddsEffect === 'flames') {
       let sum = 0;
       let weightSum = 0;
@@ -407,26 +529,35 @@ export function ButtonPreviewMomios({
         sum += s.weight * Math.sin((2 * Math.PI * s.freqHz * t) / 1000);
         weightSum += s.weight;
       }
-      const norm = (sum / weightSum + 1) / 2;
-      const opa =
-        cfg.flames.flickerOpacityMin +
-        norm * (cfg.flames.flickerOpacityMax - cfg.flames.flickerOpacityMin);
-      flicker = `, 0 0 ${cfg.flames.flickerBlurPx}px rgba(151,48,255,${opa.toFixed(3)})`;
+      flickerNorm = (sum / weightSum + 1) / 2;
     }
 
-    oddsTextShadow.set(baseLayers + flicker);
+    // Build the 5th flicker layer as an extra drop-shadow (T3 flames only).
+    let flicker = '';
+    if (tier === 3 && tier3OddsEffect === 'flames') {
+      const opa =
+        cfg.flames.flickerOpacityMin +
+        flickerNorm *
+          (cfg.flames.flickerOpacityMax - cfg.flames.flickerOpacityMin);
+      flicker = ` drop-shadow(0 0 ${cfg.flames.flickerBlurPx}px rgba(151,48,255,${opa.toFixed(3)}))`;
+    }
+
+    oddsGlowFilter.set(buildStack(oddsMult) + flicker);
+    void borderMult;
+    void flickerNorm;
 
     // Gana — same stack with each layer's alpha scaled down (no flicker).
-    const ganaLayers = cfg.flames.layers
-      .map(([blur, opa]) => {
-        const a = Math.min(
-          1,
-          opa * mult * cfg.tier3.ganaGlowScaleDown,
-        ).toFixed(3);
-        return `0 0 ${blur}px rgba(151,48,255,${a})`;
-      })
-      .join(', ');
-    ganaTextShadow.set(ganaLayers);
+    ganaGlowFilter.set(
+      cfg.flames.layers
+        .map(([blur, opa]) => {
+          const a = Math.min(
+            1,
+            opa * oddsMult * cfg.tier3.ganaGlowScaleDown,
+          ).toFixed(3);
+          return `drop-shadow(0 0 ${blur}px rgba(151,48,255,${a}))`;
+        })
+        .join(' '),
+    );
   });
 
   useEffect(() => {
@@ -438,6 +569,14 @@ export function ButtonPreviewMomios({
     // 1. Anticipation compress (40ms) — runs immediately.
     setBreath40(true);
     setTimeout(() => setBreath40(false), cfg.anticipationDurationMs);
+
+    // 1b. Recoil — shove the whole slip DOWN a little, then spring back to
+    // rest. Fires on BOTH add and remove (any count change while showing).
+    // Use .jump() (not .set()) so the instantaneous downward shove doesn't
+    // register as a velocity spike — otherwise the soft spring would read
+    // that phantom velocity and overshoot wildly.
+    recoilY.jump(cfg.recoil.pushDownPx);
+    animate(recoilY, 0, { type: 'spring', ...cfg.recoil.spring });
 
     // 2. Count badge pulse (T1+).
     if (tier >= 1) {
@@ -464,16 +603,21 @@ export function ButtonPreviewMomios({
       playSound('slot-end');
     }, cfg.slotDurationMs);
 
-    // 5. Radial burst at Tier 3 on every selection add.
-    if (tier === 3 && selectionCount > prev) {
+    // 5. Center radial burst — fires on EVERY selection add, at ALL tiers.
+    //    A white ring radiates from the button center each time a pick
+    //    is added (1→2, 2→3, …). Not tier-gated.
+    if (selectionCount > prev) {
       const k = Date.now();
-      setT3Burst(k);
+      setAddBurst(k);
       playSound('burst');
       setTimeout(
-        () => setT3Burst((cur) => (cur === k ? null : cur)),
+        () => setAddBurst((cur) => (cur === k ? null : cur)),
         cfg.tier3.radialBurstDurationMs + 20,
       );
+    }
 
+    // 6. Tier-3-only add reactions: outline ripple + odds-value burst.
+    if (tier === 3 && selectionCount > prev) {
       // POLISH PASS — Tier 3 outline ripple from button OUTLINE outward.
       // Stacks up to outlineRippleMaxStacked when multiple adds happen
       // rapidly within ~400ms.
@@ -501,11 +645,10 @@ export function ButtonPreviewMomios({
       });
     }
 
-    // REGRESSION FIX — Tier 2+ odds text-shadow surge on update.
-    // We now drive a STACK MULTIPLIER instead of a duplicate-element opacity.
-    if (tier >= 2) {
-      const peakMult = tier === 3 ? 2.0 : cfg.tier2.oddsHaloUpdateBoost; // T2 +50%, T3 +100%
-      oddsHaloOverrideMultRef.current = peakMult;
+    // Odds text-shadow surge on update — T3 ONLY now (the odds halo
+    // itself is T3-only). At T2 the odds carry no halo so nothing to surge.
+    if (tier >= 3) {
+      oddsHaloOverrideMultRef.current = 2.0; // +100%
       oddsHaloOverrideUntilRef.current =
         performance.now() + cfg.tier2.oddsHaloUpdateDurationMs;
     }
@@ -519,7 +662,8 @@ export function ButtonPreviewMomios({
   ]);
 
   /* =============================================================== */
-  /*  ONE-SHOT — weight-gain anchor when entering Tier 2             */
+  /*  ONE-SHOT — weight-gain anchor when entering Tier 3 (moved      */
+  /*  from T2). Fires only on the T2→T3 crossing now.                */
   /* =============================================================== */
   const weightAnchorY = useMotionValue(0);
   const weightAnchorShadow = useMotionValue('0 0 0 rgba(0,0,0,0)');
@@ -528,7 +672,7 @@ export function ButtonPreviewMomios({
     const prev = prevTierForAnchorRef.current;
     prevTierForAnchorRef.current = tier;
     if (reduced) return;
-    if (prev < 2 && tier >= 2) {
+    if (prev < 3 && tier >= 3) {
       // Drop 1px and gain a 0→2px text-shadow underneath, then settle.
       const start = performance.now();
       const dur = cfg.tier2.weightAnchorDurationMs;
@@ -564,6 +708,14 @@ export function ButtonPreviewMomios({
     stiffness: cfg.tier3.magneticSpringStiffness,
     damping: cfg.tier3.magneticSpringDamping,
   });
+  // EXPLORATION — recoil: a downward shove on every selection add/remove
+  // that springs back to rest. Composed with the magnetic Y on the breath
+  // wrapper so both offsets stack cleanly.
+  const recoilY = useMotionValue(0);
+  const breathWrapperY = useTransform(
+    [magY, recoilY] as const,
+    ([m, r]) => (m as number) + (r as number),
+  );
   useEffect(() => {
     if (tier < 3 || reduced) {
       rawMagX.set(0);
@@ -601,48 +753,37 @@ export function ButtonPreviewMomios({
   }, [tier, reduced, rawMagX, rawMagY]);
 
   /* =============================================================== */
-  /*  Crossing one-shot motion values                                */
+  /*  Crossing one-shot — border-glow stack intensity surge          */
   /* =============================================================== */
-  // For up-cross: two heads spawn at top-center (offset 0 wrapped to anchor)
-  // and travel in opposite directions until they meet at the bottom (offset 0.5).
-  const upHeadCW = useMotionValue(0);
-  const upHeadCCW = useMotionValue(0);
-  const downSweep = useMotionValue(0);
-
+  // EXPLORATION — replaces the orbital two-head + reverse-sweep motion
+  // values. Up-cross surges the border glow stack ~3x for 700ms; down-
+  // cross dims it briefly for 600ms.
   useEffect(() => {
-    if (!crossing) return;
-    if (reduced) return;
+    if (!crossing || reduced) return;
+    const now = performance.now();
     if (crossing.dir === 'up') {
-      const start = performance.now();
-      const dur = cfg.crossing.twoHeadDurationMs;
-      const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / dur);
-        upHeadCW.set(t * 0.5);   // 0 → 0.5 clockwise
-        upHeadCCW.set(t * 0.5);  // 0 → 0.5 counter-clockwise (rendered with reverse=true)
-        if (t < 1 && crossing && crossing.dir === 'up') requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+      borderOverrideMultRef.current = 3.0;
+      borderOverrideTotalRef.current = 700;
+      borderOverrideUntilRef.current = now + 700;
     } else {
-      const start = performance.now();
-      const dur = cfg.crossing.downSweepDurationMs;
-      const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / dur);
-        downSweep.set(t);
-        if (t < 1 && crossing && crossing.dir === 'down') requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+      borderOverrideMultRef.current = 0.25;
+      borderOverrideTotalRef.current = 600;
+      borderOverrideUntilRef.current = now + 600;
     }
-  }, [crossing, reduced, upHeadCW, upHeadCCW, downSweep]);
+  }, [crossing, reduced]);
 
   /* =============================================================== */
   /*  Live state push for debug overlay                              */
   /* =============================================================== */
-  useMotionValueEvent(sweepPos, 'change', (v) => {
+  // EXPLORATION v3 — borderColor motion value removed. The debug
+  // overlay still wants a "border" reading, so subscribe to glowOpacity
+  // (which breathes anyway) and emit the oddsGlowIntensity ref.
+  useMotionValueEvent(glowOpacity, 'change', () => {
     onLiveState?.({
       tier,
       cumulativeOdds,
       tremorActive,
-      borderPhase: v,
+      borderPhase: Math.min(1, oddsGlowIntensityRef.current / 3),
       breathPhase: breathPhaseRef.current,
     });
   });
@@ -669,20 +810,24 @@ export function ButtonPreviewMomios({
 
   return (
     <div className="relative w-full px-4 pb-6 pt-2">
-      {/* REGRESSION FIX — diffuse outer glow via a duplicate BLURRED sibling
-          element (Approach B). The previous box-shadow with non-zero
-          `spread` produced a visibly pill-shaped halo; this approach
-          produces a truly shapeless soft glow because the entire colored
-          element is fed through `filter: blur`. Opacity drives breathing. */}
+      {/* Outer glow (Approach B) — diffuse blurred sibling element.
+          Restored after the user clarified it was never meant to be
+          removed. Provides the soft ambient halo around the button;
+          the stroke sweep below adds the directional highlight. */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute"
+        className="outer-glow-swirl pointer-events-none absolute"
         style={{
           inset: '-12px 4px',
-          background:
-            'radial-gradient(ellipse 65% 100% at center, rgba(151,48,255,0.95) 0%, rgba(151,48,255,0.55) 35%, rgba(151,48,255,0.15) 70%, transparent 100%)',
+          // Concentrated glow (shorter fade) — closer to the original.
+          WebkitMaskImage:
+            'radial-gradient(ellipse 80% 78% at center, black 30%, transparent 78%)',
+          maskImage:
+            'radial-gradient(ellipse 80% 78% at center, black 30%, transparent 78%)',
           filter: 'blur(20px)',
           opacity: glowOpacity,
+          // Follow debug speed (3× slow) when set.
+          animationDuration: `${7 * speedScale}s`,
         }}
       />
 
@@ -715,7 +860,7 @@ export function ButtonPreviewMomios({
         style={{
           scale: breathScale,
           x: magX,
-          y: magY,
+          y: breathWrapperY,
         }}
       >
         {/* POLISH PASS — Outline ripples emanating from button outline OUTWARD.
@@ -766,57 +911,38 @@ export function ButtonPreviewMomios({
                 : { duration: 0.22, ease: 'easeOut' }
           }
         >
-          {/* PILL SHELL — base gradient + 1px border (Figma exact) */}
-          <div
+          {/* PILL SHELL — base gradient + static 1px Figma border.
+              At T0/T1 the background uses the BUSCADOR palette
+              (flat #191919) per the design reference. At T2/T3 it
+              reverts to the original deep-purple gradient so the rising
+              animations have their full vibrancy. All other colors
+              (border, text, Gana gradient) are identical across both
+              palettes so only the shell bg changes. */}
+          <motion.div
             ref={shellRef}
             className="relative flex h-[56px] w-full items-center overflow-hidden rounded-[56px] border border-[#4b20ff]"
             style={{
-              backgroundImage: 'linear-gradient(30.4deg, #14083d 0%, #230c3e 100%)',
+              // T2/T3 — background gradient fades to #4B20FF on the RIGHT,
+              // so the purple glows behind/below the CTA (Figma "Buscador"
+              // look). T0/T1 keep the flat #191919.
+              background:
+                tier <= 1
+                  ? '#191919'
+                  : 'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
             }}
           >
-            {/* ----- Ambient SVG border light (single head, two-layer halo) ----- */}
-            <BorderLight
-              width={shellSize.w}
-              height={shellSize.h}
-              radius={cfg.borderRadiusPx}
-              dashLength={
-                tier >= 3
-                  ? cfg.tier3.borderDashLengthPx
-                  : tier === 2
-                    ? cfg.tier2.borderDashLengthPx
-                    : cfg.tier1.borderDashLengthPx
-              }
-              offset={sweepPos}
-              opacity={sweepOpacity}
-            />
-            {/* POLISH PASS — second head removed. T3 differentiation now
-                comes from cycle speed (1.6s) and opacity (0.8), not a
-                second light source. */}
+            {/* EXPLORATION — orbital BorderLight removed. The shell's
+                purple stroke now glows via a layered box-shadow stack
+                applied to the shell itself (see motion.div below) —
+                same animation language as the odds text-shadow. */}
 
-            {/* ----- Up-cross: TWO heads from top, opposite directions ----- */}
+            {/* EXPLORATION — up-cross two-head BorderLight removed.
+                The border glow stack surges automatically on tier-up via
+                borderOverride* refs (see selection-change effect below).
+                Collision flash + floating sparkle + bloom + scale pulse
+                are preserved — those are NOT orbital effects. */}
             {isUpCross && !reduced && (
               <>
-                <BorderLight
-                  width={shellSize.w}
-                  height={shellSize.h}
-                  radius={cfg.borderRadiusPx}
-                  strokeWidth={cfg.borderLightStrokeWidthPx + 0.5}
-                  dashLength={cfg.crossing.twoHeadDashLengthPx}
-                  offset={upHeadCW}
-                  opacity={cfg.crossing.twoHeadOpacityPeak}
-                  anchor={0.25} // top-center on a [right, bottom, left, top] perimeter walk
-                />
-                <BorderLight
-                  width={shellSize.w}
-                  height={shellSize.h}
-                  radius={cfg.borderRadiusPx}
-                  strokeWidth={cfg.borderLightStrokeWidthPx + 0.5}
-                  dashLength={cfg.crossing.twoHeadDashLengthPx}
-                  offset={upHeadCCW}
-                  opacity={cfg.crossing.twoHeadOpacityPeak}
-                  anchor={0.25}
-                  reverse
-                />
                 {/* Collision flash at bottom-center, 300ms after spawn */}
                 <motion.span
                   aria-hidden
@@ -856,19 +982,10 @@ export function ButtonPreviewMomios({
               </>
             )}
 
-            {/* ----- Down-cross: single dim reverse sweep ----- */}
-            {isDownCross && !reduced && (
-              <BorderLight
-                width={shellSize.w}
-                height={shellSize.h}
-                radius={cfg.borderRadiusPx}
-                strokeWidth={cfg.borderLightStrokeWidthPx}
-                dashLength={cfg.crossing.downDashLengthPx}
-                offset={downSweep}
-                opacity={cfg.crossing.downSweepOpacity}
-                reverse
-              />
-            )}
+            {/* EXPLORATION — down-cross reverse-sweep BorderLight removed.
+                Down-crossings now dim the border-glow stack momentarily
+                via borderOverride* refs (see effect below) — a brief
+                "deflation" rather than an orbital trace. */}
 
             {/* ----- Inner highlight rim (T2+), out of phase with outer glow */}
             <motion.div
@@ -880,21 +997,12 @@ export function ButtonPreviewMomios({
               }}
             />
 
-            {/* ----- Tier 3 cross-flicker overlay on the whole button surface */}
-            {tier >= 3 && !reduced && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 mix-blend-overlay fire-shimmer-overlay"
-                style={
-                  speedScale > 1
-                    ? { animationDuration: `${(cfg.tier3.fireSweepSecondaryDurationMs / 1000) * speedScale}s` }
-                    : undefined
-                }
-              />
-            )}
+            {/* EXPLORATION — the Tier 3 vertical cross-flicker overlay
+                (fire-shimmer-overlay) was removed; it added a distracting
+                up/down sweep across the surface without adding value. */}
 
-            {/* ----- Tier 3 ambient sparkles (sparse) ----- */}
-            {tier >= 3 && !reduced && (
+            {/* ----- Edge-flash sparkles (T1+, density scales with tier) ----- */}
+            {tier >= 1 && !reduced && (
               <div className="pointer-events-none absolute inset-0">
                 {sparkles.map((s) => (
                   <motion.span
@@ -910,7 +1018,7 @@ export function ButtonPreviewMomios({
                     initial={{ opacity: 0, scale: 0 }}
                     animate={{ opacity: [0, 1, 0], scale: [0, 1, 0.5] }}
                     transition={{
-                      duration: cfg.tier3.sparkleDurationMs / 1000,
+                      duration: cfg.sparkles.durationMs / 1000,
                       ease: 'easeOut',
                     }}
                   />
@@ -918,11 +1026,11 @@ export function ButtonPreviewMomios({
               </div>
             )}
 
-            {/* ----- Tier 3 radial burst on selection add ----- */}
+            {/* ----- Center radial burst on selection add (ALL tiers) ----- */}
             <AnimatePresence>
-              {t3Burst !== null && !reduced && (
+              {addBurst !== null && !reduced && (
                 <motion.div
-                  key={`burst-${t3Burst}`}
+                  key={`burst-${addBurst}`}
                   aria-hidden
                   className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
                   style={{
@@ -1001,7 +1109,7 @@ export function ButtonPreviewMomios({
                 <div className="relative flex h-[21px] items-center">
                   {/* REGRESSION FIX — All duplicate text elements REMOVED.
                       The glow is text-shadow only, applied to the real text
-                      below via a motion value (`oddsTextShadow`).
+                      below via a drop-shadow filter (`oddsGlowFilter`).
                       Smoke variant still renders blob shapes BEHIND the text
                       (not duplicate text), which is allowed. */}
                   {tier >= 3 && !reduced && tier3OddsEffect === 'smoke' && (
@@ -1019,13 +1127,9 @@ export function ButtonPreviewMomios({
                       scale: oddsPulseScale,
                       opacity: oddsPulseOpacity,
                       y: weightAnchorY,
-                      // REGRESSION FIX — text-shadow is a motion value,
-                      // recomputed each frame to drive breathing + flicker
-                      // entirely on the REAL text. No duplicate spans.
-                      textShadow:
-                        tier >= 2 ? oddsTextShadow : weightAnchorShadow,
+                      // Glow + weight bump are T3-ONLY. T0/T1/T2 = plain text.
                       fontFamily: 'Red Hat Display, sans-serif',
-                      fontWeight: tier >= 2 ? cfg.tier2.oddsFontWeight : 900,
+                      fontWeight: tier >= 3 ? cfg.tier2.oddsFontWeight : 900,
                       fontSize: 14,
                       lineHeight: '21px',
                       color: '#fbfbfb',
@@ -1034,7 +1138,13 @@ export function ButtonPreviewMomios({
                     <motion.span
                       animate={oddsSettleControls}
                       initial={{ scale: 1 }}
-                      style={{ display: 'inline-block' }}
+                      // Glow as a drop-shadow FILTER on this non-clipped
+                      // wrapper → hugs the glyphs instead of clipping into
+                      // per-character boxes.
+                      style={{
+                        display: 'inline-block',
+                        filter: tier >= 3 ? oddsGlowFilter : 'none',
+                      }}
                     >
                       <SlotNumber
                         value={oddsLabel}
@@ -1095,9 +1205,17 @@ export function ButtonPreviewMomios({
               <div
                 className="relative flex h-full w-full flex-col items-center justify-center rounded-[100px] px-[6px]"
                 style={{
+                  // T2/T3 — Figma "Buscador" CTA look: brighter gradient
+                  // end (#a954ff) gives the glow feel; subtle depth shadow
+                  // adds dimension. T0/T1 keep the original gradient.
                   backgroundImage:
-                    'linear-gradient(58.9deg, #4b20ff 0%, #9730ff 100%)',
-                  boxShadow: 'inset 0 0 12px rgba(0,0,0,0.24)',
+                    tier >= 2
+                      ? 'linear-gradient(59.98deg, #4b20ff 0%, #a954ff 100%)'
+                      : 'linear-gradient(58.9deg, #4b20ff 0%, #9730ff 100%)',
+                  boxShadow:
+                    tier >= 2
+                      ? 'inset 0 0 12px rgba(0,0,0,0.24), 0 2px 6px rgba(29,11,68,0.3)'
+                      : 'inset 0 0 12px rgba(0,0,0,0.24)',
                 }}
               >
                 <motion.div
@@ -1108,9 +1226,9 @@ export function ButtonPreviewMomios({
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
-                    // REGRESSION FIX — Gana glow is now text-shadow on the
-                    // real text, no duplicate text element.
-                    textShadow: tier >= 2 ? ganaTextShadow : 'none',
+                    // Glow as a drop-shadow FILTER (not text-shadow) so it
+                    // hugs the glyphs instead of clipping into boxes.
+                    filter: tier >= 3 ? ganaGlowFilter : 'none',
                   }}
                 >
                   <SlotNumber
@@ -1118,7 +1236,7 @@ export function ButtonPreviewMomios({
                     reducedMotion={reduced}
                     innerCharClassName={
                       tier >= 3 && !reduced
-                        ? `odds-char-wave${speedScale > 1 ? ' fire-shimmer-slow' : ''}`
+                        ? `fire-shimmer odds-char-wave${speedScale > 1 ? ' fire-shimmer-slow' : ''}`
                         : ''
                     }
                   />
@@ -1147,7 +1265,111 @@ export function ButtonPreviewMomios({
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
+          {/* T3 fire sparks — rising embers emitted from the TOP of the
+              button that float upward into the space above it. Rendered
+              OUTSIDE the shell so overflow:hidden doesn't clip them, with
+              an explicit high z-index so they never sit behind any of
+              the shell's overlays. The container itself extends taller
+              than the button so the sparks have room to travel into. */}
+          {tier >= 3 && !reduced && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0"
+              style={{
+                bottom: 0,
+                // Extend just enough above the button to hold the short
+                // ember flight (~50px max rise). Keeping it tight prevents
+                // sparks from "wandering" far from the source.
+                height: 'calc(100% + 60px)',
+                zIndex: 50,
+              }}
+            >
+              {fireSparks.map((s) => (
+                <motion.span
+                  key={s.id}
+                  className="absolute rounded-full bg-white"
+                  style={{
+                    left: `${s.xPct}%`,
+                    // Position in PIXELS relative to BUTTON height (not
+                    // container height — container is taller). Sparks
+                    // emerge at/near the top edge of the actual button.
+                    bottom: s.yPctFromBottom * cfg.borderHeightPx,
+                    width: s.size,
+                    height: s.size,
+                    // Bright white core + purple ember glow.
+                    boxShadow:
+                      '0 0 4px rgba(255,255,255,0.9), 0 0 8px rgba(151,48,255,0.7)',
+                  }}
+                  initial={{ y: 0, x: 0, opacity: 0, scale: 1 }}
+                  animate={{
+                    y: -s.rise,
+                    x: s.drift,
+                    opacity: [0, 1, 1, 0],
+                    scale: [1, 1, 0.7, 0.3],
+                  }}
+                  transition={{
+                    duration: s.lifetimeMs / 1000,
+                    ease: 'easeOut',
+                    opacity: { times: [0, 0.08, 0.65, 1] },
+                    scale: { times: [0, 0.1, 0.7, 1] },
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          {/* EXPLORATION v3 — Horizontal stroke-sweep overlay.
+              Rendered OUTSIDE the shell so the SVG isn't clipped by
+              overflow:hidden. The shell's static 1px #4b20ff border
+              stays as the base; this SVG paints a bright moving
+              highlight on top of that line. The bright spot enters
+              from the left and exits to the right, in the same
+              visual language as the odds shimmer.
+              Active at T2+ — but T2 is dimmer (opacity factor) and slower
+              (longer cycle) than T3. */}
+          {tier >= 2 && !reduced && shellSize.w > 0 && (
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute"
+              style={{
+                inset: '-1px',
+                // T2 sweep is toned down to ~30% of T3's brightness.
+                opacity: tier >= 3 ? 1 : cfg.tier2.strokeSweepOpacityFactor,
+              }}
+              width={shellSize.w + 2}
+              height={shellSize.h + 2}
+              viewBox={`0 0 ${shellSize.w + 2} ${shellSize.h + 2}`}
+            >
+              <defs>
+                <linearGradient
+                  ref={sweepGradRef}
+                  id="bpmStrokeSweep"
+                  x1="0"
+                  y1="0"
+                  x2="1"
+                  y2="0"
+                  gradientTransform="translate(-1 0)"
+                >
+                  <stop offset="0" stopColor="#9730ff" stopOpacity="0" />
+                  <stop offset="0.3" stopColor="#b48bff" stopOpacity="0.4" />
+                  <stop offset="0.5" stopColor="#ffffff" stopOpacity="1" />
+                  <stop offset="0.7" stopColor="#b48bff" stopOpacity="0.4" />
+                  <stop offset="1" stopColor="#9730ff" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <rect
+                x="1"
+                y="1"
+                width={shellSize.w}
+                height={shellSize.h}
+                rx={cfg.borderRadiusPx}
+                ry={cfg.borderRadiusPx}
+                fill="none"
+                stroke="url(#bpmStrokeSweep)"
+                strokeWidth="2.5"
+              />
+            </svg>
+          )}
         </motion.button>
       </motion.div>
     </div>

@@ -327,8 +327,19 @@ export function App() {
                     }`}
                   />
                 </div>
-                <PhaseBar label="Border" value={live?.borderPhase ?? 0} />
+                <PhaseBar label="Glow" value={live?.borderPhase ?? 0} />
                 <PhaseBar label="Breath" value={live?.breathPhase ?? 0} />
+                {/* T3 odds effect toggle — pinned here so it's always reachable */}
+                <button
+                  onClick={() =>
+                    setTier3OddsEffect((e) =>
+                      e === 'flames' ? 'smoke' : 'flames',
+                    )
+                  }
+                  className="mt-1.5 w-full rounded-md bg-white/10 px-2 py-1 text-[10px] font-bold text-white"
+                >
+                  T3: {tier3OddsEffect === 'flames' ? '🔥 flames' : '💨 smoke'}
+                </button>
               </motion.div>
             )}
           </div>

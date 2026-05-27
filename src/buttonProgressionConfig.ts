@@ -33,12 +33,64 @@ export const buttonProgressionConfig = {
   // Microinteraction (d) — overshoot when a digit lands after slot.
   settleOvershootScale: 1.04,
   settleOvershootDurationMs: 120,
+  // EXPLORATION — recoil: the whole slip gets pushed DOWN a little on
+  // every selection add/remove, then springs back to its rest position.
+  // Fires on changes while showing (not on the initial 0→1 mount).
+  recoil: {
+    pushDownPx: 4, // subtler shove (was 6)
+    // Spring back to 0 — softer + slower + clearly underdamped so it
+    // bounces a couple of times before settling (springy feel).
+    // Lower stiffness = slower; lower damping ratio = more bounce.
+    spring: { stiffness: 260, damping: 14, mass: 0.7 },
+  },
   // Geometry — radius of the rounded-pill border (matches Figma 56/2).
   borderRadiusPx: 28,
   borderHeightPx: 56,
   // Reserved vertical space the bet slip occupies (px). Used to keep the
   // navbar pinned when the slip unmounts at 0 selections.
   slotReservedHeightPx: 88,
+
+  /* --------------------------------------------------------------- */
+  /*  EXPLORATION — Sparkles + fire sparks                           */
+  /* --------------------------------------------------------------- */
+  // Edge-flash sparkles now appear at T1+, with density rising per tier.
+  // (Previously T3-only at 4500ms/2-4 count.)
+  sparkles: {
+    byTier: {
+      1: { intervalMs: 8000, countMin: 1, countMax: 2 },
+      2: { intervalMs: 5500, countMin: 1, countMax: 3 },
+      3: { intervalMs: 4500, countMin: 2, countMax: 4 },
+    } as Record<number, { intervalMs: number; countMin: number; countMax: number }>,
+    durationMs: 700, // lifetime of each flash (carried over from tier3.sparkleDurationMs)
+  },
+  // T3 only — rising "fire sparks" emitted from the TOP of the button
+  // that float upward past the button while fading. Continuous emission.
+  // Spawn position is at/near the top edge so the visible flight happens
+  // OUTSIDE the button rather than within it.
+  fireSparks: {
+    spawnIntervalMs: 220, // new particle every ~220ms
+    spawnCountMin: 1,
+    spawnCountMax: 2,
+    // Rise distance (px upward). Kept short so embers stay CLOSE to the
+    // button — like sparks just above a flame, not a tall fountain.
+    riseMinPx: 22,
+    riseMaxPx: 48,
+    // Horizontal drift range (px, ±).
+    driftMaxPx: 10,
+    // Particle size range (px).
+    sizeMinPx: 2,
+    sizeMaxPx: 3.5,
+    // Lifetime range (ms) — shorter so embers fade quickly without
+    // drifting far from the source.
+    lifetimeMinMs: 800,
+    lifetimeMaxMs: 1400,
+    // Cap simultaneous active particles to prevent buildup.
+    maxActive: 20,
+    // Spawn origin Y as percentage FROM THE BOTTOM of the button.
+    // [0.85, 1.05] = at or just above the top edge — sparks visibly emerge
+    // from the top of the "fire" and rise into the air just above.
+    spawnOriginYRangePct: [0.85, 1.05] as [number, number],
+  },
 
   /* --------------------------------------------------------------- */
   /*  PASS 3 — Tier 3 odds effect (flames | smoke)                   */
@@ -155,10 +207,14 @@ export const buttonProgressionConfig = {
     borderDashLengthPx: 34,
     // Soft outer glow using existing button palette.
     glowBlurPx: 22,
-    glowOpacityMax: 0.45,
-    glowOpacityMin: 0.18,
-    // POLISH PASS — slowed from 2000 → 3600. Slow inhale/exhale, not rapid pulse.
-    glowPulseDurationMs: 3600,
+    glowOpacityMax: 0.26,
+    glowOpacityMin: 0.18, // floor raised so it doesn't dim too far
+    // Slower, gentler breathing.
+    glowPulseDurationMs: 6000,
+    // EXPLORATION — stroke shine sweep now appears at T2 too, but dimmer
+    // and slower than T3 (a subtle "hint" of the T3 effect).
+    strokeSweepDurationMs: 2800, // slower glide than T3's 2000ms
+    strokeSweepOpacityFactor: 0.3, // ~30% of T3 brightness
     // +40% glow flash when odds update.
     glowFlashBoost: 0.4,
     glowFlashDurationMs: 300,
@@ -197,10 +253,10 @@ export const buttonProgressionConfig = {
     borderSweepOpacity: 0.8,
     borderDashLengthPx: 44,
     glowBlurPx: 28,
-    glowOpacityMax: 0.7,
-    glowOpacityMin: 0.3,
-    // POLISH PASS — slowed from 1200 → 2400.
-    glowPulseDurationMs: 2400,
+    glowOpacityMax: 0.5,
+    glowOpacityMin: 0.36, // clearly brighter than T2 (0.18–0.26)
+    // Slower, gentler breathing.
+    glowPulseDurationMs: 4800,
     // Primary fire shimmer cycle on the odds text.
     fireSweepDurationMs: 2000,
     // Layered faster secondary shimmer — creates cross-flicker.
@@ -246,10 +302,12 @@ export const buttonProgressionConfig = {
     oddsAddBurstDurationMs: 300,
     // POLISH PASS — outline ripple (NEW, distinct from center radial burst).
     // Button-shaped ghost border that expands outward from the button outline.
+    // EXPLORATION — made "mainly brighter": higher start opacity + thicker
+    // stroke, same 1.18 expansion size and 600ms timing.
     outlineRippleScalePeak: 1.18,
-    outlineRippleStrokeStartPx: 2,
-    outlineRippleStrokeEndPx: 0.5,
-    outlineRippleOpacityStart: 0.55,
+    outlineRippleStrokeStartPx: 3, // was 2
+    outlineRippleStrokeEndPx: 1, // was 0.5 — stays visible longer as it thins
+    outlineRippleOpacityStart: 0.85, // was 0.55
     outlineRippleDurationMs: 600,
     outlineRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
     // Cap simultaneous outline ripples; older ones drop off when exceeded.

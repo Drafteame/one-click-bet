@@ -43,13 +43,18 @@ body {
 }
 
 .fire-shimmer {
+  /* Light-lavender base + white-hot band so the moving band reads as a
+     BRIGHTENING wave (a white base can't get brighter). */
+  /* Base sits just below white (legible) so the #ffffff band still has
+     headroom to read as a brightening wave. Whiter base = more legible
+     but subtler wave; this is a balanced midpoint. */
   background-image: linear-gradient(
     180deg,
-    #fbfbfb 0%,
-    #ffffff 35%,
-    #e8dcff 50%,
-    #ffffff 65%,
-    #fbfbfb 100%
+    #ddd1f8 0%,
+    #ddd1f8 42%,
+    #ffffff 50%,
+    #ddd1f8 58%,
+    #ddd1f8 100%
   );
   background-size: 100% 300%;
   background-position: 50% 0%;
@@ -64,43 +69,6 @@ body {
   animation-duration: 6s; /* used when debug speedScale=3 */
 }
 
-/* ---------------------------------------------------------------- */
-/*  Tier 3 cross-flicker — a faster secondary light pattern moving  */
-/*  across the entire button surface, blended with mix-blend-mode   */
-/*  so it lights up the gradient underneath without obscuring it.   */
-/* ---------------------------------------------------------------- */
-@keyframes fireShimmerOverlay {
-  0% {
-    background-position: 0% 100%;
-  }
-  50% {
-    background-position: 0% 0%;
-  }
-  100% {
-    background-position: 0% 100%;
-  }
-}
-
-.fire-shimmer-overlay {
-  background-image: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.18) 45%,
-    rgba(255, 255, 255, 0.28) 50%,
-    rgba(255, 255, 255, 0.18) 55%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 100% 220%;
-  background-repeat: no-repeat;
-  animation: fireShimmerOverlay 1.2s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fire-shimmer-overlay {
-    animation: none;
-    opacity: 0;
-  }
-}
 
 /* ---------------------------------------------------------------- */
 /*  POLISH PASS — Tier 3 per-character brightness wave on the odds   */
@@ -133,10 +101,61 @@ body {
   will-change: filter;
 }
 
+/* When both classes are present, run the fire-shimmer sweep with a
+   per-character stagger so the white-hot band peaks char-by-char (L→R)
+   — the visible per-character brightness wave. */
+.fire-shimmer.odds-char-wave {
+  animation: fireShimmer 2s linear infinite;
+  /* Positive stagger → leftmost char peaks first, rightmost last (L→R). */
+  animation-delay: calc(var(--ci, 0) * 150ms);
+}
+
+.fire-shimmer-slow.odds-char-wave {
+  animation: fireShimmer 6s linear infinite;
+  animation-delay: calc(var(--ci, 0) * 450ms);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .odds-char-wave {
+  .odds-char-wave,
+  .fire-shimmer.odds-char-wave {
     animation: none;
     filter: none;
+  }
+}
+
+/* ---------------------------------------------------------------- */
+/*  Outer glow — Siri / Apple-Intelligence style flowing color.     */
+/*  A conic gradient between #4b20ff and #9730ff whose angle spins   */
+/*  continuously, so (under heavy blur) the two purples flow and     */
+/*  morph into each other. Uses @property for a smooth angle tween.  */
+/* ---------------------------------------------------------------- */
+@property --glow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes glowSwirl {
+  to {
+    --glow-angle: 360deg;
+  }
+}
+
+.outer-glow-swirl {
+  background: conic-gradient(
+    from var(--glow-angle),
+    #4b20ff,
+    #9730ff,
+    #4b20ff,
+    #9730ff,
+    #4b20ff
+  );
+  animation: glowSwirl 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outer-glow-swirl {
+    animation: none;
   }
 }
 
