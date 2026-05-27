@@ -144,11 +144,11 @@ body {
 .outer-glow-swirl {
   background: conic-gradient(
     from var(--glow-angle),
-    #4b20ff,
+    #4e7bff,
     #9730ff,
-    #4b20ff,
+    #4e7bff,
     #9730ff,
-    #4b20ff
+    #4e7bff
   );
   animation: glowSwirl 7s linear infinite;
 }
