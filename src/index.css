@@ -181,7 +181,8 @@ body {
   --shimmer-color: #dcb0ff;
   --shimmer-speed: 3s;
   --shimmer-cut: 3px; /* ring thickness — the visible "stroke" */
-  --shimmer-size: 90px; /* spark diameter (the radial-gradient bloom) */
+  --shimmer-tail: 140px; /* spark length along the path (longer = longer trail) */
+  --shimmer-glow: 50px; /* spark thickness perpendicular to path (bloom) */
   --shimmer-radius: 28px; /* matches the parent pill's visual radius */
 
   position: absolute;
@@ -200,25 +201,25 @@ body {
   mask-composite: exclude;
 }
 
-/* The orbiting spark. offset-path traces the parent's pill perimeter;
-   offset-distance animates linearly from 0% → 100% for constant speed.
-   Half the spark falls inside / half outside the border, but only the
-   --shimmer-cut-wide slice that intersects the ring actually renders —
-   the rest is masked away by the parent's mask-composite. */
+/* The orbiting spark — shaped like a comet. A horizontal linear-gradient
+   (transparent → color) gives a bright leading edge and a fading tail.
+   With offset-anchor at the right edge, the path point IS the bright
+   head; the element trails behind. offset-rotate defaults to `auto` so
+   the comet's long axis stays aligned with the direction of motion as
+   it goes around the rounded corners. */
 .shimmer-spark {
   position: absolute;
-  width: var(--shimmer-size);
-  height: var(--shimmer-size);
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    var(--shimmer-color) 0%,
-    var(--shimmer-color) 12%,
-    transparent 65%
+  width: var(--shimmer-tail);
+  height: var(--shimmer-glow);
+  background: linear-gradient(
+    to right,
+    transparent 10%,
+    var(--shimmer-color) 100%
   );
+  border-radius: 50%;
   filter: blur(3px);
   offset-path: inset(0 round var(--shimmer-radius));
-  offset-anchor: 50% 50%;
+  offset-anchor: 100% 50%;
   offset-distance: 0%;
   animation: shimmer-orbit var(--shimmer-speed) linear infinite;
 }
