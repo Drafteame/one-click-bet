@@ -895,12 +895,11 @@ export function ButtonPreviewMomios({
                   : 'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
             }}
           >
-            {/* MAGIC UI — Shimmer Button border.
-                A conic-gradient wedge that ping-pongs along the long axis
-                while rotating in stepped pauses at 90°/270° (so the spark
-                visibly hits all four corners). Pure CSS — see .shimmer-
-                border in index.css. T2 is slower + dimmer than T3.
-                Reference: https://magicui.design/docs/components/shimmer-button */}
+            {/* Shimmer border — a glowing spark orbits the perimeter at
+                CONSTANT speed (CSS offset-path on a rounded-rect
+                inset-shape, linear timing). One direction, no ping-pong,
+                no easing at edges. See .shimmer-border / .shimmer-spark
+                in index.css. T2 is slower + dimmer than T3. */}
             {tier >= 2 && !reduced && (
               <div
                 aria-hidden
@@ -912,7 +911,6 @@ export function ButtonPreviewMomios({
                       speedScale) /
                     1000
                   }s`,
-                  // Peak color matches the previous SVG-sweep highlight.
                   ['--shimmer-color' as string]: '#dcb0ff',
                   // T2 ring is toned down to ~30% of T3's brightness
                   // (same opacity factor as the old SVG sweep).
@@ -920,9 +918,7 @@ export function ButtonPreviewMomios({
                     tier >= 3 ? 1 : cfg.tier2.strokeSweepOpacityFactor,
                 }}
               >
-                <div className="shimmer-border__slide">
-                  <div className="shimmer-border__arc" />
-                </div>
+                <div className="shimmer-spark" />
               </div>
             )}
 

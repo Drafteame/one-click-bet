@@ -169,30 +169,29 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
-/*  Magic UI–style "Shimmer Button" border                          */
-/*  A conic-gradient wedge that ping-pongs along the long axis      */
-/*  while continuously rotating, clipped to a thin border ring via  */
-/*  mask-composite. Visually: a bright spark travels around the     */
-/*  perimeter, hitting all four corners.                            */
-/*  Reference: https://magicui.design/docs/components/shimmer-button*/
+/*  Shimmer border — continuous, constant-speed perimeter orbit     */
+/*  A glowing spark travels along a CSS offset-path matching the    */
+/*  pill's rounded-rectangle perimeter (one direction, linear timing*/
+/*  → uniform arc-length speed). The parent uses mask-composite to  */
+/*  clip the spark to a thin border ring so only the perimeter      */
+/*  section under the spark center lights up.                       */
 /* ---------------------------------------------------------------- */
 .shimmer-border {
-  /* Tunables — overridden inline per tier (speed, color, cut). */
-  --shimmer-spread: 90deg;
+  /* Tunables — overridden inline per tier (speed, color). */
   --shimmer-color: #dcb0ff;
   --shimmer-speed: 3s;
-  --shimmer-cut: 2px;
+  --shimmer-cut: 3px; /* ring thickness — the visible "stroke" */
+  --shimmer-size: 90px; /* spark diameter (the radial-gradient bloom) */
+  --shimmer-radius: 28px; /* matches the parent pill's visual radius */
 
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
   overflow: hidden;
-  /* container queries used by the slide keyframe (100cqw / 100cqh). */
-  container-type: size;
 
-  /* Clip the rendered shimmer to a ring of thickness --shimmer-cut along
-     the border, using the standard composite-mask donut trick. */
+  /* Clip everything inside this overlay to a ring of thickness
+     --shimmer-cut along the border, via the mask-composite donut trick. */
   padding: var(--shimmer-cut);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
@@ -201,56 +200,37 @@ body {
   mask-composite: exclude;
 }
 
-/* The slide layer is a SQUARE the size of the container height, anchored
-   to the left edge, that slides horizontally across the container width
-   at CONSTANT SPEED (linear, alternate). Translating by (100cqw - 100%)
-   = container width - container height, so the spark traverses the full
-   perimeter long axis. Slight blur softens the wedge edge. */
-.shimmer-border__slide {
+/* The orbiting spark. offset-path traces the parent's pill perimeter;
+   offset-distance animates linearly from 0% → 100% for constant speed.
+   Half the spark falls inside / half outside the border, but only the
+   --shimmer-cut-wide slice that intersects the ring actually renders —
+   the rest is masked away by the parent's mask-composite. */
+.shimmer-spark {
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 100cqh;
-  aspect-ratio: 1;
-  overflow: visible;
-  filter: blur(2px);
-  animation: shimmer-slide var(--shimmer-speed) linear infinite alternate;
-}
-
-/* The conic wedge — oversized (inset -100%) so the gradient extends well
-   past the slide square's corners, rotating at constant angular speed
-   (pure linear 0° → 360°, no corner pauses). Together with the linear
-   slide, this gives a uniform perimeter trace with no deceleration at
-   the edges. */
-.shimmer-border__arc {
-  position: absolute;
-  inset: -100%;
-  background: conic-gradient(
-    from calc(270deg - (var(--shimmer-spread) * 0.5)),
-    transparent 0,
-    var(--shimmer-color) var(--shimmer-spread),
-    transparent var(--shimmer-spread)
+  width: var(--shimmer-size);
+  height: var(--shimmer-size);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    var(--shimmer-color) 0%,
+    var(--shimmer-color) 12%,
+    transparent 65%
   );
-  animation: spin-around calc(var(--shimmer-speed) * 2) linear infinite;
+  filter: blur(3px);
+  offset-path: inset(0 round var(--shimmer-radius));
+  offset-anchor: 50% 50%;
+  offset-distance: 0%;
+  animation: shimmer-orbit var(--shimmer-speed) linear infinite;
 }
 
-@keyframes shimmer-slide {
+@keyframes shimmer-orbit {
   to {
-    transform: translateX(calc(100cqw - 100%));
-  }
-}
-
-@keyframes spin-around {
-  from {
-    transform: translateZ(0) rotate(0);
-  }
-  to {
-    transform: translateZ(0) rotate(360deg);
+    offset-distance: 100%;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .shimmer-border__slide,
-  .shimmer-border__arc {
+  .shimmer-spark {
     animation: none;
   }
 }
