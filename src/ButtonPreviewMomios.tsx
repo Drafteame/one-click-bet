@@ -179,31 +179,43 @@ export function ButtonPreviewMomios({
   const glowFlashUntilRef = useRef<number>(0);
   const glowProgress = useMotionValue(0);
   const glowOpacity = useMotionValue(0);
+  // Smoothed glow output — low-pass filter on the raw target so tier
+  // transitions don't snap (e.g. tier 2 → 1 used to jump opacity to 0
+  // instantly; now it eases to 0 over a few frames).
+  const prevGlowRef = useRef(0);
   useAnimationFrame((t) => {
+    let target = 0;
     if (reduced || tier < 2) {
-      glowOpacity.set(0);
       glowProgress.set(0);
-      return;
+    } else {
+      const cur = tier >= 3 ? cfg.tier3 : cfg.tier2;
+      const dur = cur.glowPulseDurationMs * speedScale;
+      const phase = (t % dur) / dur;
+      const env = (1 - Math.cos(phase * Math.PI * 2)) / 2;
+      const base = cur.glowOpacityMin + (cur.glowOpacityMax - cur.glowOpacityMin) * env;
+      glowProgress.set(env);
+      // Additive +40% flash boost when odds update. BUGFIX: compare
+      // against performance.now() (the same clock used to SET
+      // flashUntil) instead of the frame loop's `t`. If those two
+      // clocks diverge, the `t < flashUntil` test could stay true
+      // forever and the glow would stick bright and "never dim".
+      // Using one clock guarantees the boost always expires.
+      const now = performance.now();
+      const flashUntil = glowFlashUntilRef.current;
+      target = base;
+      if (now < flashUntil) {
+        const k = (flashUntil - now) / cfg.tier2.glowFlashDurationMs;
+        target = Math.min(1, base * (1 + cfg.tier2.glowFlashBoost * k));
+      }
     }
-    const cur = tier >= 3 ? cfg.tier3 : cfg.tier2;
-    const dur = cur.glowPulseDurationMs * speedScale;
-    const phase = (t % dur) / dur;
-    const env = (1 - Math.cos(phase * Math.PI * 2)) / 2;
-    const base = cur.glowOpacityMin + (cur.glowOpacityMax - cur.glowOpacityMin) * env;
-    glowProgress.set(env);
-    // Additive +40% flash boost when odds update. BUGFIX: compare against
-    // performance.now() (the same clock used to SET flashUntil) instead of
-    // the frame loop's `t`. If those two clocks diverge, the `t < flashUntil`
-    // test could stay true forever and the glow would stick bright and
-    // "never dim". Using one clock guarantees the boost always expires.
-    const now = performance.now();
-    const flashUntil = glowFlashUntilRef.current;
-    let boosted = base;
-    if (now < flashUntil) {
-      const k = (flashUntil - now) / cfg.tier2.glowFlashDurationMs;
-      boosted = Math.min(1, base * (1 + cfg.tier2.glowFlashBoost * k));
-    }
-    glowOpacity.set(boosted);
+    // Lerp toward target (factor ~0.08 ≈ 250ms half-life @ 60fps).
+    // The breath envelope itself changes slowly enough (4–6s period) that
+    // the lerp tracks it without perceptible lag, but tier-change snaps
+    // become smooth fades.
+    const prev = prevGlowRef.current;
+    const next = prev + (target - prev) * 0.08;
+    prevGlowRef.current = next;
+    glowOpacity.set(next);
   });
   // REGRESSION FIX (Approach B) — the previous box-shadow approach with
   // a non-zero `spread` value produced a visibly pill-shaped halo
@@ -886,40 +898,53 @@ export function ButtonPreviewMomios({
           <motion.div
             className="relative flex h-[56px] w-full items-center overflow-hidden rounded-[56px] border border-[#4b20ff]"
             style={{
-              // T2/T3 — background gradient fades to #4B20FF on the RIGHT,
-              // so the purple glows behind/below the CTA (Figma "Buscador"
-              // look). T0/T1 keep the flat #191919.
-              background:
-                tier <= 1
-                  ? '#191919'
-                  : 'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
+              // Base background — always the flat #191919. The T2/T3 purple
+              // gradient is layered above via a crossfading motion.div so
+              // tier transitions don't snap.
+              background: '#191919',
             }}
           >
+            {/* T2/T3 background gradient overlay — crossfades in/out on
+                tier change so the bg color doesn't pop. */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
+              }}
+              animate={{ opacity: tier >= 2 ? 1 : 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
+
             {/* Shimmer border — a glowing spark orbits the perimeter at
                 CONSTANT speed (CSS offset-path on a rounded-rect
-                inset-shape, linear timing). One direction, no ping-pong,
-                no easing at edges. See .shimmer-border / .shimmer-spark
-                in index.css. T2 is slower + dimmer than T3. */}
-            {tier >= 2 && !reduced && (
-              <div
+                inset-shape, linear timing). Rendered at all tiers (when
+                !reduced); opacity animates 0 → 0.3 → 1 across T1→T2→T3
+                so it fades in/out instead of popping. Speed is unified
+                at 3s so the T2↔T3 crossing doesn't cause a phase jump. */}
+            {!reduced && (
+              <motion.div
                 aria-hidden
                 className="shimmer-border"
                 style={{
-                  // T2: slower (uses cfg duration); T3: a touch faster.
                   ['--shimmer-speed' as string]: `${
-                    ((tier >= 3 ? 3000 : cfg.tier2.strokeSweepDurationMs) *
-                      speedScale) /
-                    1000
+                    (3000 * speedScale) / 1000
                   }s`,
                   ['--shimmer-color' as string]: '#dcb0ff',
-                  // T2 ring is toned down to ~30% of T3's brightness
-                  // (same opacity factor as the old SVG sweep).
-                  opacity:
-                    tier >= 3 ? 1 : cfg.tier2.strokeSweepOpacityFactor,
                 }}
+                animate={{
+                  opacity:
+                    tier >= 3
+                      ? 1
+                      : tier >= 2
+                        ? cfg.tier2.strokeSweepOpacityFactor
+                        : 0,
+                }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
               >
                 <div className="shimmer-spark" />
-              </div>
+              </motion.div>
             )}
 
             {/* EXPLORATION — orbital BorderLight removed. The shell's
