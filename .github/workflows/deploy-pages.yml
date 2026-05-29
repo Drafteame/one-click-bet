@@ -1,13 +1,13 @@
 # Builds the Vite app and deploys it to GitHub Pages.
 # Pages source must be set to "GitHub Actions" in repo Settings → Pages.
-# Triggers on push to main OR the active exploration branch, plus manual dispatch.
+# Deploys on push to main; trigger manually via the "Run workflow" button
+# (workflow_dispatch) for any other branch.
 name: Deploy to GitHub Pages
 
 on:
   push:
     branches:
       - main
-      - explore/animation-experiments
   workflow_dispatch:
 
 # Required by actions/deploy-pages.
