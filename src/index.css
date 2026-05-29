@@ -202,9 +202,9 @@ body {
 }
 
 /* The slide layer is a SQUARE the size of the container height, anchored
-   to the left edge, that slides horizontally across the container width.
-   Translating by (100cqw - 100%) = container width - its own width =
-   container width - container height, so the spark traverses the full
+   to the left edge, that slides horizontally across the container width
+   at CONSTANT SPEED (linear, alternate). Translating by (100cqw - 100%)
+   = container width - container height, so the spark traverses the full
    perimeter long axis. Slight blur softens the wedge edge. */
 .shimmer-border__slide {
   position: absolute;
@@ -213,14 +213,14 @@ body {
   aspect-ratio: 1;
   overflow: visible;
   filter: blur(2px);
-  animation: shimmer-slide var(--shimmer-speed) ease-in-out infinite alternate;
+  animation: shimmer-slide var(--shimmer-speed) linear infinite alternate;
 }
 
 /* The conic wedge — oversized (inset -100%) so the gradient extends well
-   past the slide square's corners, then continuously rotating with
-   stepped pauses at 90° and 270° (matches Magic UI's spin-around).
-   Combined with the slide ping-pong, this paints the spark around all
-   four sides of the perimeter ring. */
+   past the slide square's corners, rotating at constant angular speed
+   (pure linear 0° → 360°, no corner pauses). Together with the linear
+   slide, this gives a uniform perimeter trace with no deceleration at
+   the edges. */
 .shimmer-border__arc {
   position: absolute;
   inset: -100%;
@@ -240,18 +240,10 @@ body {
 }
 
 @keyframes spin-around {
-  0% {
+  from {
     transform: translateZ(0) rotate(0);
   }
-  15%,
-  35% {
-    transform: translateZ(0) rotate(90deg);
-  }
-  65%,
-  85% {
-    transform: translateZ(0) rotate(270deg);
-  }
-  100% {
+  to {
     transform: translateZ(0) rotate(360deg);
   }
 }
