@@ -1407,7 +1407,11 @@ export function ButtonPreviewMomios({
                 ry={cfg.borderRadiusPx}
                 fill="none"
                 stroke="url(#bpmStrokeSweep)"
-                strokeWidth="2.5"
+                // T3 stroke is physically thinner so its full-opacity
+                // (alpha 1.0) brightness doesn't read as fatter than T2's
+                // dimmed (alpha 0.3) sweep — same perceived weight, just
+                // brighter. T2 keeps the original 2.5px.
+                strokeWidth={tier >= 3 ? 1.5 : 2.5}
               />
             </svg>
           )}

@@ -27,7 +27,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Gana CTA upgrade** — gradient end shifts to `#a954ff`, adds `drop-shadow(0 2px 6px rgba(29,11,68,0.3))`.
 - **Outer glow** — diffuse blurred sibling element, Apple Intelligence–style conic-gradient swirl (`#4E7BFF` + `#9730FF`, 7s); opacity breathes between 0.18 and 0.26.
 - **Glow flash on odds update** — +40% boost for the flash duration.
-- **Border stroke shine sweep** — SVG `linearGradient` traveling L→R along the 1px border, peak `#dcb0ff`, 2.8s cycle, ~30% opacity.
+- **Border stroke shine sweep** — SVG `linearGradient` traveling L→R along the 1px border, peak `#dcb0ff`, 2.8s cycle, 2.5px stroke @ ~30% opacity.
 - **Faster breathing** — 3000ms period.
 - **More frequent sparkles** — 1–3, every 5500ms.
 - **Lerp-smoothed glow opacity** — 250ms half-life when entering/leaving T2 *(smoothed)*.
@@ -42,6 +42,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Micro-tremor** — burst-and-quiet (not continuous sine): brief jitter every `cycleMs`, quiet between.
 - **Even faster breathing** — 2000ms period.
 - **Most sparkles** — 2–4 per burst, every 4500ms.
+- **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1.5px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
 
 ---
 
