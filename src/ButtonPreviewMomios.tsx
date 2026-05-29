@@ -1089,6 +1089,8 @@ export function ButtonPreviewMomios({
                   style={{
                     fontFamily: 'Red Hat Display, sans-serif',
                     fontWeight: 900,
+                    // T3 — Figma "Black Italic" number style.
+                    fontStyle: tier >= 3 ? 'italic' : 'normal',
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
@@ -1133,9 +1135,11 @@ export function ButtonPreviewMomios({
                       scale: oddsPulseScale,
                       opacity: oddsPulseOpacity,
                       y: weightAnchorY,
-                      // Glow + weight bump are T3-ONLY. T0/T1/T2 = plain text.
+                      // Glow is T3-ONLY. T0/T1/T2 = plain text.
+                      // T3 — Figma "Black Italic" number style (900 + italic).
                       fontFamily: 'Red Hat Display, sans-serif',
-                      fontWeight: tier >= 3 ? cfg.tier2.oddsFontWeight : 900,
+                      fontWeight: 900,
+                      fontStyle: tier >= 3 ? 'italic' : 'normal',
                       fontSize: 14,
                       lineHeight: '21px',
                       color: '#fbfbfb',
@@ -1185,6 +1189,8 @@ export function ButtonPreviewMomios({
                   style={{
                     fontFamily: 'Red Hat Display, sans-serif',
                     fontWeight: 900,
+                    // T3 — Figma "Black Italic" number style.
+                    fontStyle: tier >= 3 ? 'italic' : 'normal',
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
@@ -1229,6 +1235,8 @@ export function ButtonPreviewMomios({
                   style={{
                     fontFamily: 'Red Hat Display, sans-serif',
                     fontWeight: 900,
+                    // T3 — Figma "Black Italic" number style.
+                    fontStyle: tier >= 3 ? 'italic' : 'normal',
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
@@ -1359,11 +1367,11 @@ export function ButtonPreviewMomios({
                   y2="0"
                   gradientTransform="translate(-1 0)"
                 >
-                  <stop offset="0" stopColor="#9730ff" stopOpacity="0" />
-                  <stop offset="0.3" stopColor="#b48bff" stopOpacity="0.4" />
-                  <stop offset="0.5" stopColor="#ffffff" stopOpacity="1" />
-                  <stop offset="0.7" stopColor="#b48bff" stopOpacity="0.4" />
-                  <stop offset="1" stopColor="#9730ff" stopOpacity="0" />
+                  <stop offset="0" stopColor="#a954ff" stopOpacity="0" />
+                  <stop offset="0.3" stopColor="#c98fff" stopOpacity="0.4" />
+                  <stop offset="0.5" stopColor="#dcb0ff" stopOpacity="1" />
+                  <stop offset="0.7" stopColor="#c98fff" stopOpacity="0.4" />
+                  <stop offset="1" stopColor="#a954ff" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <rect
