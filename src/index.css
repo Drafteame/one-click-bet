@@ -218,9 +218,9 @@ body {
   );
   border-radius: 50%;
   filter: blur(3px);
-  /* Base 80% opacity so the spark reads as a soft highlight rather than
+  /* Base 50% opacity so the spark reads as a soft highlight rather than
      a hot point. Multiplies with the tier-driven opacity on the parent. */
-  opacity: 0.8;
+  opacity: 0.5;
   offset-path: inset(0 round var(--shimmer-radius));
   offset-anchor: 100% 50%;
   offset-distance: 0%;
