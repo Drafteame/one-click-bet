@@ -167,3 +167,92 @@ body {
     -webkit-text-fill-color: #fbfbfb;
   }
 }
+
+/* ---------------------------------------------------------------- */
+/*  Magic UI–style "Shimmer Button" border                          */
+/*  A conic-gradient wedge that ping-pongs along the long axis      */
+/*  while continuously rotating, clipped to a thin border ring via  */
+/*  mask-composite. Visually: a bright spark travels around the     */
+/*  perimeter, hitting all four corners.                            */
+/*  Reference: https://magicui.design/docs/components/shimmer-button*/
+/* ---------------------------------------------------------------- */
+.shimmer-border {
+  /* Tunables — overridden inline per tier (speed, color, cut). */
+  --shimmer-spread: 90deg;
+  --shimmer-color: #dcb0ff;
+  --shimmer-speed: 3s;
+  --shimmer-cut: 2px;
+
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  /* container queries used by the slide keyframe (100cqw / 100cqh). */
+  container-type: size;
+
+  /* Clip the rendered shimmer to a ring of thickness --shimmer-cut along
+     the border, using the standard composite-mask donut trick. */
+  padding: var(--shimmer-cut);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* The slide layer ping-pongs the wedge along the long axis.
+   Slight blur softens the wedge edge. */
+.shimmer-border__slide {
+  position: absolute;
+  inset: 0;
+  filter: blur(2px);
+  animation: shimmer-slide var(--shimmer-speed) ease-in-out infinite alternate;
+}
+
+/* The conic wedge — sized to the container height so it covers all
+   corners during the ping-pong, rotating with stepped pauses at 90°
+   and 270° (matches Magic UI's spin-around). */
+.shimmer-border__arc {
+  position: absolute;
+  inset: 0;
+  width: 100cqh;
+  aspect-ratio: 1;
+  background: conic-gradient(
+    from calc(270deg - (var(--shimmer-spread) * 0.5)),
+    transparent 0,
+    var(--shimmer-color) var(--shimmer-spread),
+    transparent var(--shimmer-spread)
+  );
+  animation: spin-around calc(var(--shimmer-speed) * 2) linear infinite;
+}
+
+@keyframes shimmer-slide {
+  to {
+    transform: translateX(calc(100cqw - 100%));
+  }
+}
+
+@keyframes spin-around {
+  0% {
+    transform: translateZ(0) rotate(0);
+  }
+  15%,
+  35% {
+    transform: translateZ(0) rotate(90deg);
+  }
+  65%,
+  85% {
+    transform: translateZ(0) rotate(270deg);
+  }
+  100% {
+    transform: translateZ(0) rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-border__slide,
+  .shimmer-border__arc {
+    animation: none;
+  }
+}

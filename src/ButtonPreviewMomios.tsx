@@ -113,25 +113,9 @@ export function ButtonPreviewMomios({
   /* =============================================================== */
   /*  MEASUREMENT — button shell width for SVG border lights         */
   /* =============================================================== */
-  const shellRef = useRef<HTMLDivElement | null>(null);
-  const [shellSize, setShellSize] = useState<{ w: number; h: number }>({
-    w: 0,
-    h: cfg.borderHeightPx,
-  });
-  useEffect(() => {
-    const el = shellRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const e of entries) {
-        setShellSize({
-          w: Math.round(e.contentRect.width),
-          h: Math.round(e.contentRect.height),
-        });
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Magic UI shimmer border is pure CSS — no element ref / size measuring
+  // needed (the previous SVG stroke sweep required pixel dimensions; the
+  // new border uses container queries inside the CSS itself).
 
   /* =============================================================== */
   /*  AMBIENT — micro-tremor (Tier 3) with INTERMITTENCE             */
@@ -277,7 +261,7 @@ export function ButtonPreviewMomios({
   // EXPLORATION — orbital border-light sweep removed. The shell's
   // outline glow is now a layered box-shadow stack driven by the same
   // logic as the odds text-shadow (see borderBoxShadow above).
-  const sweepPhaseRef = useRef(0); // retained only for debug-overlay shape
+  // (sweepPhaseRef removed — debug-overlay no longer references it.)
 
   /* =============================================================== */
   /*  AMBIENT — sparkle edge flashes (T1+, density scales with tier) */
@@ -421,37 +405,12 @@ export function ButtonPreviewMomios({
   // the glyph shapes and extends freely.
   const oddsGlowFilter = useMotionValue<string>('none');
   const ganaGlowFilter = useMotionValue<string>('none');
-  // EXPLORATION v3 — uniform borderColor flicker REMOVED. The user wants
-  // a HORIZONTAL sweep across the stroke (like the odds shimmer), not a
-  // global brightness change. The stroke base stays static #4b20ff via
-  // the CSS class; an SVG overlay sibling renders the sweeping highlight,
-  // animated below via useMotionValue + useAnimationFrame (not SMIL —
-  // SMIL was rendering but its timing wasn't easy to verify; JS-driven
-  // is explicit and lets the cycle duration follow speedScale too).
-  const strokeSweepX = useMotionValue(-1);
-  // Ref to the SVG linearGradient so we can imperatively rewrite its
-  // gradientTransform each frame (cheaper than re-rendering React).
-  const sweepGradRef = useRef<SVGLinearGradientElement | null>(null);
-  useMotionValueEvent(strokeSweepX, 'change', (v) => {
-    sweepGradRef.current?.setAttribute(
-      'gradientTransform',
-      `translate(${v} 0)`,
-    );
-  });
-  // EXPLORATION — stroke sweep now runs at T2+ (was T3-only). The SVG
-  // renders at both tiers; T2 is dimmer (opacity factor) and slower
-  // (longer cycle) than T3. Driver lives in its own frame loop so it's
-  // independent of the T3-gated odds-halo loop.
-  useAnimationFrame((t) => {
-    if (reduced || tier < 2) {
-      strokeSweepX.set(-1);
-      return;
-    }
-    const dur =
-      (tier >= 3 ? 2000 : cfg.tier2.strokeSweepDurationMs) * speedScale;
-    const phase = (t % dur) / dur; // 0 → 1
-    strokeSweepX.set(-1 + phase * 2); // -1 → 1
-  });
+  // EXPLORATION — border light replaced with the Magic UI "Shimmer Button"
+  // pattern: a conic-gradient wedge that ping-pongs along the long axis
+  // while rotating in stepped pauses at 90°/270° (so it hits all four
+  // corners). Implemented entirely in CSS — see .shimmer-border in
+  // index.css and the overlay div below in the JSX. Tier intensity is
+  // expressed via inline --shimmer-speed and opacity.
   const oddsGlowIntensityRef = useRef(1); // multiplier driven by surges/breath
   const oddsHaloOverrideUntilRef = useRef(0);
   const oddsHaloOverrideMultRef = useRef(1);
@@ -925,7 +884,6 @@ export function ButtonPreviewMomios({
               (border, text, Gana gradient) are identical across both
               palettes so only the shell bg changes. */}
           <motion.div
-            ref={shellRef}
             className="relative flex h-[56px] w-full items-center overflow-hidden rounded-[56px] border border-[#4b20ff]"
             style={{
               // T2/T3 — background gradient fades to #4B20FF on the RIGHT,
@@ -937,6 +895,37 @@ export function ButtonPreviewMomios({
                   : 'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
             }}
           >
+            {/* MAGIC UI — Shimmer Button border.
+                A conic-gradient wedge that ping-pongs along the long axis
+                while rotating in stepped pauses at 90°/270° (so the spark
+                visibly hits all four corners). Pure CSS — see .shimmer-
+                border in index.css. T2 is slower + dimmer than T3.
+                Reference: https://magicui.design/docs/components/shimmer-button */}
+            {tier >= 2 && !reduced && (
+              <div
+                aria-hidden
+                className="shimmer-border"
+                style={{
+                  // T2: slower (uses old cfg duration); T3: faster.
+                  ['--shimmer-speed' as string]: `${
+                    ((tier >= 3 ? 2000 : cfg.tier2.strokeSweepDurationMs) *
+                      speedScale) /
+                    1000
+                  }s`,
+                  // Peak color matches the previous SVG-sweep highlight.
+                  ['--shimmer-color' as string]: '#dcb0ff',
+                  // T2 ring is toned down to ~30% of T3's brightness
+                  // (same opacity factor as the old SVG sweep).
+                  opacity:
+                    tier >= 3 ? 1 : cfg.tier2.strokeSweepOpacityFactor,
+                }}
+              >
+                <div className="shimmer-border__slide">
+                  <div className="shimmer-border__arc" />
+                </div>
+              </div>
+            )}
+
             {/* EXPLORATION — orbital BorderLight removed. The shell's
                 purple stroke now glows via a layered box-shadow stack
                 applied to the shell itself (see motion.div below) —
@@ -1335,58 +1324,8 @@ export function ButtonPreviewMomios({
               ))}
             </div>
           )}
-          {/* EXPLORATION v3 — Horizontal stroke-sweep overlay.
-              Rendered OUTSIDE the shell so the SVG isn't clipped by
-              overflow:hidden. The shell's static 1px #4b20ff border
-              stays as the base; this SVG paints a bright moving
-              highlight on top of that line. The bright spot enters
-              from the left and exits to the right, in the same
-              visual language as the odds shimmer.
-              Active at T2+ — but T2 is dimmer (opacity factor) and slower
-              (longer cycle) than T3. */}
-          {tier >= 2 && !reduced && shellSize.w > 0 && (
-            <svg
-              aria-hidden
-              className="pointer-events-none absolute"
-              style={{
-                inset: '-1px',
-                // T2 sweep is toned down to ~30% of T3's brightness.
-                opacity: tier >= 3 ? 1 : cfg.tier2.strokeSweepOpacityFactor,
-              }}
-              width={shellSize.w + 2}
-              height={shellSize.h + 2}
-              viewBox={`0 0 ${shellSize.w + 2} ${shellSize.h + 2}`}
-            >
-              <defs>
-                <linearGradient
-                  ref={sweepGradRef}
-                  id="bpmStrokeSweep"
-                  x1="0"
-                  y1="0"
-                  x2="1"
-                  y2="0"
-                  gradientTransform="translate(-1 0)"
-                >
-                  <stop offset="0" stopColor="#a954ff" stopOpacity="0" />
-                  <stop offset="0.3" stopColor="#c98fff" stopOpacity="0.4" />
-                  <stop offset="0.5" stopColor="#dcb0ff" stopOpacity="1" />
-                  <stop offset="0.7" stopColor="#c98fff" stopOpacity="0.4" />
-                  <stop offset="1" stopColor="#a954ff" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <rect
-                x="1"
-                y="1"
-                width={shellSize.w}
-                height={shellSize.h}
-                rx={cfg.borderRadiusPx}
-                ry={cfg.borderRadiusPx}
-                fill="none"
-                stroke="url(#bpmStrokeSweep)"
-                strokeWidth="2.5"
-              />
-            </svg>
-          )}
+          {/* Border light: rendered INSIDE the shell as a CSS-only
+              .shimmer-border overlay (Magic UI pattern). See above. */}
         </motion.button>
       </motion.div>
     </div>
