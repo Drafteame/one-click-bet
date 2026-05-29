@@ -213,7 +213,7 @@ export const buttonProgressionConfig = {
     glowPulseDurationMs: 6000,
     // EXPLORATION — stroke shine sweep now appears at T2 too, but dimmer
     // and slower than T3 (a subtle "hint" of the T3 effect).
-    strokeSweepDurationMs: 2800, // slower glide than T3's 2000ms
+    strokeSweepDurationMs: 4200, // slower glide than T3's 3000ms
     strokeSweepOpacityFactor: 0.3, // ~30% of T3 brightness
     // +40% glow flash when odds update.
     glowFlashBoost: 0.4,

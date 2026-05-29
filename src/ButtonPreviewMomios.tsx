@@ -905,9 +905,9 @@ export function ButtonPreviewMomios({
                 aria-hidden
                 className="shimmer-border"
                 style={{
-                  // T2: slower (uses old cfg duration); T3: faster.
+                  // T2: slower (uses cfg duration); T3: a touch faster.
                   ['--shimmer-speed' as string]: `${
-                    ((tier >= 3 ? 2000 : cfg.tier2.strokeSweepDurationMs) *
+                    ((tier >= 3 ? 3000 : cfg.tier2.strokeSweepDurationMs) *
                       speedScale) /
                     1000
                   }s`,
