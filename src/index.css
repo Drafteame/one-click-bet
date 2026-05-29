@@ -201,23 +201,29 @@ body {
   mask-composite: exclude;
 }
 
-/* The slide layer ping-pongs the wedge along the long axis.
-   Slight blur softens the wedge edge. */
+/* The slide layer is a SQUARE the size of the container height, anchored
+   to the left edge, that slides horizontally across the container width.
+   Translating by (100cqw - 100%) = container width - its own width =
+   container width - container height, so the spark traverses the full
+   perimeter long axis. Slight blur softens the wedge edge. */
 .shimmer-border__slide {
   position: absolute;
-  inset: 0;
+  inset: 0 auto 0 0;
+  width: 100cqh;
+  aspect-ratio: 1;
+  overflow: visible;
   filter: blur(2px);
   animation: shimmer-slide var(--shimmer-speed) ease-in-out infinite alternate;
 }
 
-/* The conic wedge — sized to the container height so it covers all
-   corners during the ping-pong, rotating with stepped pauses at 90°
-   and 270° (matches Magic UI's spin-around). */
+/* The conic wedge — oversized (inset -100%) so the gradient extends well
+   past the slide square's corners, then continuously rotating with
+   stepped pauses at 90° and 270° (matches Magic UI's spin-around).
+   Combined with the slide ping-pong, this paints the spark around all
+   four sides of the perimeter ring. */
 .shimmer-border__arc {
   position: absolute;
-  inset: 0;
-  width: 100cqh;
-  aspect-ratio: 1;
+  inset: -100%;
   background: conic-gradient(
     from calc(270deg - (var(--shimmer-spread) * 0.5)),
     transparent 0,
