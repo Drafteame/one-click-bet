@@ -1411,7 +1411,7 @@ export function ButtonPreviewMomios({
                 // (alpha 1.0) brightness doesn't read as fatter than T2's
                 // dimmed (alpha 0.3) sweep — same perceived weight, just
                 // brighter. T2 keeps the original 2.5px.
-                strokeWidth={tier >= 3 ? 1 : 2.5}
+                strokeWidth={tier >= 3 ? 1.5 : 2.5}
               />
             </svg>
           )}

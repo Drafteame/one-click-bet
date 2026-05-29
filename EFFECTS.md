@@ -42,7 +42,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Micro-tremor** — burst-and-quiet (not continuous sine): brief jitter every `cycleMs`, quiet between.
 - **Even faster breathing** — 2000ms period.
 - **Most sparkles** — 2–4 per burst, every 4500ms.
-- **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
+- **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1.5px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
 
 ---
 
