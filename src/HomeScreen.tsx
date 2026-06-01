@@ -476,16 +476,18 @@ function Navbar() {
                 isActive ? 'bg-[rgba(251,251,251,0.12)]' : ''
               }`}
             >
+              {/* Icon row. The rewards badge is rendered at 26×26 to
+                  match Figma (the other tab icons are 20×20). It overflows
+                  the row's nominal 20px height by ~3px each side, so the
+                  row and button drop overflow-hidden / clip and the
+                  badge can poke above/below the surrounding row. */}
               <div className="flex h-5 w-full items-center justify-center">
-                {t.icon ? (
-                  <img src={t.icon} alt="" aria-hidden className="h-5 w-5" />
-                ) : (
-                  // Placeholder while awaiting rewards.svg upload.
-                  <span
-                    className="block h-5 w-5 rounded-full bg-white/15"
-                    aria-hidden
-                  />
-                )}
+                <img
+                  src={t.icon}
+                  alt=""
+                  aria-hidden
+                  className={t.id === 'rewards' ? 'h-[26px] w-[26px]' : 'h-5 w-5'}
+                />
               </div>
               <span
                 className={`whitespace-nowrap text-[10px] font-medium leading-[15px] ${
