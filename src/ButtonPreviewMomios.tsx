@@ -380,12 +380,16 @@ export function ButtonPreviewMomios({
             fs.inflowMinPx +
             Math.random() * (fs.inflowMaxPx - fs.inflowMinPx);
           const startDist = perimDist + offset;
-          // Aim a few px PAST the perimeter (toward center) so the
-          // streak's bright head clearly crosses the border before
-          // snapping out. The easeIn curve also means position lags
-          // behind time, so a small inward bias is needed for the
-          // disappear to land ON the border visually.
-          const endDist = perimDist - 6;
+          // Aim well PAST the perimeter (toward center). Three factors
+          // make a hefty inward bias necessary so sparks visually
+          // disappear AT (not before) the border:
+          //   • easeIn curve makes position lag behind time
+          //     (at t=0.97, position is only ~91% complete).
+          //   • streak's bright HEAD sits ~9px ahead of its center.
+          //   • boxShadow bloom extends another ~12px past the head.
+          // Pulling the target 20px inside the perimeter pushes the
+          // visible bloom edge to land on the border at snap-out time.
+          const endDist = perimDist - 20;
           fresh.push({
             id: fireSparkIdRef.current++,
             spawnAtMs: now,
