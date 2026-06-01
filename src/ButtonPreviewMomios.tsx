@@ -896,9 +896,12 @@ export function ButtonPreviewMomios({
         aria-hidden
         className="outer-glow-swirl pointer-events-none absolute"
         style={{
-          // Shifted up (top -20 / bottom -4) so the glow centers on the
-          // BUTTON, not the taller wrapper — otherwise it spread downward.
-          inset: '-20px 4px -4px 4px',
+          // Symmetric inset top/bottom so the glow vertically centers on
+          // the button (the wrapper now uses pt-2 + pb-2 = balanced 8px
+          // padding either side of the 56px button, so the wrapper's
+          // vertical center IS the button's). Spilling ~20px below the
+          // wrapper into the navbar is intentional.
+          inset: '-20px 4px -20px 4px',
           // Concentrated glow (shorter fade) — closer to the original.
           WebkitMaskImage:
             'radial-gradient(ellipse 80% 78% at center, black 30%, transparent 78%)',
