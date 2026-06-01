@@ -1,11 +1,14 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
 import betsIcon from './assets/bets.svg';
+import chevronIcon from './assets/chevron.svg';
 import gamingIcon from './assets/gaming.svg';
 import misEntradasIcon from './assets/mis_entradas.svg';
+import playerIcon from './assets/player.svg';
 import rewardsIcon from './assets/rewards.png';
 import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
+import statsIcon from './assets/stats.svg';
 import type { Selection } from './types';
 
 /* ============================================================ */
@@ -345,7 +348,17 @@ function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
 }
 
 /* ============================================================ */
-/*  Market accordion — "Anota gol" with player cards            */
+/*  Market accordion — Figma "marketAccordeon" node 1628:42604  */
+/*  2×2 grid of player-prop cards. Each card has the player's   */
+/*  silhouette (player.svg), name + position, match info, stats */
+/*  icon, and an odds button at the bottom that toggles the     */
+/*  corresponding pick into the bet slip. Selected state uses   */
+/*  the same lime-cyan visual language as the PromoCarousel.    */
+/*                                                              */
+/*  Filters to the player-goal-prop picks only (lewa, mbappe,   */
+/*  vini, mbappe-htrick). The other picks (team wins, draws,    */
+/*  combo, hat-trick variants) don't fit this layout and live   */
+/*  elsewhere (PromoCarousel + debug random add).               */
 /* ============================================================ */
 type MarketProps = {
   picks: Selection[];
@@ -353,92 +366,221 @@ type MarketProps = {
   onTogglePick: (id: string) => void;
 };
 
+type PlayerMeta = {
+  lastName: string;
+  position: string;
+  homeAbbrev: string;
+  awayAbbrev: string;
+  date: string;
+  time: string;
+};
+
+const PLAYER_META: Record<string, PlayerMeta> = {
+  lewa: {
+    lastName: 'Lewandowski',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  mbappe: {
+    lastName: 'Mbappé',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  vini: {
+    lastName: 'Vinicius',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  'mbappe-htrick': {
+    lastName: 'Mbappé',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+};
+
 function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
+  const [isOpen, setIsOpen] = useState(true);
+  // Only show picks that are mapped to a player. Other picks (team
+  // wins / draw / combos / goleada) don't fit this layout.
+  const playerPicks = picks.filter((p) => PLAYER_META[p.id]);
+
   return (
-    <div className="w-full px-3 py-2">
-      <div className="rounded-2xl border border-white/10 bg-[#101015]/80 p-3 backdrop-blur">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-black text-white">
-              Anota gol en cualquier momento
-            </span>
-          </div>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white/80">
-            90'
+    <div className="w-full border-b border-[rgba(251,251,251,0.12)] bg-black px-3 pb-3">
+      {/* Header — clickable to expand/collapse */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex h-11 w-full cursor-pointer items-center py-2.5"
+        aria-expanded={isOpen}
+      >
+        <div className="flex flex-1 items-center gap-1">
+          <p
+            className="text-left text-[14px] font-bold leading-[21px] text-[#fbfbfb]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            Anota gol en cualquier momento
+          </p>
+          <span
+            className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            90&apos;
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {picks.map((p) => {
-            const selected = selectedIds.has(p.id);
-            return (
-              <motion.button
-                key={p.id}
-                type="button"
-                onClick={() => onTogglePick(p.id)}
-                whileTap={{ scale: 0.97 }}
-                className={`relative flex flex-col items-start gap-1 rounded-xl border p-2 text-left transition-colors ${
-                  selected
-                    ? 'border-[#4b20ff] bg-gradient-to-br from-[#1a0a40] to-[#230c3e]'
-                    : 'border-white/10 bg-white/5'
-                }`}
-              >
-                <div className="flex w-full items-center gap-1.5">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[8px] font-black text-white/70">
-                    {p.pick.includes('PSG')
-                      ? 'PSG'
-                      : p.pick.includes('Real')
-                        ? 'RMA'
-                        : p.pick.includes('Empate')
-                          ? '—'
-                          : 'POS'}
+        <div className="ml-6 flex size-6 shrink-0 items-center justify-center rounded-full border border-[rgba(251,251,251,0.24)]">
+          <img
+            src={chevronIcon}
+            alt=""
+            aria-hidden
+            className={`h-4 w-4 transition-transform duration-200 ${
+              isOpen ? 'rotate-180' : 'rotate-0'
+            }`}
+          />
+        </div>
+      </button>
+
+      {/* Body — 2×2 grid of player-prop cards + Ver todos CTA */}
+      {isOpen && (
+        <div className="flex flex-col gap-1 pt-1">
+          <div className="grid grid-cols-2 gap-2">
+            {playerPicks.map((p) => {
+              const meta = PLAYER_META[p.id];
+              const selected = selectedIds.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => onTogglePick(p.id)}
+                  className={`relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border bg-black p-2.5 transition-all duration-200 active:scale-[0.98] ${
+                    selected
+                      ? 'border-[#d2ff72]'
+                      : 'border-[rgba(251,251,251,0.12)]'
+                  }`}
+                >
+                  {/* TODO: decorative "light" glow at top of card —
+                      Figma uses imgLight (no asset uploaded). */}
+
+                  {/* Top-left: stats icon (chart bars) */}
+                  <div className="absolute left-2.5 top-2.5 z-10 flex size-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.12)] p-0.5 backdrop-blur-sm">
+                    <img
+                      src={statsIcon}
+                      alt=""
+                      aria-hidden
+                      className="h-3 w-3"
+                    />
                   </div>
-                  <span className="truncate text-[10px] font-bold text-white">
-                    {p.pick}
-                  </span>
-                </div>
-                <div className="mt-1 flex w-full items-center justify-between">
-                  <span className="text-[9px] font-medium text-white/50">
-                    {selected ? 'En cupón' : 'Añadir'}
-                  </span>
-                  <span
-                    className={`text-[13px] font-black ${
-                      selected ? 'text-[#c4b3ff]' : 'text-white'
+
+                  {/* Top-right: match teams + date + time */}
+                  <div className="absolute right-2.5 top-2.5 z-10 flex flex-col items-end">
+                    <div
+                      className="flex items-baseline gap-px text-[10px] leading-[15px]"
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                    >
+                      <span className="font-medium text-[rgba(251,251,251,0.7)]">
+                        {meta.homeAbbrev}
+                      </span>
+                      <span className="font-medium text-[rgba(251,251,251,0.44)]">
+                        vs
+                      </span>
+                      <span className="font-medium text-[rgba(251,251,251,0.44)]">
+                        {meta.awayAbbrev}
+                      </span>
+                    </div>
+                    <span
+                      className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]"
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                    >
+                      {meta.date}
+                    </span>
+                    <span
+                      className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]"
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                    >
+                      {meta.time}
+                    </span>
+                  </div>
+
+                  {/* Player image + name + position */}
+                  <div className="flex w-full flex-col items-center pt-2">
+                    <div className="relative h-14 w-full">
+                      <img
+                        src={playerIcon}
+                        alt=""
+                        aria-hidden
+                        className="absolute left-1/2 top-0 -translate-x-1/2"
+                        width={76}
+                        height={76}
+                      />
+                      {/* Soft fade so the silhouette blends into the card */}
+                      <div
+                        className="pointer-events-none absolute bottom-[-12px] left-1/2 h-[18px] w-[86px] -translate-x-1/2 bg-gradient-to-b from-transparent to-black"
+                        aria-hidden
+                      />
+                    </div>
+                    <div
+                      className="flex items-baseline justify-center gap-0.5"
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                    >
+                      <span className="text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                        {meta.lastName}
+                      </span>
+                      <span className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]">
+                        {meta.position}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Odds button at the bottom — same default/selected
+                      visual language as the PromoCarousel buttons. */}
+                  <div
+                    className={`flex h-11 w-full items-center justify-center overflow-hidden rounded-xl border px-3 py-1 ${
+                      selected
+                        ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
+                        : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)]'
                     }`}
                   >
-                    {p.odds.toFixed(2)}x
-                  </span>
-                </div>
-                {selected && (
-                  <motion.span
-                    layoutId={`tick-${p.id}`}
-                    className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full"
-                    style={{
-                      background:
-                        'linear-gradient(135deg, #4b20ff, #9730ff)',
-                    }}
-                  >
-                    <svg
-                      width="9"
-                      height="9"
-                      viewBox="0 0 9 9"
-                      fill="none"
-                      aria-hidden
+                    <span
+                      className={`whitespace-nowrap text-center text-[13px] leading-4 text-[#fbfbfb] ${
+                        selected ? 'font-bold' : 'font-medium'
+                      }`}
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
-                      <path
-                        d="M1.5 4.7L3.7 6.9 7.5 2.1"
-                        stroke="white"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </motion.span>
-                )}
-              </motion.button>
-            );
-          })}
+                      {p.odds.toFixed(2)}x
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Ver todos (N) — tertiary CTA */}
+          <button
+            type="button"
+            className="mt-1 flex w-full cursor-pointer items-center justify-center gap-1 py-2 text-[14px] font-medium leading-[21px] text-[#fbfbfb] transition-opacity hover:opacity-80"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            Ver todos ({playerPicks.length})
+            <img
+              src={chevronIcon}
+              alt=""
+              aria-hidden
+              className="h-4 w-4"
+            />
+          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
