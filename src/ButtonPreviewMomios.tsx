@@ -1211,19 +1211,29 @@ export function ButtonPreviewMomios({
                     <motion.span
                       animate={oddsSettleControls}
                       initial={{ scale: 1 }}
-                      // Glow as a drop-shadow FILTER on this non-clipped
-                      // wrapper → hugs the glyphs instead of clipping into
-                      // per-character boxes.
+                      // Purple drop-shadow glow halo (oddsGlowFilter)
+                      // REMOVED on the Momio — the new white OddsRipple
+                      // + synchronized white drop-shadow flash on add
+                      // now carry the "alive" reading. The motion value
+                      // is still computed because the Gana CTA reads
+                      // its own ganaGlowFilter (separate channel) and
+                      // we may want to re-enable Momio's halo later.
                       style={{
                         display: 'inline-block',
-                        filter: tier >= 3 ? oddsGlowFilter : 'none',
+                        filter: 'none',
                       }}
                     >
-                      {/* Per-character fire-shimmer wave removed at T3 —
-                          the OddsRipple now carries the "alive" reading
-                          on the digits. Glow halo + slot anim + italic
-                          + add-burst + ripple stay. */}
-                      <SlotNumber value={oddsLabel} reducedMotion={reduced} />
+                      <SlotNumber
+                        value={oddsLabel}
+                        reducedMotion={reduced}
+                        innerCharClassName={
+                          tier >= 3 && !reduced
+                            ? `fire-shimmer odds-char-wave${
+                                speedScale > 1 ? ' fire-shimmer-slow' : ''
+                              }`
+                            : ''
+                        }
+                      />
                     </motion.span>
                     {/* Odds ripples (T3 only) — ghost copies of the digit
                         string overlaying the SlotNumber, scaling outward
