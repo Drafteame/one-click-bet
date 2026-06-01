@@ -45,7 +45,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Even faster breathing** — 2000ms period.
 - **Most sparkles** — 2–4 per burst, every 4500ms.
 - **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1.5px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
-- **Odds ripple** — on every selection ADD, a ghost copy of the Momio digits scales outward (~1.5×) and fades over 1200ms, white with a soft white glow (text-shadow). Pairs with a synchronized white drop-shadow flash on the source digits (300ms ease-out) so the source briefly brightens as the ghost emanates outward. Stacks up to 3 simultaneous ripples on rapid adds.
+- **Odds ripple** — on every selection ADD, a ghost copy of the Momio digits scales outward (~1.5×) and fades over 1200ms, white with a soft white glow (text-shadow). Pairs with a synchronized white drop-shadow flash on the source digits (300ms ease-out) so the source briefly brightens as the ghost emanates outward. Stacks up to 3 simultaneous ripples on rapid adds. *Inherited at T4.*
 
 ## T4 — *Legendario* *(≥ 50.00x)*
 

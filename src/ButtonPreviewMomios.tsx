@@ -692,11 +692,11 @@ export function ButtonPreviewMomios({
       );
     }
 
-    // T3-only: odds-value burst on add — scale pop + transient white
+    // T3+ on add: odds-value burst — scale pop + transient white
     // drop-shadow flash (the "glow flash on the source" that pairs with
     // the OddsRipple ghost overlay below). Both share the same 300ms
-    // ease-out timing so they read as a single beat.
-    if (tier === 3 && selectionCount > prev) {
+    // ease-out timing so they read as a single beat. Inherited at T4.
+    if (tier >= 3 && selectionCount > prev) {
       oddsBurstControls.start({
         scale: [1, cfg.tier3.oddsAddBurstScale, 1],
         filter: [
