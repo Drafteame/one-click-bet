@@ -185,7 +185,7 @@ export const buttonProgressionConfig = {
       1: 4000,
       2: 3000,
       3: 2000,
-      4: 1500,
+      4: 2200,
     } as Record<number, number>,
   },
 
