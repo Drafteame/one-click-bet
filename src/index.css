@@ -12,7 +12,9 @@ body {
   font-family: 'Red Hat Display', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: radial-gradient(circle at 50% 0%, #1a0f3d 0%, #0a0a0d 60%);
+  /* Matches the Figma newLeagueMarkets card background (pure black) so
+     the card and the surrounding chrome read as one continuous surface. */
+  background: #000000;
   min-height: 100vh;
   overflow-x: hidden;
 }

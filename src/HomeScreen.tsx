@@ -186,11 +186,24 @@ function TabsAndPills() {
 /* ============================================================ */
 /*  Promo carousel — Champions card with PSG vs Real Madrid     */
 /* ============================================================ */
-function PromoCarousel() {
+type PromoCarouselProps = {
+  selectedIds: Set<string>;
+  onTogglePick: (id: string) => void;
+};
+
+function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
   // Card matches Figma "newLeagueMarkets" (1624:44632).
   // Missing asset: the decorative "light" glow blob positioned at the
   // top of the card (imgLight in the Figma export). Skipped here —
   // ask Javier to upload it; placeholder slot left below where it goes.
+  // Each odds button maps to a MOCK_PICKS id so clicking it toggles the
+  // pick into the bet slip, with two visual states (default / selected)
+  // matching Figma nodes 17726:11289 (default) and 1624:44709 (selected).
+  const oddsButtons = [
+    { id: 'psg-w', l: 'PSG', v: '1.75x' },
+    { id: 'draw', l: 'EMPATE', v: '3.80x' },
+    { id: 'rma-w', l: 'RMA', v: '2.75x' },
+  ];
   return (
     <div className="w-full px-3 py-2">
       <div
@@ -270,31 +283,41 @@ function PromoCarousel() {
           </div>
         </div>
 
-        {/* Odds row — 3 buttonsPropsBets, equal width */}
+        {/* Odds row — 3 buttonsPropsBets. Each toggles a MOCK_PICKS id
+            into/out of the bet slip. Selected state replaces the bg with
+            a lime→cyan gradient, swaps the border to solid #d2ff72, and
+            bumps the odds value to Bold. */}
         <div className="flex w-full items-center justify-end gap-1 px-2.5 pb-2.5">
-          {[
-            { l: 'PSG', v: '1.75x' },
-            { l: 'EMPATE', v: '3.80x' },
-            { l: 'RMA', v: '2.75x' },
-          ].map((o) => (
-            <div
-              key={o.l}
-              className="flex h-11 min-w-[58px] flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] px-3 py-1"
-            >
-              <p
-                className="whitespace-nowrap text-center text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
-                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          {oddsButtons.map((o) => {
+            const selected = selectedIds.has(o.id);
+            return (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => onTogglePick(o.id)}
+                className={`flex h-11 min-w-[58px] flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-colors duration-200 ${
+                  selected
+                    ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
+                    : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)]'
+                }`}
               >
-                {o.l}
-              </p>
-              <p
-                className="whitespace-nowrap text-center text-[13px] font-medium leading-4 text-[#fbfbfb]"
-                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-              >
-                {o.v}
-              </p>
-            </div>
-          ))}
+                <span
+                  className="whitespace-nowrap text-center text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
+                  style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                >
+                  {o.l}
+                </span>
+                <span
+                  className={`whitespace-nowrap text-center text-[13px] leading-4 text-[#fbfbfb] ${
+                    selected ? 'font-bold' : 'font-medium'
+                  }`}
+                  style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                >
+                  {o.v}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -483,7 +506,7 @@ export function HomeScreenChrome({
       <Header />
       <LeaguesTab />
       <TabsAndPills />
-      <PromoCarousel />
+      <PromoCarousel selectedIds={selectedIds} onTogglePick={onTogglePick} />
       <MarketAccordion
         picks={picks}
         selectedIds={selectedIds}
