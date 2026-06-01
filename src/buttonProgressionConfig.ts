@@ -171,13 +171,21 @@ export const buttonProgressionConfig = {
   /*  Microinteraction (e): rate scales with tier.                   */
   /* --------------------------------------------------------------- */
   breath: {
-    // Soft inhale/exhale — 1.000 → 1.008 → 1.000.
+    // Soft inhale/exhale — 1.000 → 1.008 → 1.000 (used T1–T3).
     amplitude: 0.008,
-    // Period in ms per tier. Picked: T1 calm, T2 quicker, T3 quicker still.
+    // T4 — more pronounced breath (~2.5× T3's amplitude) so the
+    // legendary tier visibly "inhales" rather than micro-pulses. Falls
+    // back to `amplitude` for any tier not listed.
+    amplitudeByTier: {
+      4: 0.02,
+    } as Record<number, number>,
+    // Period in ms per tier. Picked: T1 calm, T2 quicker, T3 quicker
+    // still, T4 quickest.
     periodByTier: {
       1: 4000,
       2: 3000,
       3: 2000,
+      4: 1500,
     } as Record<number, number>,
   },
 

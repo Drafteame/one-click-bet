@@ -190,8 +190,11 @@ export function ButtonPreviewMomios({
     const period = (cfg.breath.periodByTier[tier] ?? 4000) * speedScale;
     const phase = (t % period) / period;
     breathPhaseRef.current = phase;
-    // Smooth sine: 1 → 1 + amp at 50% → 1 at 100%.
-    breathScale.set(1 + cfg.breath.amplitude * Math.sin(phase * Math.PI * 2));
+    // Per-tier amplitude override (currently T4 only); rest fall back to
+    // the global default. Smooth sine: 1 → 1 + amp at 50% → 1 at 100%.
+    const amp =
+      cfg.breath.amplitudeByTier[tier] ?? cfg.breath.amplitude;
+    breathScale.set(1 + amp * Math.sin(phase * Math.PI * 2));
   });
 
   /* =============================================================== */

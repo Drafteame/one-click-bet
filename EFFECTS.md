@@ -54,6 +54,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Boosted outer glow** — opacity envelope `0.55 → 0.78` (was `0.36 → 0.50` at T3), pulse cycle `3600ms` (was `4800ms`). The conic-gradient swirl reads as visibly more "stoked" than T3.
 - **Subtle white glow on all four numbers** — Bets, Momio, Monto, and Gana all get a `drop-shadow(0 0 4px rgba(255,255,255,0.55))` filter. Light enough not to blur the digits; reads as the numeric set being collectively luminous. At T4 the Gana's purple breath-halo (active at T3) is replaced by this white glow.
 - **Edge-flash sparkles — much denser** — same per-burst behavior as T2 (`1.0`-style flashes around the perimeter), but spawn interval `5500ms → 1300ms` and count `1–3 → 4–8`. Roughly 4× more often, 2× more flashes per burst.
+- **Breathing more pronounced + faster** — amplitude jumps from `0.008` (T1–T3) to `0.020` (~2.5× bigger swing) via `cfg.breath.amplitudeByTier[4]`, and the period drops to `1500ms` (was 2000ms at T3). The pill visibly inhales/exhales instead of micro-pulsing.
 
 ---
 
