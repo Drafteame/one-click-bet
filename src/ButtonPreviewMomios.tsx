@@ -22,6 +22,7 @@ import {
 // BorderLight.tsx is intentionally left on disk in case we revert.
 import { buttonProgressionConfig as cfg } from './buttonProgressionConfig';
 import { OddsSmokeEffect } from './OddsEffects';
+import { OddsRipple } from './OddsRipple';
 import { OutlineRipple } from './OutlineRipple';
 import { playSound } from './playSound';
 import { SlotNumber } from './SlotNumber';
@@ -412,6 +413,13 @@ export function ButtonPreviewMomios({
   const [addBurst, setAddBurst] = useState<number | null>(null); // center radial burst key (all tiers)
   // POLISH PASS — stacked outline ripples. Cap at 3 simultaneous.
   const [outlineRipples, setOutlineRipples] = useState<number[]>([]);
+  // Odds ripples — T3-only ghost copies of the Momio digits that scale
+  // outward + fade on every selection ADD. Each carries its odds-text
+  // snapshot so the ghost doesn't re-render with the latest value mid-
+  // animation.
+  const [oddsRipples, setOddsRipples] = useState<
+    Array<{ id: number; text: string }>
+  >([]);
 
   /* =============================================================== */
   /*  REGRESSION FIX — Odds glow as a TEXT-SHADOW STACK on the real  */
@@ -619,10 +627,12 @@ export function ButtonPreviewMomios({
       playSound('slot-end');
     }, cfg.slotDurationMs);
 
-    // 5. Center radial burst — fires on EVERY selection add, at ALL tiers.
-    //    A white ring radiates from the button center each time a pick
-    //    is added (1→2, 2→3, …). Not tier-gated.
-    if (selectionCount > prev) {
+    // 5. Center radial burst — white ring radiating from the button
+    //    center on every selection add. Active at T0/T1/T2; suppressed
+    //    at T3 because the new OddsRipple + outline ripple together
+    //    cover the "feedback on add" reading and the center ring was
+    //    competing with them.
+    if (selectionCount > prev && tier < 3) {
       const k = Date.now();
       setAddBurst(k);
       playSound('burst');
@@ -632,11 +642,14 @@ export function ButtonPreviewMomios({
       );
     }
 
-    // 6. Tier-3-only add reactions: outline ripple + odds-value burst.
-    if (tier === 3 && selectionCount > prev) {
-      // POLISH PASS — Tier 3 outline ripple from button OUTLINE outward.
+    // 6. T2+ add reactions: outline ripple. T3-only: odds-value burst.
+    if (tier >= 2 && selectionCount > prev) {
+      // Outline ripple fires on every selection ADD while at T2 or T3 —
+      // a ghost border that expands outward from the button outline.
       // Stacks up to outlineRippleMaxStacked when multiple adds happen
-      // rapidly within ~400ms.
+      // rapidly within ~400ms. (Config key still lives under cfg.tier3
+      // because it was introduced there originally — same values used
+      // at T2 for now.)
       const rippleId = performance.now();
       setOutlineRipples((cur) => {
         const next = [...cur, rippleId];
@@ -650,15 +663,43 @@ export function ButtonPreviewMomios({
           setOutlineRipples((cur) => cur.filter((id) => id !== rippleId)),
         cfg.tier3.outlineRippleDurationMs + 60,
       );
+    }
 
-      // POLISH PASS — Tier 3 odds-value burst (in addition to slot anim).
+    // T3-only: odds-value burst on add — scale pop + transient white
+    // drop-shadow flash (the "glow flash on the source" that pairs with
+    // the OddsRipple ghost overlay below). Both share the same 300ms
+    // ease-out timing so they read as a single beat.
+    if (tier === 3 && selectionCount > prev) {
       oddsBurstControls.start({
         scale: [1, cfg.tier3.oddsAddBurstScale, 1],
+        filter: [
+          'drop-shadow(0 0 0px rgba(255,255,255,0))',
+          `drop-shadow(0 0 ${cfg.tier3.oddsAddBurstFlashBlurPx}px rgba(255,255,255,0.9))`,
+          'drop-shadow(0 0 0px rgba(255,255,255,0))',
+        ],
         transition: {
           duration: cfg.tier3.oddsAddBurstDurationMs / 1000,
           ease: 'easeOut',
         },
       });
+
+      // Spawn a ghost copy of the digits that expands outward + fades.
+      // Snapshots the current oddsLabel so the ripple doesn't morph mid-
+      // animation when the SlotNumber rolls to the new value. Caps at
+      // oddsRippleMaxStacked simultaneous ripples on rapid adds.
+      const rippleId = performance.now();
+      const snapshot = oddsLabel;
+      setOddsRipples((cur) => {
+        const next = [...cur, { id: rippleId, text: snapshot }];
+        if (next.length > cfg.tier3.oddsRippleMaxStacked) {
+          return next.slice(next.length - cfg.tier3.oddsRippleMaxStacked);
+        }
+        return next;
+      });
+      setTimeout(
+        () => setOddsRipples((cur) => cur.filter((r) => r.id !== rippleId)),
+        cfg.tier3.oddsRippleDurationMs + 60,
+      );
     }
 
     // Odds text-shadow surge on update — T3 ONLY now (the odds halo
@@ -1172,12 +1213,16 @@ export function ButtonPreviewMomios({
                     <motion.span
                       animate={oddsSettleControls}
                       initial={{ scale: 1 }}
-                      // Glow as a drop-shadow FILTER on this non-clipped
-                      // wrapper → hugs the glyphs instead of clipping into
-                      // per-character boxes.
+                      // Purple drop-shadow glow halo (oddsGlowFilter)
+                      // REMOVED on the Momio — the new white OddsRipple
+                      // + synchronized white drop-shadow flash on add
+                      // now carry the "alive" reading. The motion value
+                      // is still computed because the Gana CTA reads
+                      // its own ganaGlowFilter (separate channel) and
+                      // we may want to re-enable Momio's halo later.
                       style={{
                         display: 'inline-block',
-                        filter: tier >= 3 ? oddsGlowFilter : 'none',
+                        filter: 'none',
                       }}
                     >
                       <SlotNumber
@@ -1192,6 +1237,16 @@ export function ButtonPreviewMomios({
                         }
                       />
                     </motion.span>
+                    {/* Odds ripples (T3 only) — ghost copies of the digit
+                        string overlaying the SlotNumber, scaling outward
+                        and fading on every selection add. Inherits font
+                        from the parent so the ghost glyphs line up. */}
+                    <AnimatePresence>
+                      {!reduced &&
+                        oddsRipples.map((r) => (
+                          <OddsRipple key={r.id} id={r.id} text={r.text} />
+                        ))}
+                    </AnimatePresence>
                   </motion.div>
                 </div>
                 <p
