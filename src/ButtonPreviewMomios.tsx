@@ -380,7 +380,12 @@ export function ButtonPreviewMomios({
             fs.inflowMinPx +
             Math.random() * (fs.inflowMaxPx - fs.inflowMinPx);
           const startDist = perimDist + offset;
-          const endDist = perimDist; // reach the border, then snap out
+          // Aim a few px PAST the perimeter (toward center) so the
+          // streak's bright head clearly crosses the border before
+          // snapping out. The easeIn curve also means position lags
+          // behind time, so a small inward bias is needed for the
+          // disappear to land ON the border visually.
+          const endDist = perimDist - 6;
           fresh.push({
             id: fireSparkIdRef.current++,
             spawnAtMs: now,
@@ -1433,7 +1438,10 @@ export function ButtonPreviewMomios({
                   transition={{
                     duration: s.lifetimeMs / 1000,
                     ease: 'easeIn',
-                    opacity: { times: [0, 0.08, 0.95, 1] },
+                    // Stay bright until 97% of lifetime, then snap to 0
+                    // in the final 3% — so the spark disappears as the
+                    // head reaches the border, not before.
+                    opacity: { times: [0, 0.05, 0.97, 1] },
                   }}
                 />
               ))}
