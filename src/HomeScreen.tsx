@@ -1,4 +1,9 @@
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import betsIcon from './assets/bets.svg';
+import gamingIcon from './assets/gaming.svg';
+import misEntradasIcon from './assets/mis_entradas.svg';
+import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
 import type { Selection } from './types';
 
@@ -438,49 +443,72 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
 }
 
 /* ============================================================ */
-/*  Bottom navbar (visual only)                                 */
+/*  Bottom navbar (Figma "navbar and search" node 1628:42603)   */
+/*  4 tabs (Bets default-selected) + dedicated search button.   */
+/*  Icons sourced from src/assets/ by name-matching the tab id. */
 /* ============================================================ */
 function Navbar() {
-  const items = [
-    { id: 'bets', label: 'Bets', active: true },
-    { id: 'entradas', label: 'Mis entradas', active: false },
-    { id: 'gaming', label: 'Gaming', active: false },
-    { id: 'rewards', label: 'Rewards', active: false },
+  const [activeTab, setActiveTab] = useState<'bets' | 'entradas' | 'gaming' | 'rewards'>('bets');
+  const tabs: Array<{
+    id: 'bets' | 'entradas' | 'gaming' | 'rewards';
+    label: string;
+    icon: string | null;
+  }> = [
+    { id: 'bets', label: 'Bets', icon: betsIcon },
+    { id: 'entradas', label: 'Mis entradas', icon: misEntradasIcon },
+    { id: 'gaming', label: 'Gaming', icon: gamingIcon },
+    // Rewards: no `rewards.svg` in src/assets/ yet. Slot left empty —
+    // awaiting upload. Per project rule (CLAUDE.md): never reinterpret
+    // or substitute icons; wait for the asset.
+    { id: 'rewards', label: 'Rewards', icon: null },
   ];
+
   return (
     <div className="flex w-full items-center gap-2 px-4 pb-4">
-      <div className="flex h-[58px] flex-1 items-center justify-center gap-1 rounded-[56px] border border-white/15 bg-[#191919] p-1.5">
-        {items.map((it) => (
-          <div
-            key={it.id}
-            className={`flex h-[46px] flex-1 flex-col items-center justify-center gap-0.5 rounded-[56px] px-1 ${
-              it.active ? 'bg-white/10' : ''
-            }`}
-          >
-            <div className="h-5 w-5 rounded bg-white/30" />
-            <span
-              className={`text-[10px] font-medium leading-[15px] ${
-                it.active ? 'text-white' : 'text-white/70'
+      {/* Tab pill — 4 tabs in a single rounded container */}
+      <div className="flex h-[58px] flex-1 items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-1.5">
+        {tabs.map((t) => {
+          const isActive = activeTab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={`flex h-[46px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-[56px] px-1 pt-[3px] transition-colors duration-150 active:scale-[0.97] ${
+                isActive ? 'bg-[rgba(251,251,251,0.12)]' : ''
               }`}
             >
-              {it.label}
-            </span>
-          </div>
-        ))}
+              <div className="flex h-5 w-full items-center justify-center">
+                {t.icon ? (
+                  <img src={t.icon} alt="" aria-hidden className="h-5 w-5" />
+                ) : (
+                  // Placeholder while awaiting rewards.svg upload.
+                  <span
+                    className="block h-5 w-5 rounded-full bg-white/15"
+                    aria-hidden
+                  />
+                )}
+              </div>
+              <span
+                className={`whitespace-nowrap text-[10px] font-medium leading-[15px] ${
+                  isActive ? 'text-[#fbfbfb]' : 'text-[rgba(251,251,251,0.7)]'
+                }`}
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {t.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
+
+      {/* Search — separate circular button */}
       <button
-        className="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-white/15 bg-[#191919]"
+        type="button"
         aria-label="Search"
+        className="flex size-[58px] shrink-0 cursor-pointer items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-2.5 transition-colors duration-150 active:scale-[0.97]"
       >
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-          <circle cx="10" cy="10" r="6.5" stroke="white" strokeWidth="1.6" />
-          <path
-            d="M15 15l4 4"
-            stroke="white"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
+        <img src={searchIcon} alt="" aria-hidden className="h-6 w-6" />
       </button>
     </div>
   );
