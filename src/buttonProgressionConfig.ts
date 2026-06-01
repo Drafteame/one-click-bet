@@ -71,24 +71,26 @@ export const buttonProgressionConfig = {
     spawnIntervalMs: 220, // new particle every ~220ms
     spawnCountMin: 1,
     spawnCountMax: 2,
-    // Rise distance (px upward). Kept short so embers stay CLOSE to the
-    // button — like sparks just above a flame, not a tall fountain.
-    riseMinPx: 22,
-    riseMaxPx: 48,
-    // Horizontal drift/sway range (px, ±) — subtle wander.
-    driftMaxPx: 12,
+    // INFLOW MODEL — sparks spawn on a ring around the button (random
+    // angle 0–360°) at some distance OUTSIDE the perimeter, then travel
+    // INWARD and snap out when they reach the border. Replaces the old
+    // upward-rising emitter.
+    // Range of outward offsets from the (ellipse-approximated) perimeter.
+    inflowMinPx: 80,
+    inflowMaxPx: 150,
     // Particle size range (px).
     sizeMinPx: 2,
     sizeMaxPx: 3.5,
-    // Lifetime range (ms) — shorter so embers fade quickly without
-    // drifting far from the source.
+    // Lifetime range (ms) — full inflow journey.
     lifetimeMinMs: 800,
     lifetimeMaxMs: 1400,
     // Cap simultaneous active particles to prevent buildup.
     maxActive: 20,
-    // Spawn origin Y as percentage FROM THE BOTTOM of the button.
-    // [0.85, 1.05] = at or just above the top edge — sparks visibly emerge
-    // from the top of the "fire" and rise into the air just above.
+    // (Legacy outflow fields kept so we can flip back in EXPLORATIONS
+    // without losing the tuning. Not currently read.)
+    riseMinPx: 22,
+    riseMaxPx: 48,
+    driftMaxPx: 12,
     spawnOriginYRangePct: [0.85, 1.05] as [number, number],
   },
 

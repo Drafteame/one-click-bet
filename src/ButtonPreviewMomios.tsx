@@ -332,14 +332,20 @@ export function ButtonPreviewMomios({
   /*  upward past the top edge while fading and shrinking. Like       */
   /*  embers rising from a fire.                                      */
   /* =============================================================== */
+  // INFLOW MODEL — each spark has a polar-coord trajectory: a random
+  // angle around the button, a start distance (just outside the
+  // perimeter), and an end distance (at the perimeter, where it snaps
+  // out). startX/Y and endX/Y are precomputed offsets from the button
+  // center for the render layer.
   type FireSpark = {
     id: number;
     spawnAtMs: number;
-    xPct: number;
-    yPctFromBottom: number;
-    rise: number;
-    drift: number;
-    sway: number;
+    angle: number; // radians, 0 = right, π/2 = down (CSS coords)
+    startX: number;
+    startY: number;
+    endX: number;
+    endY: number;
+    rotationDeg: number; // CSS rotate so the streak head points inward
     size: number;
     lifetimeMs: number;
   };
@@ -352,28 +358,43 @@ export function ButtonPreviewMomios({
     const tick = setInterval(() => {
       setFireSparks((cur) => {
         if (cur.length >= fs.maxActive) return cur;
+        // Half-dimensions for the ellipse perimeter approximation. Fall
+        // back to sensible defaults until the ResizeObserver has fired.
+        const halfW = Math.max(shellSize.w / 2, 50);
+        const halfH = Math.max(shellSize.h / 2, 28);
         const count =
           fs.spawnCountMin +
           Math.floor(Math.random() * (fs.spawnCountMax - fs.spawnCountMin + 1));
         const fresh: FireSpark[] = [];
         const now = performance.now();
         for (let i = 0; i < count; i++) {
+          const angle = Math.random() * 2 * Math.PI;
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+          // Ellipse-perimeter distance at this angle (close enough to a
+          // pill for sparks — exact pill geometry isn't worth the math).
+          const perimDist =
+            (halfW * halfH) /
+            Math.hypot(halfH * cos, halfW * sin);
+          const offset =
+            fs.inflowMinPx +
+            Math.random() * (fs.inflowMaxPx - fs.inflowMinPx);
+          const startDist = perimDist + offset;
+          const endDist = perimDist; // reach the border, then snap out
           fresh.push({
             id: fireSparkIdRef.current++,
             spawnAtMs: now,
-            // Random horizontal position across the button width.
-            xPct: Math.random() * 100,
-            // Random Y origin in the lower portion of the button (so
-            // sparks visibly emerge from inside, not from the very edge).
-            yPctFromBottom:
-              fs.spawnOriginYRangePct[0] +
-              Math.random() *
-                (fs.spawnOriginYRangePct[1] - fs.spawnOriginYRangePct[0]),
-            rise: fs.riseMinPx + Math.random() * (fs.riseMaxPx - fs.riseMinPx),
-            // Random end direction + an independent mid-path sway so each
-            // spark wanders on its own curved path (not a straight line).
-            drift: (Math.random() * 2 - 1) * fs.driftMaxPx,
-            sway: (Math.random() * 2 - 1) * fs.driftMaxPx,
+            angle,
+            startX: startDist * cos,
+            startY: startDist * sin,
+            endX: endDist * cos,
+            endY: endDist * sin,
+            // Streak head (top of the un-rotated element) should point
+            // toward the button center. Derivation: CSS rotate(φ) maps
+            // "up" to (sin φ, -cos φ); we want that = -cos(angle),
+            // -sin(angle) (the inward unit vector). Solves to
+            // φ = angle - π/2.
+            rotationDeg: (angle * 180) / Math.PI - 90,
             size:
               fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
             lifetimeMs:
@@ -385,7 +406,7 @@ export function ButtonPreviewMomios({
       });
     }, cfg.fireSparks.spawnIntervalMs);
     return () => clearInterval(tick);
-  }, [tier, reduced]);
+  }, [tier, reduced, shellSize.w, shellSize.h]);
 
   // GC expired fire sparks so the array doesn't grow unboundedly.
   useEffect(() => {
@@ -1359,22 +1380,19 @@ export function ButtonPreviewMomios({
               </div>
             </div>
           </motion.div>
-          {/* T3 fire sparks — rising embers emitted from the TOP of the
-              button that float upward into the space above it. Rendered
-              OUTSIDE the shell so overflow:hidden doesn't clip them, with
-              an explicit high z-index so they never sit behind any of
-              the shell's overlays. The container itself extends taller
-              than the button so the sparks have room to travel into. */}
+          {/* T3 fire sparks — INFLOW model. Sparks spawn on a ring
+              around the button (random angle 0–360° at 80–150px outside
+              the perimeter) and travel INWARD, snapping out as they
+              reach the border. The wrapper extends 150px beyond the
+              button in all four directions so spawn points have room.
+              Rendered OUTSIDE the shell so overflow:hidden doesn't clip
+              them, and at z-index 50 so they sit above everything. */}
           {tier >= 3 && !reduced && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0"
+              className="pointer-events-none absolute"
               style={{
-                bottom: 0,
-                // Extend just enough above the button to hold the short
-                // ember flight (~50px max rise). Keeping it tight prevents
-                // sparks from "wandering" far from the source.
-                height: 'calc(100% + 60px)',
+                inset: -150,
                 zIndex: 50,
               }}
             >
@@ -1383,32 +1401,39 @@ export function ButtonPreviewMomios({
                   key={s.id}
                   className="absolute rounded-full"
                   style={{
-                    left: `${s.xPct}%`,
-                    // Position in PIXELS relative to BUTTON height (not
-                    // container height — container is taller). Sparks
-                    // emerge at/near the top edge of the actual button.
-                    bottom: s.yPctFromBottom * cfg.borderHeightPx,
+                    // Anchor at the wrapper's center = the button's
+                    // center (wrapper is inset:-150 symmetric around the
+                    // button, so its center coincides with the button's).
+                    // Negative margins center the spark's own bounding
+                    // box on this point; motion `x`/`y` then translate
+                    // the spark to its trajectory positions.
+                    left: '50%',
+                    top: '50%',
+                    marginLeft: -s.size / 2,
+                    marginTop: -(s.size * 5) / 2,
                     width: s.size,
-                    // Elongated vertical streak (head at top, tail fading
-                    // downward) → motion-blur trail as it rises straight up.
                     height: s.size * 5,
+                    // Streak: bright head at the TOP of the un-rotated
+                    // element, fading down to transparent at the tail.
                     background:
                       'linear-gradient(to top, rgba(151,48,255,0) 0%, rgba(151,48,255,0.85) 70%, #9730ff 100%)',
                     boxShadow:
                       '0 0 6px rgba(151,48,255,0.95), 0 0 12px rgba(151,48,255,0.7)',
+                    rotate: s.rotationDeg,
                   }}
-                  initial={{ y: 0, opacity: 0, scale: 1 }}
+                  initial={{ x: s.startX, y: s.startY, opacity: 0 }}
                   animate={{
-                    // Straight up — no horizontal drift, no tilt.
-                    y: -s.rise,
+                    x: s.endX,
+                    y: s.endY,
+                    // Stay bright until very late, then snap to 0 in the
+                    // final 5% of lifetime so reaching the border reads
+                    // as an abrupt absorption rather than a fade.
                     opacity: [0, 1, 1, 0],
-                    scale: [1, 1, 0.7, 0.3],
                   }}
                   transition={{
                     duration: s.lifetimeMs / 1000,
-                    ease: 'easeOut',
-                    opacity: { times: [0, 0.08, 0.65, 1] },
-                    scale: { times: [0, 0.1, 0.7, 1] },
+                    ease: 'easeIn',
+                    opacity: { times: [0, 0.08, 0.95, 1] },
                   }}
                 />
               ))}

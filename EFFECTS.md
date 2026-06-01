@@ -40,7 +40,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Fire-shimmer per-character brightness wave** — vertical white-band gradient on each glyph (Momio + Gana), L→R stagger via `--ci` CSS var (2s cycle).
 - **Gana glow filter** — layered `drop-shadow()` halo on the Gana digits that breathes with the odds value. *(Momio's purple halo was removed — the new OddsRipple + synchronized white flash carry the glow there instead.)*
 - **Glow intensifies** — opacity range 0.36–0.50 (was 0.18–0.26 at T2), faster pulse (4.8s).
-- **Fire-spark emitter** — rising purple embers spawn at the top edge of the button, drift up ~22–48px, fade out (continuous, capped at 20 active).
+- **Fire-spark inflow** — purple embers spawn on a ring all around the button at random angles 0–360°, 80–150px outside the (ellipse-approximated) perimeter, then travel **INWARD** at lifetime 800–1400ms. Each streak rotates to face the direction of motion (head leading). On reaching the border the opacity drops sharply (final 5% of lifetime) so the spark reads as absorbed rather than fading. Continuous, capped at 20 active.
 - **Micro-tremor** — burst-and-quiet (not continuous sine): brief jitter every `cycleMs`, quiet between.
 - **Even faster breathing** — 2000ms period.
 - **Most sparkles** — 2–4 per burst, every 4500ms.
