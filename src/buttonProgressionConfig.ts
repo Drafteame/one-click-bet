@@ -323,7 +323,7 @@ export const buttonProgressionConfig = {
     // ripples feel like one family.
     oddsRippleScalePeak: 1.5,
     oddsRippleOpacityStart: 0.95,
-    oddsRippleDurationMs: 900,
+    oddsRippleDurationMs: 1200,
     oddsRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
     oddsRippleMaxStacked: 3,
     oddsRippleGlowInnerPx: 8,
