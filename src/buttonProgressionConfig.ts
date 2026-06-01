@@ -61,6 +61,10 @@ export const buttonProgressionConfig = {
       1: { intervalMs: 8000, countMin: 1, countMax: 2 },
       2: { intervalMs: 5500, countMin: 1, countMax: 3 },
       3: { intervalMs: 4500, countMin: 2, countMax: 4 },
+      // T4 — same per-burst behavior as T2 (the "edge-flash" look the
+      // user asked for) but at much higher density. Fires roughly
+      // 4× more often with 2× more flashes per burst.
+      4: { intervalMs: 1300, countMin: 4, countMax: 8 },
     } as Record<number, { intervalMs: number; countMin: number; countMax: number }>,
     durationMs: 700, // lifetime of each flash (carried over from tier3.sparkleDurationMs)
   },
@@ -348,6 +352,17 @@ export const buttonProgressionConfig = {
     // always on, never the quiet 1300ms gap between T3 bursts.
     shakeAmplitudePx: 0.3,
     shakeFrequencyHz: 13,
+    // ----- Outer glow boost (was 0.36–0.50 / 4800ms at T3) -----
+    // Brighter envelope + a faster breath cycle so the halo reads as
+    // "stoked" relative to T3's calmer pulse.
+    glowOpacityMin: 0.55,
+    glowOpacityMax: 0.78,
+    glowPulseDurationMs: 3600,
+    // ----- Subtle white glow on all four numbers -----
+    // Applied as a drop-shadow filter on each numeric element's wrapper
+    // (Bets, Momio, Monto, Gana). Keeps text readable; reads as a soft
+    // luminous outline.
+    numberGlow: 'drop-shadow(0 0 4px rgba(255,255,255,0.55))',
     // ----- Fire-sparks overrides (inflow not applicable; outflow only) -----
     // Spawn ~70% more often, more per spawn, shorter lifetime so the
     // sparks visibly RACE upward instead of drifting.

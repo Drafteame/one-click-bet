@@ -218,7 +218,11 @@ export function ButtonPreviewMomios({
     if (reduced || tier < 2) {
       glowProgress.set(0);
     } else {
-      const cur = tier >= 3 ? cfg.tier3 : cfg.tier2;
+      // T4 has its own brighter range + faster pulse; T3 keeps the
+      // original calmer halo; T2 keeps its dim base. Each tier's
+      // glow params live in cfg.tier{N}.
+      const cur =
+        tier === 4 ? cfg.tier4 : tier >= 3 ? cfg.tier3 : cfg.tier2;
       const dur = cur.glowPulseDurationMs * speedScale;
       const phase = (t % dur) / dur;
       const env = (1 - Math.cos(phase * Math.PI * 2)) / 2;
@@ -1182,6 +1186,8 @@ export function ButtonPreviewMomios({
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
+                    // T4 — subtle white drop-shadow glow on each numeric.
+                    filter: tier === 4 ? cfg.tier4.numberGlow : 'none',
                   }}
                 >
                   <SlotNumber value={String(selectionCount)} reducedMotion={reduced} />
@@ -1236,16 +1242,14 @@ export function ButtonPreviewMomios({
                     <motion.span
                       animate={oddsSettleControls}
                       initial={{ scale: 1 }}
-                      // Purple drop-shadow glow halo (oddsGlowFilter)
-                      // REMOVED on the Momio — the new white OddsRipple
-                      // + synchronized white drop-shadow flash on add
-                      // now carry the "alive" reading. The motion value
-                      // is still computed because the Gana CTA reads
-                      // its own ganaGlowFilter (separate channel) and
-                      // we may want to re-enable Momio's halo later.
+                      // Purple drop-shadow halo stays REMOVED at T3.
+                      // T4 adds a subtle WHITE drop-shadow glow on the
+                      // Momio digits — same `numberGlow` filter used on
+                      // Bets / Monto / Gana so all four numbers read as
+                      // a quietly luminous set at T4.
                       style={{
                         display: 'inline-block',
-                        filter: 'none',
+                        filter: tier === 4 ? cfg.tier4.numberGlow : 'none',
                       }}
                     >
                       <SlotNumber
@@ -1296,6 +1300,8 @@ export function ButtonPreviewMomios({
                     fontSize: 14,
                     lineHeight: '21px',
                     color: '#fbfbfb',
+                    // T4 — subtle white drop-shadow glow.
+                    filter: tier === 4 ? cfg.tier4.numberGlow : 'none',
                   }}
                 >
                   ${stake}
@@ -1343,8 +1349,17 @@ export function ButtonPreviewMomios({
                     lineHeight: '21px',
                     color: '#fbfbfb',
                     // Glow as a drop-shadow FILTER (not text-shadow) so it
-                    // hugs the glyphs instead of clipping into boxes.
-                    filter: tier >= 3 ? ganaGlowFilter : 'none',
+                    // hugs the glyphs instead of clipping into boxes. At
+                    // T4 the purple breath-halo is replaced by the same
+                    // subtle white glow used on the other three numbers
+                    // — so the whole numeric set reads as one luminous
+                    // group with the gold sweep on top.
+                    filter:
+                      tier === 4
+                        ? cfg.tier4.numberGlow
+                        : tier >= 3
+                          ? ganaGlowFilter
+                          : 'none',
                   }}
                 >
                   <SlotNumber

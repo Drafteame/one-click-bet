@@ -52,6 +52,9 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Fire-spark emitter — denser + faster** — overrides the T3 outflow values: spawn interval 220ms → 130ms, count 1–2 → 2–3, lifetime 800–1400ms → 500–900ms, max active 20 → 32. Sparks race upward in a thicker stream instead of drifting calmly.
 - **Continuous subtle shake on the button** — the T3 burst-tremor (active for ~220ms every 1500ms) is replaced at T4 by a continuous shake at the SAME amplitude (0.3px) and a slightly faster 13Hz. The differentiator is that the shake is always on (never the quiet 1300ms gap between T3 bursts) — not that it's stronger. Tunables: `cfg.tier4.shakeAmplitudePx`, `cfg.tier4.shakeFrequencyHz`.
 - **Gana sweeping shine turns gold** — the Gana digits stay **white** at rest; only the moving band of the per-character shimmer wave is gold (`#FFD700`). Implemented via `.fire-shimmer-gold` (gradient `#FFF → #FFD700 → #FFF` vertical). Momio's wave stays lavender-white.
+- **Boosted outer glow** — opacity envelope `0.55 → 0.78` (was `0.36 → 0.50` at T3), pulse cycle `3600ms` (was `4800ms`). The conic-gradient swirl reads as visibly more "stoked" than T3.
+- **Subtle white glow on all four numbers** — Bets, Momio, Monto, and Gana all get a `drop-shadow(0 0 4px rgba(255,255,255,0.55))` filter. Light enough not to blur the digits; reads as the numeric set being collectively luminous. At T4 the Gana's purple breath-halo (active at T3) is replaced by this white glow.
+- **Edge-flash sparkles — much denser** — same per-burst behavior as T2 (`1.0`-style flashes around the perimeter), but spawn interval `5500ms → 1300ms` and count `1–3 → 4–8`. Roughly 4× more often, 2× more flashes per burst.
 
 ---
 
