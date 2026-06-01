@@ -1,75 +1,183 @@
 # Effects catalog — buttonPreviewMomios
 
-A running list of every animation, microinteraction, and motion behavior in the prototype. Grouped by tier (each tier is **additive** on top of the lower tiers) plus the cross-cutting categories at the bottom.
+A running list of every animation, microinteraction, transition, and motion behavior in the prototype. Grouped by tier (each tier is **additive** on top of the lower tiers), then by **cross-cutting** sections (tier-crossing flourishes, bet-slip lifecycle, accessibility).
 
-> Keep this file in sync. Whenever an effect is added, removed, retuned, or moved between tiers, update the relevant section here in the same commit.
+> Keep this file in sync. Whenever an effect is added, removed, retuned, or moved between tiers, update the relevant section here in the **same commit**.
+
+> Conventions used below:
+> - **Ambient** = always running while the tier is active (loop, frame-driven, or CSS-keyframe).
+> - **On-event** = fires in response to a user action (mostly selection add/remove).
+> - **One-shot** = fires once on a specific transition (tier crossing, mount/unmount, etc.).
+> - "T*N*+" means inherited at every higher tier; "T*N* only" means exclusive to that tier.
 
 ---
 
 ## T0 — Default *(odds < 2.00x)*
 
-- **Slot-style per-digit counter** — selection count and odds animate per-character; digits that change unmount/remount, static glyphs stay put.
-- **Press feedback** — scale 0.97 on press, spring back on release.
-- **Anticipation compress** — 0.99 scale, 40ms, before each slot roll (gives digit motion physical weight).
-- **Settle overshoot** — digit lands at 1.04 scale and settles back *(microinteraction d)*.
-- **Recoil** — slip pushed down 4px on every selection add/remove, springs back (slightly bouncy).
-- **Center radial burst on add** — a white ring radiates from the button center on every selection add. Active at T0/T1/T2. *Suppressed at T3* (the OddsRipple + outline ripple together cover the on-add feedback there, and the center ring was competing with them.)
-- Static 1px `#4b20ff` border, flat `#191919` background, `#4b20ff → #9730ff` Gana CTA gradient.
+**Static styling**
+- Flat `#191919` background, 1px static `#4b20ff` border, `linear-gradient(58.9°, #4b20ff → #9730ff)` Gana CTA.
+
+**Always-on at any tier**
+- **Slot-style per-digit counter** *(ambient + on-update)* — selection count and odds animate per character. Digits that change unmount/remount with vertical slide+fade; static glyphs (`.`, `x`, `$`, ` `) don't animate. Stable per-position key (`{i}-{value}`) so React only re-renders the changed glyphs.
+- **Press feedback** *(on-event)* — scale `0.97` on press, spring back on release (Framer Motion `whileTap`).
+- **Anticipation compress** *(on-event)* — `0.99` scale, 40ms, immediately before each slot roll. Gives digits physical weight.
+- **Settle overshoot** *(on-event, microinteraction d)* — after a slot lands, the digit briefly overshoots to `1.04` scale (120ms) before settling. Driven by `oddsSettleControls`.
+- **Recoil** *(on-event)* — on every selection add OR remove (after the initial 0→1 mount), the slip is pushed down 4px and springs back with bounce (stiffness 260, damping 14, mass 0.7).
+
+**On selection add (T0–T2 — suppressed at T3+)**
+- **Center radial burst** — a white outline ring (`box-shadow: 0 0 0 1.5px rgba(255,255,255,0.8)`) radiates from the button center, scaling from 1px → 60px while fading to 0 over 500ms (ease-out). Active at T0/T1/T2; **suppressed at T3+** because the OddsRipple + outline ripple cover the same on-add feedback role there.
 
 ## T1 — *Intermedio* *(≥ 2.00x)*
 
-- **Ambient breathing** — slow inhale/exhale, 4000ms period, amplitude 0.008 *(microinteraction e)*.
-- **Count badge pulse** — text-shadow flash on the Bets number whenever `selectionCount` changes.
-- **Edge-flash sparkles** — 1–2 per burst, every 8000ms.
+- **Ambient breathing** *(ambient, microinteraction e)* — soft sine inhale/exhale, `1.000 → 1.008 → 1.000` on the slip. Period **4000ms** at T1 (scales per tier — see comparison table).
+- **Count badge pulse** *(on-event)* — the Bets number's `text-shadow` flashes purple briefly whenever `selectionCount` changes (~1.4× of base). Driven by Framer Motion `animate` keyed on count.
+- **Edge-flash sparkles** *(ambient)* — small white circles flash at random points around the perimeter. T1 cadence: 1–2 per burst every 8000ms (700ms lifetime each). Density scales per tier — see table.
 
 ## T2 — *Súper* *(≥ 5.00x)*
 
-- **Background crossfade** to the purple gradient (`#14083d → #230c3e → #5224f1`) — 500ms ease at the T1↔T2 boundary *(smoothed)*.
-- **Gana CTA upgrade** — gradient end shifts to `#a954ff`, adds `drop-shadow(0 2px 6px rgba(29,11,68,0.3))`.
-- **Outer glow** — diffuse blurred sibling element, Apple Intelligence–style conic-gradient swirl (`#4E7BFF` + `#9730FF`, 7s); opacity breathes between 0.18 and 0.26.
-- **Glow flash on odds update** — +40% boost for the flash duration.
-- **Border stroke shine sweep** — SVG `linearGradient` traveling L→R along the 1px border, peak `#dcb0ff`, 2.8s cycle, 2.5px stroke @ ~30% opacity.
-- **Faster breathing** — 3000ms period.
-- **More frequent sparkles** — 1–3, every 5500ms.
-- **Lerp-smoothed glow opacity** — 250ms half-life when entering/leaving T2 *(smoothed)*.
-- **Outline ripple** — on every selection ADD, a ghost border expands outward from the button outline and fades. Stacks up to a few simultaneous ripples on rapid adds. Inherited at T3.
+**Ambient**
+- **Background crossfade** *(transition at T1↔T2)* — a `linear-gradient(to right, #14083d → #230c3e → #5224f1)` overlay fades in over 500ms ease-out at the T1↔T2 boundary. The shell underneath keeps flat `#191919` as base. Smoothed cross-fade, no instant flip.
+- **Gana CTA upgrade** — gradient end-stop shifts to `#a954ff`, and a `drop-shadow(0 2px 6px rgba(29,11,68,0.3))` is added. Stays at all higher tiers.
+- **Outer glow swirl** — diffuse blurred sibling element (Apple Intelligence–style `conic-gradient(#4E7BFF, #9730FF, ...)` with an `@property --glow-angle` rotated continuously, 7s cycle). Masked by a radial-ellipse so it falls off softly at the slip's vertical edges. Opacity envelope breathes between 0.18 and 0.26 on a 6000ms cycle.
+- **Border stroke shine sweep** — SVG `linearGradient` with stops `#a954ff → #c98fff → #dcb0ff (peak) → #c98fff → #a954ff` travels L→R along the 1px border. T2: 2800ms cycle, 2.5px stroke, ~30% opacity. T3: 2000ms, 1.5px, full opacity.
+- **Faster breathing** — period drops from 4000ms (T1) → **3000ms** at T2.
+- **More frequent sparkles** — T2: 1–3 per burst every 5500ms (denser than T1).
+- **Lerp-smoothed outer-glow opacity** — `glowOpacity` motion value passes through a low-pass filter (factor 0.08, ~250ms half-life) so tier-boundary changes ease into/out of 0 instead of snapping. Tracks the breath envelope without perceptible lag.
+
+**On selection add**
+- **Glow flash on update** — outer glow opacity gets a +40% boost for `tier2.glowFlashDurationMs`, multiplied by a decay factor `k = (flashUntil − now) / duration` so the flash visibly fades back.
+- **Outline ripple** *(on-event, T2+)* — a ghost border (purple `#9730ff` stroke) expands outward from the pill outline. Initial scale `1`, peak `1.18`, opacity `0.85 → 0`, stroke 3px → 1px, 600ms with cubic ease `[0.16, 1, 0.3, 1]`. Stacks up to 3 simultaneous ripples on rapid adds; older drop off. *Inherited at T3+.*
 
 ## T3 — *Máximo* *(≥ 15.00x)*
 
-- **Italic typography** — the four numbers (Bets, Momio, Monto, Gana) switch to Red Hat Display **Black Italic** (matches the Figma "Buscador" component).
-- **Fire-shimmer per-character brightness wave** — vertical white-band gradient on each glyph (Momio + Gana), L→R stagger via `--ci` CSS var (2s cycle).
-- **Gana glow filter** — layered `drop-shadow()` halo on the Gana digits that breathes with the odds value. *(Momio's purple halo was removed — the new OddsRipple + synchronized white flash carry the glow there instead.)*
-- **Glow intensifies** — opacity range 0.36–0.50 (was 0.18–0.26 at T2), faster pulse (4.8s).
-- **Fire-spark emitter** — rising purple embers spawn at the top edge of the button, drift up ~22–48px, fade out (continuous, capped at 20 active).
-- **Micro-tremor** — burst-and-quiet (not continuous sine): brief jitter every `cycleMs`, quiet between.
-- **Even faster breathing** — 2000ms period.
-- **Most sparkles** — 2–4 per burst, every 4500ms.
-- **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1.5px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
-- **Odds ripple** — on every selection ADD, a ghost copy of the Momio digits scales outward (~1.5×) and fades over 1200ms, white with a soft white glow (text-shadow). Pairs with a synchronized white drop-shadow flash on the source digits (300ms ease-out) so the source briefly brightens as the ghost emanates outward. Stacks up to 3 simultaneous ripples on rapid adds. *Inherited at T4.*
+**Typography**
+- **Italic Black** — the four bet-slip numbers (Bets, Momio, Monto, Gana) switch to Red Hat Display **Black Italic** (900 weight, italic), matching the Figma "Buscador" component. *Inherited at T4.*
+
+**Ambient (T3 only — most of these scale at T4 via overrides)**
+- **Per-character brightness wave** on the Momio and Gana digits — vertical white-band gradient (`fire-shimmer` + `odds-char-wave` CSS classes) sweeps top-to-bottom over each glyph on a 2s cycle, with a 150ms-per-character L→R stagger driven by the SlotNumber's `--ci` CSS var. *Inherited at T4.*
+- **Gana glow filter (halo)** — layered `drop-shadow()` halo around the Gana digits whose intensity breathes on a 2000ms cycle (`ganaGlowFilter` motion value). Scaled to 0.7× of the underlying odds-halo intensity via `cfg.tier3.ganaGlowScaleDown`. *Momio's purple halo was removed* — at T3 Momio has no breathing halo (the per-character wave + OddsRipple carry it instead). At T4, the Gana halo is replaced by the white `numberGlow` (see T4).
+- **Odds halo flicker (flames variant — default)** — a 5th layer on top of the 4-layer `drop-shadow` stack uses a fast deterministic sum-of-3-sines (8.3 / 13.7 / 19.1 Hz, weighted 0.45 / 0.35 / 0.20) for "flames" flicker between 30–70% opacity. Reproducible, pausable for `prefers-reduced-motion`.
+- **Odds halo (smoke variant)** — alternative T3 odds effect (`tier3OddsEffect: 'smoke'`, togglable in the debug overlay). Rises blurred purple smoke blobs behind the digits at 350ms spawn interval, lifetime 1800–2400ms, size 8–14px, peak opacity 0.08–0.15, scale grows to 1.6×, layer-level 3px blur. Caps at 12 active.
+- **Glow intensifies (outer)** — opacity envelope `0.36 → 0.50` (was 0.18–0.26 at T2). Faster pulse — 4800ms cycle (was 6000ms).
+- **Inner rim glow** — a separate `innerRimOpacity` motion value runs the same breath cycle as the outer glow but **phase-offset** by `cfg.tier2.innerRimPhaseOffsetMs`. Renders as an inset ring brightness that interleaves with the outer glow (one waxes while the other wanes).
+- **Border stroke sweep brightens but thins** — same SVG sweep as T2, full opacity, faster (2000ms cycle), but the rect's strokeWidth drops from 2.5px to **1.5px** so the brighter pixel weight matches T2's dim-stroke perceived thickness.
+- **Fire-spark emitter (outflow)** — small purple streaks spawn at the top edge of the pill and rise straight up, fading. T3 cadence: 1–2 per spawn every 220ms, rise 22–48px, drift ±12px, size 2–3.5px, lifetime 800–1400ms, max 20 active. *Overridden at T4* (denser + faster).
+- **Micro-tremor (intermittent)** — sub-pixel X/Y jitter on the pill: amplitude 0.3px, frequency 12Hz, with a burst envelope — active 220ms every 1500ms (quiet between), so it reads as alive rather than buzzing. Inner sin-wave is enveloped by `sin(phase / burstMs * π)` to fade in/out of each burst. **T3 only — T4 has no shake.**
+- **Even faster breathing** — period drops to **2000ms** at T3.
+- **Most sparkles** (within T3 family) — 2–4 per burst every 4500ms.
+- **Magnetic pointer attraction** — when the cursor is within 60px of the button, the slip translates up to 3px toward the pointer. Spring-damped (stiffness 280, damping 28). **T3 only.**
+
+**On selection add (T3+)**
+- **Odds-value add-burst** — the Momio digits get a one-shot scale pop `1 → 1.08 → 1` over 300ms ease-out, paired with a synchronized **white `drop-shadow` flash** on the source digits (`drop-shadow(0 0 14px rgba(255,255,255,0.9))`, same 300ms timing). Driven by `oddsBurstControls`.
+- **OddsRipple — ghost-text ripple** — a white ghost copy of the Momio digits is snapshotted from the current odds string, rendered as absolute overlay, scaled `1 → 1.5` from the text center, opacity `0.95 → 0` over **1200ms** with cubic ease `[0.16, 1, 0.3, 1]`. Pairs with the white source flash above so the source briefly brightens as the ghost emanates outward. Stacks up to 3 simultaneous ripples on rapid adds; each snapshots its odds text at spawn so it doesn't morph mid-animation. *Inherited at T4.*
+- **Odds halo update surge** — `oddsHaloOverrideMultRef` boosts the breathing halo to 2.0× (i.e. +100%) for `cfg.tier2.oddsHaloUpdateDurationMs`, then fades back. Reinforces the on-add moment with extra ambient glow.
+
+**On entering T3 (T2 → T3 crossing, one-shot)**
+- **Weight-gain anchor** — the Momio digits drop 1px (`weightAnchorY` translate) AND gain a purple text-shadow underneath, then settle back to 0 over `cfg.tier2.weightAnchorDurationMs` with an ease-out × decay envelope. Reads as "the number suddenly has weight". Fires only on the up-cross into T3.
 
 ## T4 — *Legendario* *(≥ 50.00x)*
 
-- **Fire-spark emitter — denser + faster** — overrides the T3 outflow values: spawn interval 220ms → 130ms, count 1–2 → 2–3, lifetime 800–1400ms → 500–900ms, max active 20 → 32. Sparks race upward in a thicker stream instead of drifting calmly.
-- **Boosted outer glow** — opacity envelope `0.55 → 0.78` (was `0.36 → 0.50` at T3), pulse cycle `3600ms` (was `4800ms`). The conic-gradient swirl reads as visibly more "stoked" than T3.
-- **Subtle white glow on all four numbers** — Bets, Momio, Monto, and Gana all get a `drop-shadow(0 0 4px rgba(255,255,255,0.55))` filter. Light enough not to blur the digits; reads as the numeric set being collectively luminous. At T4 the Gana's purple breath-halo (active at T3) is replaced by this white glow.
-- **Edge-flash sparkles — much denser** — same per-burst behavior as T2 (`1.0`-style flashes around the perimeter), but spawn interval `5500ms → 1300ms` and count `1–3 → 4–8`. Roughly 4× more often, 2× more flashes per burst.
-- **Breathing more pronounced** — amplitude jumps from `0.008` (T1–T3) to `0.020` (~2.5× bigger swing) via `cfg.breath.amplitudeByTier[4]`. Period is a gentle `2200ms` (a touch slower than T3's 2000ms) so the larger swing reads as a deep inhale rather than a fast pulse.
+Everything from T3 stays. T4 layers on top:
+
+- **Fire-spark emitter — denser + faster** *(ambient override)* — spawn interval `220ms → 130ms`, count `1–2 → 2–3`, lifetime `800–1400ms → 500–900ms`, max active `20 → 32`. Streaks race upward in a thicker stream.
+- **Boosted outer glow** — opacity envelope `0.55 → 0.78` (was 0.36–0.50 at T3), pulse cycle `3600ms` (was 4800ms). Reads as visibly more "stoked".
+- **Subtle white glow on all four numbers** — `drop-shadow(0 0 4px rgba(255,255,255,0.55))` filter applied to Bets, Momio, Monto, AND Gana wrappers. Light enough not to blur the digits. At T4 this **replaces** Gana's purple `ganaGlowFilter` halo so the four numbers read as one luminous group.
+- **Edge-flash sparkles — much denser** — same per-burst look as T2, but spawn interval `5500ms → 1300ms` (≈4× more often) and count `1–3 → 4–8` (≈2× per burst).
+- **Breathing more pronounced** — amplitude jumps from `0.008` (T1–T3) to **`0.020`** (~2.5× swing) via `cfg.breath.amplitudeByTier[4]`. Period **2200ms** (a touch slower than T3's 2000ms) so the larger swing reads as a deep inhale rather than a fast pulse.
+- **OddsRipple inherited** — the ghost-text ripple + source flash on add fires at T4 (gate widened from `tier === 3` to `tier >= 3`).
+- **Outline ripple inherited** — same behavior as T2/T3.
+- **No micro-tremor** — T3's burst-tremor is intentionally not inherited. The shake tuning is parked on the `tier_4` branch in case we want to revisit.
+- *No font/color shift on the digits at T4 — the typography stays italic 900 in white. Color escalation continues to come from glow + sparks + breath, not the digit color itself.*
+
+---
+
+## Per-tier comparison tables
+
+### Outer glow
+
+| Tier | Opacity range | Pulse cycle |
+|---|---|---|
+| T0/T1 | (off) | — |
+| T2 | 0.18 – 0.26 | 6000ms |
+| T3 | 0.36 – 0.50 | 4800ms |
+| T4 | 0.55 – 0.78 | 3600ms |
+
+### Breathing
+
+| Tier | Amplitude | Period |
+|---|---|---|
+| T0 | — | — |
+| T1 | 0.008 | 4000ms |
+| T2 | 0.008 | 3000ms |
+| T3 | 0.008 | 2000ms |
+| T4 | **0.020** | 2200ms |
+
+### Edge-flash sparkles
+
+| Tier | Count / burst | Interval |
+|---|---|---|
+| T0 | (off) | — |
+| T1 | 1 – 2 | 8000ms |
+| T2 | 1 – 3 | 5500ms |
+| T3 | 2 – 4 | 4500ms |
+| T4 | **4 – 8** | **1300ms** |
+
+### Fire-spark emitter (T3+ only)
+
+| Tier | Spawn interval | Count / spawn | Lifetime | Max active |
+|---|---|---|---|---|
+| T3 | 220ms | 1 – 2 | 800 – 1400ms | 20 |
+| T4 | 130ms | 2 – 3 | 500 – 900ms | 32 |
+
+### Border stroke shine sweep (T2+ only)
+
+| Tier | Cycle | Stroke width | Opacity |
+|---|---|---|---|
+| T2 | 2800ms | 2.5px | ~0.3 |
+| T3 / T4 | 2000ms | 1.5px | 1.0 |
 
 ---
 
 ## Tier-crossing flourishes *(one-shot)*
 
-- **Up-cross** — radial bloom at center, collision flash at bottom-center, one floating sparkle, scale pulse, border-glow surge.
-- **Down-cross** — quick down-sweep.
+Fire on any tier change (`prevTier → newTier` mismatch in `useEffect`), captured by a `crossing` state that auto-clears after the longest sub-effect's lifetime.
 
-## Bet-slip lifecycle
+**Up-cross** *(prevTier → higherTier)*
+- **Radial bloom** — large purple radial gradient from button center. Scale `1 → 1.6 × 6` (visually filling the area), opacity `0 → 0.4 → 0` over 650ms ease-out.
+- **Collision flash** — white radial burst at bottom-center of the pill, 300ms after the cross. Scale `0.3 → 1.1 → 0.9`, opacity `0 → 1 → 0` over 220ms ease-out, with a 2px blur. Reads as "two light heads meeting" even though the orbital heads were removed.
+- **Floating sparkle** — single 3px white dot floats up from the collision point ~18px over 800ms while fading. Stays close to the button.
+- **Scale pulse** — button scales `1 → 1.06 → 1` with a bumpy spring (stiffness 320, damping 11) over 450ms.
+- **Border-glow surge** — the shell's `borderBoxShadow` motion value gets multiplied by ~3× via `borderOverride` refs for 700ms, then fades back. Reinforces the "tier-up payoff" beat.
+- **Tier-up sound** — `playSound('tier-up')` no-op hook (audio call site, currently unimplemented).
 
-- **Bouncy entry** on first mount (`BetSlipShell` wrapper).
-- **Velocity-derived landing squash** when entering.
-- **AnimatePresence** with `mode="wait"` and a reserved 88px slot so the navbar doesn't shift on enter/leave.
-- **Springy recoil** queued on re-adds after the first.
+**Down-cross** *(prevTier → lowerTier)*
+- **Border-glow dim** — the inverse of the up-cross surge: `borderBoxShadow` is multiplied by ~0.25 for `downSweepDurationMs` (600ms) then returns. Quiet acknowledgment of the drop.
+- **Tier-down sound** — `playSound('tier-down')` no-op.
+
+---
+
+## Bet-slip lifecycle (BetSlipShell wrapper)
+
+Drives the slip's entry/exit when `selectionCount` crosses 0↔1.
+
+- **Bouncy entry on first mount** — on the very first 0→1 transition in a session, the slip enters with a spring from Y `+80px` (below) → `0`, scale `0.85 → 1.0`, opacity `0 → 1`. Spring config: stiffness 260, damping 14, mass 0.7. The `onMounted` callback flips the `hasBouncedOnceRef` so subsequent re-adds **skip** the bounce.
+- **Velocity-derived landing squash** — during the spring descent, the slip's `y` velocity drives a brief `scaleY` compress + `scaleX` stretch via `useTransform([velocity], ...)`. Reads as the slip "squashing" as it lands.
+- **AnimatePresence with reserved 88px slot** — the slip mounts/unmounts inside an `AnimatePresence mode="wait"` wrapper that holds an 88px-tall reserved region so the navbar below doesn't shift when the slip enters/leaves.
+- **Sharp exit** — on 1→0, the slip drops out to Y `+30px`, scale `0.4`, opacity `0` over 280ms with curve `[0.7, 0, 0.84, 0]` (fast accelerate-out); opacity finishes earlier (200ms).
+- **Springy recoil on subsequent adds/removes** — once mounted, every selection add or remove triggers the recoil push-down 4px + spring-back described under T0 (no bounce on the initial mount; only on re-adds).
+
+---
 
 ## Accessibility
 
-- `prefers-reduced-motion` disables tremor, shimmer, sparks, and all CSS keyframes.
-- All ambient effects throttleable via `?debug=true` overlay (speedScale 1× or 3×, T3 odds effect: flames / smoke).
+- **`prefers-reduced-motion: reduce`** disables:
+  - Tremor, all fire-shimmer / per-character brightness wave keyframes (`@media (prefers-reduced-motion: reduce) { .fire-shimmer, .odds-char-wave { animation: none; } }`)
+  - Edge-flash sparkles + fire-spark emitter (gated by `reduced` early-return in their effect hooks)
+  - Outer glow swirl rotation (`@media ... { .outer-glow-swirl { animation: none; } }`)
+- **Slot rolls survive but compressed** — `cfg.reducedMotionSlotDurationMs` (180ms) replaces the normal 380ms so digit changes still read but don't dwell.
+- **All ambient effects throttleable** via `?debug=true` overlay (1× normal or 3× slow speed). Each tier has a jump-to-tier button (T0–T4) that auto-selects a pre-built combo from `selectionsForTier(N)` in App.tsx.
+- **T3 odds effect togglable** at runtime — `flames` (default, layered drop-shadow halo with flicker) or `smoke` (rising blurred blobs). Lives in `cfg.tier3OddsEffect`.
+
+---
+
+*If something significant changes — an effect is added, removed, moved between tiers, retuned, or its gate condition changes — update this file in the same commit. The `audit` agent prompt that produced the current version is preserved in chat history if a full re-audit is needed later.*
