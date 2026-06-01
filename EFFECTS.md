@@ -50,8 +50,8 @@ A running list of every animation, microinteraction, and motion behavior in the 
 ## T4 — *Legendario* *(≥ 50.00x)*
 
 - **Fire-spark emitter — denser + faster** — overrides the T3 outflow values: spawn interval 220ms → 130ms, count 1–2 → 2–3, lifetime 800–1400ms → 500–900ms, max active 20 → 32. Sparks race upward in a thicker stream instead of drifting calmly.
-- **Continuous subtle shake on the button** — the T3 burst-tremor (active for ~220ms every 1500ms) is replaced by a continuous shake at amplitude ~0.6px (was 0.3px) and 14Hz (was 12Hz). Always-on but still subtle. Tunables: `cfg.tier4.shakeAmplitudePx`, `cfg.tier4.shakeFrequencyHz`.
-- **Gana shimmer wave turns gold** — the per-character brightness wave on the winning amount swaps from lavender-white (`fire-shimmer`) to a warm metallic gold gradient (`fire-shimmer-gold`, `#DAA520 → #FFD700`). Momio's wave stays lavender-white.
+- **Continuous subtle shake on the button** — the T3 burst-tremor (active for ~220ms every 1500ms) is replaced at T4 by a continuous shake at the SAME amplitude (0.3px) and a slightly faster 13Hz. The differentiator is that the shake is always on (never the quiet 1300ms gap between T3 bursts) — not that it's stronger. Tunables: `cfg.tier4.shakeAmplitudePx`, `cfg.tier4.shakeFrequencyHz`.
+- **Gana sweeping shine turns gold** — the Gana digits stay **white** at rest; only the moving band of the per-character shimmer wave is gold (`#FFD700`). Implemented via `.fire-shimmer-gold` (gradient `#FFF → #FFD700 → #FFF` vertical). Momio's wave stays lavender-white.
 
 ---
 

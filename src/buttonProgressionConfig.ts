@@ -343,10 +343,11 @@ export const buttonProgressionConfig = {
   /*    3. Gana CTA shimmer wave turns gold (see .fire-shimmer-gold).*/
   /* --------------------------------------------------------------- */
   tier4: {
-    // Continuous shake — no intermittence gap, slightly stronger
-    // amplitude than T3's burst-tremor. Still subtle by design.
-    shakeAmplitudePx: 0.6, // was 0.3 at T3 (burst-only); here always on.
-    shakeFrequencyHz: 14, // a touch faster than T3's 12Hz.
+    // Continuous shake — no intermittence gap. Same amplitude as T3
+    // (0.3px) so it stays subtle; the differentiator is that it's
+    // always on, never the quiet 1300ms gap between T3 bursts.
+    shakeAmplitudePx: 0.3,
+    shakeFrequencyHz: 13,
     // ----- Fire-sparks overrides (inflow not applicable; outflow only) -----
     // Spawn ~70% more often, more per spawn, shorter lifetime so the
     // sparks visibly RACE upward instead of drifting.

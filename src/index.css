@@ -116,19 +116,20 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
-/*  TIER 4 — Gold shimmer variant for the Gana CTA                  */
-/*  Same vertical-band animation as .fire-shimmer, but a warm        */
-/*  metallic gradient (#DAA520 → #FFD700) so the wave reads as       */
-/*  polished gold instead of lavender-white.                         */
+/*  TIER 4 — Gold sweeping-shine variant for the Gana CTA           */
+/*  Text BASE color stays white; only the moving band turns gold     */
+/*  (#FFD700) — so the digits read as plain white at rest and a      */
+/*  gold streak sweeps vertically through them on the same 2s loop   */
+/*  as the standard fire-shimmer.                                    */
 /* ---------------------------------------------------------------- */
 .fire-shimmer-gold {
   background-image: linear-gradient(
     180deg,
-    #daa520 0%,
-    #daa520 42%,
+    #ffffff 0%,
+    #ffffff 42%,
     #ffd700 50%,
-    #daa520 58%,
-    #daa520 100%
+    #ffffff 58%,
+    #ffffff 100%
   );
   background-size: 100% 300%;
   background-position: 50% 0%;
@@ -155,8 +156,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .fire-shimmer-gold {
     animation: none;
-    color: #ffd700;
-    -webkit-text-fill-color: #ffd700;
+    /* Rest state = plain white, matching the rest of the text. */
+    color: #ffffff;
+    -webkit-text-fill-color: #ffffff;
   }
 }
 
