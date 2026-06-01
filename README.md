@@ -1,9 +1,11 @@
 # buttonPreviewMomios — progressive engagement prototype
 
+> **Working in Claude Code?** Read [`CLAUDE.md`](./CLAUDE.md) first — it has the architecture, file map, tier system, branch model, conventions, and gotchas the AI needs to be efficient in this repo. Auto-loaded by any Claude session opened here. See also [`EFFECTS.md`](./EFFECTS.md) for the canonical effect catalog.
+
 High-fidelity interactive prototype of the Draftea sports-betting home
 screen, focused on the **buttonPreviewMomios** component at the bottom of
 the screen. As the user adds picks to the slip the cumulative odds grow
-multiplicatively and the button progresses through four tiers of
+multiplicatively and the button progresses through five tiers of
 microinteraction intensity — **without ever shifting its base color
 palette**. Differentiation comes from motion, light, and behavior.
 
