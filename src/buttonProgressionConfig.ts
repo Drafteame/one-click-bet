@@ -49,7 +49,9 @@ export const buttonProgressionConfig = {
   borderHeightPx: 56,
   // Reserved vertical space the bet slip occupies (px). Used to keep the
   // navbar pinned when the slip unmounts at 0 selections.
-  slotReservedHeightPx: 88,
+  // Was 88px (= 8 pt + 56 button + 24 pb). Slip pb reduced to 8px so
+  // the slip sits only 8px above the navbar; slot height follows.
+  slotReservedHeightPx: 72,
 
   /* --------------------------------------------------------------- */
   /*  EXPLORATION — Sparkles + fire sparks                           */

@@ -887,7 +887,7 @@ export function ButtonPreviewMomios({
   const isDownCross = crossing?.dir === 'down';
 
   return (
-    <div className="relative w-full px-4 pb-6 pt-2">
+    <div className="relative w-full px-4 pb-2 pt-2">
       {/* Outer glow (Approach B) — diffuse blurred sibling element.
           Restored after the user clarified it was never meant to be
           removed. Provides the soft ambient halo around the button;

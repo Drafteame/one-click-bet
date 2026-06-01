@@ -15,16 +15,23 @@ import type { Selection } from './types';
 /*  Mock match data — six picks the user can add                */
 /* ============================================================ */
 export const MOCK_PICKS: Selection[] = [
+  // Base picks — straightforward goal/team props at T0–T1 odds.
   { id: 'psg-w', match: 'PSG vs Real Madrid', pick: 'PSG gana', odds: 1.75 },
   { id: 'rma-w', match: 'PSG vs Real Madrid', pick: 'Real Madrid gana', odds: 2.75 },
   { id: 'draw', match: 'PSG vs Real Madrid', pick: 'Empate', odds: 3.8 },
   { id: 'lewa', match: 'Anota gol — Lewandowski', pick: 'Lewandowski anota', odds: 1.95 },
   { id: 'mbappe', match: 'Anota gol — Mbappé', pick: 'Mbappé anota', odds: 1.65 },
   { id: 'vini', match: 'Anota gol — Vinicius', pick: 'Vinicius anota', odds: 2.1 },
-  // High-odds picks — unlock Tier 4 ("Legendario", ≥ 50x cumulative).
-  { id: 'mbappe-htrick', match: 'Hat-trick', pick: 'Mbappé hat-trick', odds: 9.0 },
-  { id: 'psg-4plus', match: 'Goleada', pick: 'PSG 4+ goles', odds: 13.5 },
+  // Mid-odds picks — single-pick T2 ("Súper", ≥ 5x).
   { id: 'combo-psg-mbappe', match: 'Combo doble', pick: 'PSG gana + Mbappé anota', odds: 5.5 },
+  { id: 'mbappe-htrick', match: 'Hat-trick', pick: 'Mbappé hat-trick', odds: 9.0 },
+  { id: 'lewa-htrick', match: 'Hat-trick', pick: 'Lewandowski hat-trick', odds: 11.0 },
+  { id: 'psg-4plus', match: 'Goleada', pick: 'PSG 4+ goles', odds: 13.5 },
+  // High-odds picks — single-pick T3 ("Máximo", ≥ 15x).
+  { id: 'vini-htrick', match: 'Hat-trick', pick: 'Vinicius hat-trick', odds: 16.0 },
+  { id: 'lewa-4goals', match: 'Goleada', pick: 'Lewandowski 4+ goles', odds: 28.0 },
+  // Jackpot pick — single-pick T4 ("Legendario", ≥ 50x).
+  { id: 'mbappe-4goals', match: 'Goleada', pick: 'Mbappé 4+ goles', odds: 60.0 },
 ];
 
 /* ============================================================ */
@@ -401,6 +408,40 @@ const PLAYER_META: Record<string, PlayerMeta> = {
     time: '18:00',
   },
   'mbappe-htrick': {
+    lastName: 'Mbappé',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  // Tier-progression picks — each in PLAYER_META so it surfaces in
+  // the player-card grid (clickable, no need for random-add).
+  'lewa-htrick': {
+    lastName: 'Lewandowski',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  'vini-htrick': {
+    lastName: 'Vinicius',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  'lewa-4goals': {
+    lastName: 'Lewandowski',
+    position: 'DEL',
+    homeAbbrev: 'PSG',
+    awayAbbrev: 'RMA',
+    date: 'HOY',
+    time: '18:00',
+  },
+  'mbappe-4goals': {
     lastName: 'Mbappé',
     position: 'DEL',
     homeAbbrev: 'PSG',
