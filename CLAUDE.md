@@ -78,6 +78,19 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 - **CSS `offset-path: inset(0 round Npx)` ⚠️ Safari 16+.** The OddsRipple uses this. If you target older browsers, fall back to keyframe-based motion.
 - **`shellRef`/`shellSize` only used by the SVG stroke sweep.** Don't accidentally remove them or the sweep breaks at runtime.
 
+## For Flutter engineers (this repo is a POC for a Flutter mobile feature)
+
+The React/Framer Motion code here is **not a direct translation source** — DOM/CSS and Flutter render very differently. But the repo IS a high-fidelity spec.
+
+**Read in this order:**
+1. The live site at `?debug=true` — visual ground truth, with jump-to-tier buttons and 3× slow-mo.
+2. **`EFFECTS.md`** — plain-English feature spec, grouped by tier.
+3. **`src/buttonProgressionConfig.ts`** — every magic number documented. **Copy values verbatim into Dart.**
+4. **`FLUTTER_PORTING.md`** at the repo root — API mapping table (Framer Motion → AnimationController, conic-gradient → CustomPainter, etc.) + per-effect porting notes + branch reference.
+5. The TS code only as a reference for *when* things fire and the relationships between effects.
+
+Key design principle to preserve: **no base color shifts across tiers** — escalation comes from motion, light, and behavior.
+
 ## Where to start a new exploration
 
 1. Branch from `main`: `git checkout -b feature/whatever`.

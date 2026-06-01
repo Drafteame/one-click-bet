@@ -1,6 +1,8 @@
 # buttonPreviewMomios — progressive engagement prototype
 
 > **Working in Claude Code?** Read [`CLAUDE.md`](./CLAUDE.md) first — it has the architecture, file map, tier system, branch model, conventions, and gotchas the AI needs to be efficient in this repo. Auto-loaded by any Claude session opened here. See also [`EFFECTS.md`](./EFFECTS.md) for the canonical effect catalog.
+>
+> **Porting this to Flutter?** This repo is the visual + behavioral spec for a Flutter feature. Read [`FLUTTER_PORTING.md`](./FLUTTER_PORTING.md) — it has the React → Flutter API mapping (Framer Motion → `AnimationController`, conic-gradient → `CustomPainter`, etc.) and per-effect porting notes. The TS code is reference-only; the live site + `EFFECTS.md` + `buttonProgressionConfig.ts` are the actual spec.
 
 High-fidelity interactive prototype of the Draftea sports-betting home
 screen, focused on the **buttonPreviewMomios** component at the bottom of
