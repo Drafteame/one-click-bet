@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import shieldIcon from './assets/shield.svg';
 import type { Selection } from './types';
 
 /* ============================================================ */
@@ -186,67 +187,120 @@ function TabsAndPills() {
 /*  Promo carousel — Champions card with PSG vs Real Madrid     */
 /* ============================================================ */
 function PromoCarousel() {
+  // Card matches Figma "newLeagueMarkets" (1624:44632).
+  // Missing asset: the decorative "light" glow blob positioned at the
+  // top of the card (imgLight in the Figma export). Skipped here —
+  // ask Javier to upload it; placeholder slot left below where it goes.
   return (
     <div className="w-full px-3 py-2">
       <div
-        className="relative h-[136px] w-full overflow-hidden rounded-2xl"
-        style={{
-          backgroundImage:
-            'linear-gradient(135deg, #2b1166 0%, #4b20ff 50%, #1a0a40 100%)',
-        }}
+        className="relative w-full overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.24)] bg-black pt-2"
+        style={{ backdropFilter: 'blur(10.15px)', WebkitBackdropFilter: 'blur(10.15px)' }}
       >
-        {/* Decorative glow */}
-        <div
-          className="absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-50 blur-2xl"
-          style={{ background: '#9730ff' }}
-        />
-        <div className="relative flex h-full flex-col justify-between p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold tracking-wider text-white/90">
-              ⭐ Champions x Hoy
-            </span>
-            <span className="text-[10px] font-medium text-white/70">
-              Hoy 18:00
-            </span>
+        {/* PLACEHOLDER for the decorative "light" graphic — Figma puts
+            it at top: -36.11px overflowing slightly above the card. */}
+
+        {/* League + tags row */}
+        <div className="flex w-full items-center justify-center gap-1 px-2.5">
+          <div className="flex items-center gap-1">
+            <p
+              className="whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.5)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              Champions
+            </p>
+            <span
+              aria-hidden
+              className="block h-0.5 w-0.5 rounded-full bg-[rgba(251,251,251,0.5)]"
+            />
           </div>
-          <div className="flex items-end justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[9px] font-black text-black">
-                PSG
-              </div>
-              <span className="text-[12px] font-bold text-white">
-                Paris-Saint Germain
-              </span>
-            </div>
-            <span className="text-[10px] font-bold text-white/60">vs</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] font-bold text-white">
-                Real Madrid
-              </span>
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[9px] font-black text-black">
-                RMA
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { l: 'PSG', v: '1.75x' },
-              { l: 'EMPATE', v: '3.80x' },
-              { l: 'RMA', v: '2.75x' },
-            ].map((o) => (
-              <div
-                key={o.l}
-                className="rounded-lg bg-black/40 px-2 py-1.5 backdrop-blur"
-              >
-                <div className="text-[9px] font-medium text-white/70">
-                  {o.l}
-                </div>
-                <div className="text-[13px] font-black text-white">{o.v}</div>
-              </div>
-            ))}
+          <div className="flex items-start gap-1">
+            <span
+              className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              PA
+            </span>
+            <span
+              className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              90&apos;
+            </span>
           </div>
         </div>
+
+        {/* Match row — Team 1 / center kickoff / Team 2 */}
+        <div className="flex w-full items-start gap-2 px-2.5 pb-2">
+          <div className="flex w-[108px] flex-col items-center gap-0.5">
+            <img
+              src={shieldIcon}
+              alt=""
+              aria-hidden
+              className="h-8 w-8"
+            />
+            <p
+              className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              Paris-Saint Germain
+            </p>
+          </div>
+          <div className="flex flex-1 flex-col items-center justify-center self-stretch">
+            <p
+              className="whitespace-nowrap text-[12px] font-bold leading-[18px] text-[#fbfbfb]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              Hoy 18:00
+            </p>
+          </div>
+          <div className="flex w-[108px] flex-col items-center justify-end gap-0.5">
+            <img
+              src={shieldIcon}
+              alt=""
+              aria-hidden
+              className="h-8 w-8"
+            />
+            <p
+              className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              Real Madrid
+            </p>
+          </div>
+        </div>
+
+        {/* Odds row — 3 buttonsPropsBets, equal width */}
+        <div className="flex w-full items-center justify-end gap-1 px-2.5 pb-2.5">
+          {[
+            { l: 'PSG', v: '1.75x' },
+            { l: 'EMPATE', v: '3.80x' },
+            { l: 'RMA', v: '2.75x' },
+          ].map((o) => (
+            <div
+              key={o.l}
+              className="flex h-11 min-w-[58px] flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] px-3 py-1"
+            >
+              <p
+                className="whitespace-nowrap text-center text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {o.l}
+              </p>
+              <p
+                className="whitespace-nowrap text-center text-[13px] font-medium leading-4 text-[#fbfbfb]"
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {o.v}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Carousel dots — preserved from previous implementation. The
+          Figma node is just one card; the dots belong to the carousel
+          container that holds it. */}
       <div className="mt-2 flex justify-center gap-1.5">
         {[0, 1, 2].map((i) => (
           <div
