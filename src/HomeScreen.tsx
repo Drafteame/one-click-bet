@@ -295,10 +295,10 @@ function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
                 key={o.id}
                 type="button"
                 onClick={() => onTogglePick(o.id)}
-                className={`flex h-11 min-w-[58px] flex-1 flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-colors duration-200 ${
+                className={`flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
                   selected
                     ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
-                    : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)]'
+                    : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] hover:bg-[rgba(251,251,251,0.14)]'
                 }`}
               >
                 <span

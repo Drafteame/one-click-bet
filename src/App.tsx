@@ -161,8 +161,11 @@ export function App() {
           <div
             className="relative h-[844px] w-[390px] overflow-hidden rounded-[36px]"
             style={{
-              background:
-                'radial-gradient(circle at 50% 0%, #1a0f3d 0%, #0a0a0d 50%)',
+              // Matches the Figma newLeagueMarkets card bg (#000000) so the
+              // chrome around the card and the card itself read as one
+              // continuous surface. The outer bezel (`bg-black/40` above)
+              // is a stylistic phone-mockup frame; leave it.
+              background: '#000000',
             }}
           >
             {/* Notch */}
