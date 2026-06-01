@@ -632,11 +632,14 @@ export function ButtonPreviewMomios({
       );
     }
 
-    // 6. Tier-3-only add reactions: outline ripple + odds-value burst.
-    if (tier === 3 && selectionCount > prev) {
-      // POLISH PASS — Tier 3 outline ripple from button OUTLINE outward.
+    // 6. T2+ add reactions: outline ripple. T3-only: odds-value burst.
+    if (tier >= 2 && selectionCount > prev) {
+      // Outline ripple fires on every selection ADD while at T2 or T3 —
+      // a ghost border that expands outward from the button outline.
       // Stacks up to outlineRippleMaxStacked when multiple adds happen
-      // rapidly within ~400ms.
+      // rapidly within ~400ms. (Config key still lives under cfg.tier3
+      // because it was introduced there originally — same values used
+      // at T2 for now.)
       const rippleId = performance.now();
       setOutlineRipples((cur) => {
         const next = [...cur, rippleId];
@@ -650,8 +653,11 @@ export function ButtonPreviewMomios({
           setOutlineRipples((cur) => cur.filter((id) => id !== rippleId)),
         cfg.tier3.outlineRippleDurationMs + 60,
       );
+    }
 
-      // POLISH PASS — Tier 3 odds-value burst (in addition to slot anim).
+    // T3-only: odds-value burst on add (additive on top of the slot anim
+    // and the outline ripple inherited from T2).
+    if (tier === 3 && selectionCount > prev) {
       oddsBurstControls.start({
         scale: [1, cfg.tier3.oddsAddBurstScale, 1],
         transition: {

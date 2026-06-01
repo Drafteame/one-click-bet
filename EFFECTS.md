@@ -31,6 +31,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Faster breathing** — 3000ms period.
 - **More frequent sparkles** — 1–3, every 5500ms.
 - **Lerp-smoothed glow opacity** — 250ms half-life when entering/leaving T2 *(smoothed)*.
+- **Outline ripple** — on every selection ADD, a ghost border expands outward from the button outline and fades. Stacks up to a few simultaneous ripples on rapid adds. Inherited at T3.
 
 ## T3 — *Máximo* *(≥ 15.00x)*
 
