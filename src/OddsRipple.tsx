@@ -45,8 +45,11 @@ export function OddsRipple({ id, text }: Props) {
           `0 0 ${cfg.tier3.oddsRippleGlowOuterPx}px rgba(255,255,255,0.7)`,
         ].join(', '),
         whiteSpace: 'nowrap',
-        // Scale grows from the center of the text run.
-        transformOrigin: 'left center',
+        // Scale grows from the CENTER of the text run so the ghost
+        // expands equally left + right instead of pushing rightward
+        // (previous `left center` anchored the left edge, which made
+        // the ripple read as off-center vs the source digits).
+        transformOrigin: 'center',
         height: '1em',
         lineHeight: '1em',
       }}
