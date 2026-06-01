@@ -511,25 +511,29 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
                     </span>
                   </div>
 
-                  {/* Player image + name + position */}
-                  <div className="flex w-full flex-col items-center pt-2">
-                    <div className="relative h-14 w-full">
-                      <img
-                        src={playerIcon}
-                        alt=""
-                        aria-hidden
-                        className="absolute left-1/2 top-0 -translate-x-1/2"
-                        width={76}
-                        height={76}
-                      />
-                      {/* Soft fade so the silhouette blends into the card */}
-                      <div
-                        className="pointer-events-none absolute bottom-[-12px] left-1/2 h-[18px] w-[86px] -translate-x-1/2 bg-gradient-to-b from-transparent to-black"
-                        aria-hidden
-                      />
-                    </div>
+                  {/* Player image + name + position.
+                      The gradient fade sits ABOVE the bottom of the
+                      silhouette (covering shoulders/chest) and EXTENDS
+                      DOWN behind the player name, so the head reads
+                      crisp and the name floats over a black wash. */}
+                  <div className="relative flex w-full flex-col items-center pt-2">
+                    <img
+                      src={playerIcon}
+                      alt=""
+                      aria-hidden
+                      className="relative z-0"
+                      width={76}
+                      height={76}
+                    />
+                    {/* Fade — 60px tall, ~140px wide, anchored to the
+                        bottom of the player container. Starts halfway
+                        down the silhouette, ends just past the name. */}
                     <div
-                      className="flex items-baseline justify-center gap-0.5"
+                      className="pointer-events-none absolute bottom-0 left-1/2 z-[1] h-[60px] w-[140px] -translate-x-1/2 bg-gradient-to-b from-transparent to-black"
+                      aria-hidden
+                    />
+                    <div
+                      className="relative z-[2] flex items-baseline justify-center gap-0.5"
                       style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
                       <span className="text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
