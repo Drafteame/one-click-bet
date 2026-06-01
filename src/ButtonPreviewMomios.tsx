@@ -627,10 +627,12 @@ export function ButtonPreviewMomios({
       playSound('slot-end');
     }, cfg.slotDurationMs);
 
-    // 5. Center radial burst — fires on EVERY selection add, at ALL tiers.
-    //    A white ring radiates from the button center each time a pick
-    //    is added (1→2, 2→3, …). Not tier-gated.
-    if (selectionCount > prev) {
+    // 5. Center radial burst — white ring radiating from the button
+    //    center on every selection add. Active at T0/T1/T2; suppressed
+    //    at T3 because the new OddsRipple + outline ripple together
+    //    cover the "feedback on add" reading and the center ring was
+    //    competing with them.
+    if (selectionCount > prev && tier < 3) {
       const k = Date.now();
       setAddBurst(k);
       playSound('burst');

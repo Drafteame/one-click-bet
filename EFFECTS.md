@@ -13,6 +13,7 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Anticipation compress** — 0.99 scale, 40ms, before each slot roll (gives digit motion physical weight).
 - **Settle overshoot** — digit lands at 1.04 scale and settles back *(microinteraction d)*.
 - **Recoil** — slip pushed down 4px on every selection add/remove, springs back (slightly bouncy).
+- **Center radial burst on add** — a white ring radiates from the button center on every selection add. Active at T0/T1/T2. *Suppressed at T3* (the OddsRipple + outline ripple together cover the on-add feedback there, and the center ring was competing with them.)
 - Static 1px `#4b20ff` border, flat `#191919` background, `#4b20ff → #9730ff` Gana CTA gradient.
 
 ## T1 — *Intermedio* *(≥ 2.00x)*
