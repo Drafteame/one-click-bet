@@ -347,11 +347,9 @@ export const buttonProgressionConfig = {
   /*    3. Gana CTA shimmer wave turns gold (see .fire-shimmer-gold).*/
   /* --------------------------------------------------------------- */
   tier4: {
-    // Continuous shake — no intermittence gap. Same amplitude as T3
-    // (0.3px) so it stays subtle; the differentiator is that it's
-    // always on, never the quiet 1300ms gap between T3 bursts.
-    shakeAmplitudePx: 0.3,
-    shakeFrequencyHz: 13,
+    // (Continuous shake removed before this landed on main — T4 has
+    // no tremor / shake. The shake-amplitude / shake-frequency tuning
+    // is kept on the `tier_4` branch for future exploration.)
     // ----- Outer glow boost (was 0.36–0.50 / 4800ms at T3) -----
     // Brighter envelope + a faster breath cycle so the halo reads as
     // "stoked" relative to T3's calmer pulse.

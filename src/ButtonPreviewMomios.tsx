@@ -142,9 +142,10 @@ export function ButtonPreviewMomios({
   const tremorX = useMotionValue(0);
   const tremorY = useMotionValue(0);
   const [tremorActive, setTremorActive] = useState(false);
-  // T3 = burst-tremor (with quiet phases); T4 = continuous "shake"
-  // (no intermittence, slightly higher amplitude). Both subtle.
-  const tremorOn = tier >= 3 && !reduced;
+  // T3 only — intermittent burst-tremor (with quiet phases between
+  // bursts). T4 intentionally has NO shake; the boosted glow / dense
+  // sparkles / gold sweep carry the "elevated" feel without motion.
+  const tremorOn = tier === 3 && !reduced;
   useAnimationFrame((t) => {
     if (!tremorOn) {
       if (tremorActive) setTremorActive(false);
@@ -152,17 +153,7 @@ export function ButtonPreviewMomios({
       tremorY.set(0);
       return;
     }
-    if (tier === 4) {
-      // T4 — continuous, always-on shake. No burst envelope.
-      const amp = cfg.tier4.shakeAmplitudePx;
-      const hz = cfg.tier4.shakeFrequencyHz;
-      const w = (2 * Math.PI * hz) / 1000;
-      if (!tremorActive) setTremorActive(true);
-      tremorX.set(Math.sin(t * w) * amp * 0.7);
-      tremorY.set(Math.sin(t * w * 1.31 + 0.7) * amp);
-      return;
-    }
-    // T3 — intermittent burst-tremor (existing behavior).
+    // T3 — intermittent burst-tremor.
     const {
       tremorAmplitudePx: amp,
       tremorFrequencyHz: hz,
