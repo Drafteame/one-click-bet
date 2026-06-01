@@ -36,7 +36,6 @@ A running list of every animation, microinteraction, and motion behavior in the 
 ## T3 — *Máximo* *(≥ 15.00x)*
 
 - **Italic typography** — the four numbers (Bets, Momio, Monto, Gana) switch to Red Hat Display **Black Italic** (matches the Figma "Buscador" component).
-- **Fire-shimmer per-character brightness wave** — vertical white-band gradient on each glyph, L→R stagger via `--ci` CSS var (2s cycle).
 - **Odds & Gana glow filters** — layered `drop-shadow()` halos that breathe with the odds value.
 - **Glow intensifies** — opacity range 0.36–0.50 (was 0.18–0.26 at T2), faster pulse (4.8s).
 - **Fire-spark emitter** — rising purple embers spawn at the top edge of the button, drift up ~22–48px, fade out (continuous, capped at 20 active).

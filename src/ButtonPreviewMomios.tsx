@@ -1219,17 +1219,11 @@ export function ButtonPreviewMomios({
                         filter: tier >= 3 ? oddsGlowFilter : 'none',
                       }}
                     >
-                      <SlotNumber
-                        value={oddsLabel}
-                        reducedMotion={reduced}
-                        innerCharClassName={
-                          tier >= 3 && !reduced
-                            ? `fire-shimmer odds-char-wave${
-                                speedScale > 1 ? ' fire-shimmer-slow' : ''
-                              }`
-                            : ''
-                        }
-                      />
+                      {/* Per-character fire-shimmer wave removed at T3 —
+                          the OddsRipple now carries the "alive" reading
+                          on the digits. Glow halo + slot anim + italic
+                          + add-burst + ripple stay. */}
+                      <SlotNumber value={oddsLabel} reducedMotion={reduced} />
                     </motion.span>
                     {/* Odds ripples (T3 only) — ghost copies of the digit
                         string overlaying the SlotNumber, scaling outward
