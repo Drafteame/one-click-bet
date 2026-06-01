@@ -3,6 +3,7 @@ import { useState } from 'react';
 import betsIcon from './assets/bets.svg';
 import gamingIcon from './assets/gaming.svg';
 import misEntradasIcon from './assets/mis_entradas.svg';
+import rewardsIcon from './assets/rewards.png';
 import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
 import type { Selection } from './types';
@@ -457,10 +458,7 @@ function Navbar() {
     { id: 'bets', label: 'Bets', icon: betsIcon },
     { id: 'entradas', label: 'Mis entradas', icon: misEntradasIcon },
     { id: 'gaming', label: 'Gaming', icon: gamingIcon },
-    // Rewards: no `rewards.svg` in src/assets/ yet. Slot left empty —
-    // awaiting upload. Per project rule (CLAUDE.md): never reinterpret
-    // or substitute icons; wait for the asset.
-    { id: 'rewards', label: 'Rewards', icon: null },
+    { id: 'rewards', label: 'Rewards', icon: rewardsIcon },
   ];
 
   return (
