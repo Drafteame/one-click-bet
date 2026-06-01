@@ -463,11 +463,10 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
                   key={p.id}
                   type="button"
                   onClick={() => onTogglePick(p.id)}
-                  className={`relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border bg-black p-2.5 transition-all duration-200 active:scale-[0.98] ${
-                    selected
-                      ? 'border-[#d2ff72]'
-                      : 'border-[rgba(251,251,251,0.12)]'
-                  }`}
+                  // Selected state changes ONLY the odds button at the
+                  // bottom (lime-cyan gradient + Bold odds); the outer
+                  // card border stays neutral in both states.
+                  className="relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.12)] bg-black p-2.5 transition-all duration-200 active:scale-[0.98]"
                 >
                   {/* TODO: decorative "light" glow at top of card —
                       Figma uses imgLight (no asset uploaded). */}
