@@ -5,7 +5,7 @@ export type Selection = {
   odds: number;
 };
 
-export type Tier = 0 | 1 | 2 | 3;
+export type Tier = 0 | 1 | 2 | 3 | 4;
 
 export type TierConfig = {
   id: Tier;

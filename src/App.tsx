@@ -72,6 +72,9 @@ function selectionsForTier(target: Tier): Selection[] {
     case 3:
       // 2.75 * 3.80 * 1.95 * 2.10 ≈ 42.8x — comfortably > 15.00
       return stamp([byId('rma-w'), byId('draw'), byId('lewa'), byId('vini')]);
+    case 4:
+      // 2.75 * 3.80 * 9.00 ≈ 94.05x — comfortably > 50.00
+      return stamp([byId('rma-w'), byId('draw'), byId('mbappe-htrick')]);
   }
 }
 
@@ -179,7 +182,7 @@ export function App() {
                     DEBUG · jump to tier
                   </div>
                   <div className="mb-2 flex gap-1.5">
-                    {[0, 1, 2, 3].map((t) => (
+                    {[0, 1, 2, 3, 4].map((t) => (
                       <button
                         key={t}
                         onClick={() => jumpToTier(t as Tier)}

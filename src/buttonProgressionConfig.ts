@@ -16,6 +16,7 @@ export const buttonProgressionConfig = {
     { id: 1, name: 'Intermedio', minOdds: 2.0 },
     { id: 2, name: 'Súper', minOdds: 5.0 },
     { id: 3, name: 'Máximo', minOdds: 15.0 },
+    { id: 4, name: 'Legendario', minOdds: 50.0 },
   ] as TierConfig[],
 
   /* --------------------------------------------------------------- */
@@ -332,6 +333,29 @@ export const buttonProgressionConfig = {
     // the existing oddsBurstControls scale animation so timing matches
     // the rest of the T3 add-burst (300ms ease-out).
     oddsAddBurstFlashBlurPx: 14,
+  },
+
+  /* --------------------------------------------------------------- */
+  /*  TIER 4 — Legendario                                            */
+  /*  Inherits everything from T3 (additive) and adds/overrides:     */
+  /*    1. Fire-sparks emitter — faster + denser.                    */
+  /*    2. Continuous "subtle shake" replacing T3's burst-tremor.    */
+  /*    3. Gana CTA shimmer wave turns gold (see .fire-shimmer-gold).*/
+  /* --------------------------------------------------------------- */
+  tier4: {
+    // Continuous shake — no intermittence gap, slightly stronger
+    // amplitude than T3's burst-tremor. Still subtle by design.
+    shakeAmplitudePx: 0.6, // was 0.3 at T3 (burst-only); here always on.
+    shakeFrequencyHz: 14, // a touch faster than T3's 12Hz.
+    // ----- Fire-sparks overrides (inflow not applicable; outflow only) -----
+    // Spawn ~70% more often, more per spawn, shorter lifetime so the
+    // sparks visibly RACE upward instead of drifting.
+    fireSparksSpawnIntervalMs: 130, // was 220 at T3
+    fireSparksSpawnCountMin: 2,     // was 1
+    fireSparksSpawnCountMax: 3,     // was 2
+    fireSparksLifetimeMinMs: 500,   // was 800
+    fireSparksLifetimeMaxMs: 900,   // was 1400
+    fireSparksMaxActive: 32,        // was 20 — room for the denser flow
   },
 
   /* --------------------------------------------------------------- */

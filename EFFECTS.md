@@ -47,6 +47,12 @@ A running list of every animation, microinteraction, and motion behavior in the 
 - **Border stroke sweep brightens but thins** — same sweep as T2, now at full opacity but reduced to a 1.5px stroke so its visual weight matches T2's dimmer 2.5px stroke (T3 reads as more intense without reading as fatter).
 - **Odds ripple** — on every selection ADD, a ghost copy of the Momio digits scales outward (~1.5×) and fades over 1200ms, white with a soft white glow (text-shadow). Pairs with a synchronized white drop-shadow flash on the source digits (300ms ease-out) so the source briefly brightens as the ghost emanates outward. Stacks up to 3 simultaneous ripples on rapid adds.
 
+## T4 — *Legendario* *(≥ 50.00x)*
+
+- **Fire-spark emitter — denser + faster** — overrides the T3 outflow values: spawn interval 220ms → 130ms, count 1–2 → 2–3, lifetime 800–1400ms → 500–900ms, max active 20 → 32. Sparks race upward in a thicker stream instead of drifting calmly.
+- **Continuous subtle shake on the button** — the T3 burst-tremor (active for ~220ms every 1500ms) is replaced by a continuous shake at amplitude ~0.6px (was 0.3px) and 14Hz (was 12Hz). Always-on but still subtle. Tunables: `cfg.tier4.shakeAmplitudePx`, `cfg.tier4.shakeFrequencyHz`.
+- **Gana shimmer wave turns gold** — the per-character brightness wave on the winning amount swaps from lavender-white (`fire-shimmer`) to a warm metallic gold gradient (`fire-shimmer-gold`, `#DAA520 → #FFD700`). Momio's wave stays lavender-white.
+
 ---
 
 ## Tier-crossing flourishes *(one-shot)*

@@ -11,6 +11,10 @@ export const MOCK_PICKS: Selection[] = [
   { id: 'lewa', match: 'Anota gol — Lewandowski', pick: 'Lewandowski anota', odds: 1.95 },
   { id: 'mbappe', match: 'Anota gol — Mbappé', pick: 'Mbappé anota', odds: 1.65 },
   { id: 'vini', match: 'Anota gol — Vinicius', pick: 'Vinicius anota', odds: 2.1 },
+  // High-odds picks — unlock Tier 4 ("Legendario", ≥ 50x cumulative).
+  { id: 'mbappe-htrick', match: 'Hat-trick', pick: 'Mbappé hat-trick', odds: 9.0 },
+  { id: 'psg-4plus', match: 'Goleada', pick: 'PSG 4+ goles', odds: 13.5 },
+  { id: 'combo-psg-mbappe', match: 'Combo doble', pick: 'PSG gana + Mbappé anota', odds: 5.5 },
 ];
 
 /* ============================================================ */

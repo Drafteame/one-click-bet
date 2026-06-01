@@ -115,6 +115,51 @@ body {
   animation-delay: calc(var(--ci, 0) * 450ms);
 }
 
+/* ---------------------------------------------------------------- */
+/*  TIER 4 — Gold shimmer variant for the Gana CTA                  */
+/*  Same vertical-band animation as .fire-shimmer, but a warm        */
+/*  metallic gradient (#DAA520 → #FFD700) so the wave reads as       */
+/*  polished gold instead of lavender-white.                         */
+/* ---------------------------------------------------------------- */
+.fire-shimmer-gold {
+  background-image: linear-gradient(
+    180deg,
+    #daa520 0%,
+    #daa520 42%,
+    #ffd700 50%,
+    #daa520 58%,
+    #daa520 100%
+  );
+  background-size: 100% 300%;
+  background-position: 50% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: fireShimmer 2s linear infinite;
+}
+
+.fire-shimmer-gold.odds-char-wave {
+  animation: fireShimmer 2s linear infinite;
+  animation-delay: calc(var(--ci, 0) * 150ms);
+}
+
+.fire-shimmer-slow.fire-shimmer-gold {
+  animation-duration: 6s;
+}
+.fire-shimmer-slow.fire-shimmer-gold.odds-char-wave {
+  animation: fireShimmer 6s linear infinite;
+  animation-delay: calc(var(--ci, 0) * 450ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fire-shimmer-gold {
+    animation: none;
+    color: #ffd700;
+    -webkit-text-fill-color: #ffd700;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .odds-char-wave,
   .fire-shimmer.odds-char-wave {

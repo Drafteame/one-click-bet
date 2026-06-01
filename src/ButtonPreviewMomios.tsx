@@ -142,7 +142,9 @@ export function ButtonPreviewMomios({
   const tremorX = useMotionValue(0);
   const tremorY = useMotionValue(0);
   const [tremorActive, setTremorActive] = useState(false);
-  const tremorOn = tier === 3 && !reduced;
+  // T3 = burst-tremor (with quiet phases); T4 = continuous "shake"
+  // (no intermittence, slightly higher amplitude). Both subtle.
+  const tremorOn = tier >= 3 && !reduced;
   useAnimationFrame((t) => {
     if (!tremorOn) {
       if (tremorActive) setTremorActive(false);
@@ -150,6 +152,17 @@ export function ButtonPreviewMomios({
       tremorY.set(0);
       return;
     }
+    if (tier === 4) {
+      // T4 — continuous, always-on shake. No burst envelope.
+      const amp = cfg.tier4.shakeAmplitudePx;
+      const hz = cfg.tier4.shakeFrequencyHz;
+      const w = (2 * Math.PI * hz) / 1000;
+      if (!tremorActive) setTremorActive(true);
+      tremorX.set(Math.sin(t * w) * amp * 0.7);
+      tremorY.set(Math.sin(t * w * 1.31 + 0.7) * amp);
+      return;
+    }
+    // T3 — intermittent burst-tremor (existing behavior).
     const {
       tremorAmplitudePx: amp,
       tremorFrequencyHz: hz,
@@ -349,12 +362,22 @@ export function ButtonPreviewMomios({
   useEffect(() => {
     if (tier < 3 || reduced) return;
     const fs = cfg.fireSparks;
+    // T4 — faster + denser overrides. Otherwise (T3) use base values.
+    const isT4 = tier === 4;
+    const spawnIntervalMs = isT4
+      ? cfg.tier4.fireSparksSpawnIntervalMs
+      : fs.spawnIntervalMs;
+    const spawnCountMin = isT4 ? cfg.tier4.fireSparksSpawnCountMin : fs.spawnCountMin;
+    const spawnCountMax = isT4 ? cfg.tier4.fireSparksSpawnCountMax : fs.spawnCountMax;
+    const lifetimeMinMs = isT4 ? cfg.tier4.fireSparksLifetimeMinMs : fs.lifetimeMinMs;
+    const lifetimeMaxMs = isT4 ? cfg.tier4.fireSparksLifetimeMaxMs : fs.lifetimeMaxMs;
+    const maxActive = isT4 ? cfg.tier4.fireSparksMaxActive : fs.maxActive;
     const tick = setInterval(() => {
       setFireSparks((cur) => {
-        if (cur.length >= fs.maxActive) return cur;
+        if (cur.length >= maxActive) return cur;
         const count =
-          fs.spawnCountMin +
-          Math.floor(Math.random() * (fs.spawnCountMax - fs.spawnCountMin + 1));
+          spawnCountMin +
+          Math.floor(Math.random() * (spawnCountMax - spawnCountMin + 1));
         const fresh: FireSpark[] = [];
         const now = performance.now();
         for (let i = 0; i < count; i++) {
@@ -377,13 +400,13 @@ export function ButtonPreviewMomios({
             size:
               fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
             lifetimeMs:
-              fs.lifetimeMinMs +
-              Math.random() * (fs.lifetimeMaxMs - fs.lifetimeMinMs),
+              lifetimeMinMs +
+              Math.random() * (lifetimeMaxMs - lifetimeMinMs),
           });
         }
         return [...cur, ...fresh];
       });
-    }, cfg.fireSparks.spawnIntervalMs);
+    }, spawnIntervalMs);
     return () => clearInterval(tick);
   }, [tier, reduced]);
 
@@ -1329,7 +1352,12 @@ export function ButtonPreviewMomios({
                     reducedMotion={reduced}
                     innerCharClassName={
                       tier >= 3 && !reduced
-                        ? `fire-shimmer odds-char-wave${speedScale > 1 ? ' fire-shimmer-slow' : ''}`
+                        ? // T4 — swap the lavender-white wave for a warm
+                          // metallic gold gradient (#DAA520 → #FFD700).
+                          // T3 keeps the original lavender-white wave.
+                          `${tier === 4 ? 'fire-shimmer-gold' : 'fire-shimmer'} odds-char-wave${
+                            speedScale > 1 ? ' fire-shimmer-slow' : ''
+                          }`
                         : ''
                     }
                   />
