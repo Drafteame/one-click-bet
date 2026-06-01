@@ -1361,10 +1361,11 @@ export function ButtonPreviewMomios({
                     reducedMotion={reduced}
                     innerCharClassName={
                       tier >= 3 && !reduced
-                        ? // T4 — swap the lavender-white wave for a warm
-                          // metallic gold gradient (#DAA520 → #FFD700).
-                          // T3 keeps the original lavender-white wave.
-                          `${tier === 4 ? 'fire-shimmer-gold' : 'fire-shimmer'} odds-char-wave${
+                        ? // Same lavender-white sweeping wave at T3 AND T4
+                          // (the gold variant was tried at T4 and reverted).
+                          // The .fire-shimmer-gold CSS class stays in
+                          // index.css unused, in case we revisit.
+                          `fire-shimmer odds-char-wave${
                             speedScale > 1 ? ' fire-shimmer-slow' : ''
                           }`
                         : ''
