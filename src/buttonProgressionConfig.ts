@@ -315,6 +315,23 @@ export const buttonProgressionConfig = {
     // Ganancia (potential winnings) gets the same odds-glow treatment
     // scaled down by this factor at Tier 3.
     ganaGlowScaleDown: 0.7,
+    // ----- Odds ripple (T3 only) -----
+    // A ghost copy of the Momio digits scales outward + fades on every
+    // selection ADD. Pairs with a transient drop-shadow flash on the
+    // source text (see oddsBurstControls.start() in ButtonPreviewMomios).
+    // Same easing curve + timing language as outlineRipple so the two
+    // ripples feel like one family.
+    oddsRippleScalePeak: 1.5,
+    oddsRippleOpacityStart: 0.95,
+    oddsRippleDurationMs: 600,
+    oddsRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
+    oddsRippleMaxStacked: 3,
+    oddsRippleGlowInnerPx: 8,
+    oddsRippleGlowOuterPx: 18,
+    // Source-text glow flash peak (drop-shadow blur radius). Applied via
+    // the existing oddsBurstControls scale animation so timing matches
+    // the rest of the T3 add-burst (300ms ease-out).
+    oddsAddBurstFlashBlurPx: 14,
   },
 
   /* --------------------------------------------------------------- */
