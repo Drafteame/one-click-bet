@@ -241,40 +241,67 @@ body {
 }
 
 @keyframes vignetteShapeBreathe {
+  /* 9 small steps + return-to-start = 8 transitions across the
+     loop. Each step changes each parameter by only ~2–6 pts so
+     the motion reads as a continuous wave rather than discrete
+     shape jumps. Width, height, and center each oscillate on
+     slightly different rhythms so no single axis "leads" — the
+     overall shape just gently undulates like a slow water wave. */
   0%, 100% {
-    --vw: 75%;
+    --vw: 78%;
     --vh: 80%;
     --vcx: 50%;
     --vcy: 50%;
     --vstop: 55%;
   }
-  20% {
-    --vw: 95%;
-    --vh: 65%;
-    --vcx: 58%;
-    --vcy: 44%;
-    --vstop: 45%;
+  12% {
+    --vw: 83%;
+    --vh: 77%;
+    --vcx: 52%;
+    --vcy: 49%;
+    --vstop: 54%;
   }
-  40% {
-    --vw: 58%;
-    --vh: 95%;
-    --vcx: 42%;
-    --vcy: 58%;
-    --vstop: 65%;
+  25% {
+    --vw: 81%;
+    --vh: 74%;
+    --vcx: 53%;
+    --vcy: 51%;
+    --vstop: 55%;
   }
-  60% {
-    --vw: 92%;
-    --vh: 68%;
-    --vcx: 55%;
+  38% {
+    --vw: 75%;
+    --vh: 78%;
+    --vcx: 51%;
+    --vcy: 53%;
+    --vstop: 57%;
+  }
+  50% {
+    --vw: 73%;
+    --vh: 83%;
+    --vcx: 49%;
     --vcy: 52%;
-    --vstop: 48%;
+    --vstop: 58%;
   }
-  80% {
-    --vw: 64%;
-    --vh: 90%;
-    --vcx: 45%;
-    --vcy: 55%;
-    --vstop: 62%;
+  62% {
+    --vw: 76%;
+    --vh: 86%;
+    --vcx: 47%;
+    --vcy: 50%;
+    --vstop: 56%;
+  }
+  75% {
+    --vw: 81%;
+    --vh: 83%;
+    --vcx: 47%;
+    --vcy: 48%;
+    --vstop: 54%;
+  }
+  88% {
+    --vw: 84%;
+    --vh: 79%;
+    --vcx: 50%;
+    --vcy: 49%;
+    --vstop: 54%;
   }
 }
 
@@ -289,10 +316,10 @@ body {
     transparent var(--vstop),
     black 100%
   );
-  /* 11s loop — fast enough that the shape change is clearly visible
-     within a few seconds of looking at the screen, slow enough that
-     no single transition feels rushed. */
-  animation: vignetteShapeBreathe 11s ease-in-out infinite;
+  /* 14s loop — enough room for all 8 steps to feel like a
+     continuous wave (each segment lasts ~1.75s with ease-in-out
+     blending into the next). */
+  animation: vignetteShapeBreathe 14s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
