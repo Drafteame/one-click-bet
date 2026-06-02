@@ -175,6 +175,76 @@ function LeaguesTab() {
 }
 
 /* ============================================================ */
+/*  Match tabs row — Figma node 1664:42888                      */
+/*  Horizontal scroll: a "TODOS" gradient pill (selected) +     */
+/*  a series of two-line tabs (HOME vs AWAY / HOY (time)).      */
+/* ============================================================ */
+function MatchTabsRow() {
+  const [activeMatch, setActiveMatch] = useState<string>('todos');
+  const matchTabs: Array<
+    | { id: 'todos' }
+    | { id: string; home: string; away: string; date: string; time: string }
+  > = [
+    { id: 'todos' },
+    { id: 'ars-rma', home: 'ARS', away: 'RMA', date: 'HOY', time: '00:00' },
+    { id: 'fcb-psg', home: 'FCB', away: 'PSG', date: 'HOY', time: '00:00' },
+    { id: 'abc-xyz-1', home: 'ABC', away: 'XYZ', date: 'HOY', time: '00:00' },
+    { id: 'abc-xyz-2', home: 'ABC', away: 'XYZ', date: 'HOY', time: '00:00' },
+  ];
+
+  return (
+    <div className="flex w-full flex-col items-start px-3">
+      <div className="no-scrollbar sticky top-0 flex w-full items-center gap-3 overflow-x-auto pb-1 pr-3 pt-2">
+        {matchTabs.map((t) => {
+          const isTodos = t.id === 'todos';
+          const isActive = activeMatch === t.id;
+          if (isTodos) {
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveMatch(t.id)}
+                className="relative flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-[56px] px-1.5 text-[12px] font-bold leading-[18px] text-[#fbfbfb] active:scale-[0.96] transition-transform"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(53.34deg, #4b20ff 0%, #9730ff 100%)',
+                  fontFamily: 'Red Hat Display, sans-serif',
+                }}
+              >
+                TODOS
+                {/* TODO: small 10×3 arrow notch below the pill —
+                    awaiting asset (imgArrow in the Figma export). */}
+              </button>
+            );
+          }
+          // Two-line match tab (teams + date/time).
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveMatch(t.id)}
+              className={`flex min-h-[40px] shrink-0 cursor-pointer flex-col items-center justify-center active:scale-[0.96] transition-transform ${
+                isActive ? 'opacity-100' : 'opacity-100'
+              }`}
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              <div className="flex items-baseline justify-center gap-0.5 text-[12px] font-bold leading-[18px] text-[rgba(251,251,251,0.5)]">
+                <span>{t.home}</span>
+                <span>vs</span>
+                <span>{t.away}</span>
+              </div>
+              <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.5)]">
+                {t.date} ({t.time})
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
 /*  Match tabs + pills row                                      */
 /* ============================================================ */
 function TabsAndPills() {
@@ -719,6 +789,7 @@ export function HomeScreenChrome({
       <StatusBar />
       <Header />
       <LeaguesTab />
+      <MatchTabsRow />
       <TabsAndPills />
       <PromoCarousel selectedIds={selectedIds} onTogglePick={onTogglePick} />
       <MarketAccordion
