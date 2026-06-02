@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BetSlipShell } from './BetSlipShell';
 import {
   ButtonPreviewMomios,
@@ -7,6 +7,7 @@ import {
   type ButtonLiveState,
 } from './ButtonPreviewMomios';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
+import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
 import type { Selection, Tier } from './types';
 
@@ -80,6 +81,7 @@ function selectionsForTier(target: Tier): Selection[] {
 
 export function App() {
   const debug = useDebug();
+  const reducedMotion = useReducedMotion();
   const [selections, setSelections] = useState<Selection[]>([]);
   const [speedScale, setSpeedScale] = useState(1);
   const [live, setLive] = useState<ButtonLiveState | null>(null);
@@ -115,9 +117,15 @@ export function App() {
     const pool = available.length > 0 ? available : MOCK_PICKS;
     const next = pool[Math.floor(Math.random() * pool.length)];
     setSelections((s) => [...s, { ...next, id: `${next.id}-${s.length}` }]);
+    // HAPTIC — light selection tick on add. No-op on iOS Safari.
+    playSelectionHaptic();
   }, [selections]);
 
   const togglePick = useCallback((id: string) => {
+    // HAPTIC — light selection tick on every toggle (add OR remove). The
+    // user's finger has already done the work; the haptic confirms it.
+    // No-op on iOS Safari (no Web Haptics API in 2026).
+    playSelectionHaptic();
     setSelections((current) => {
       const existing = current.find((s) => s.id.startsWith(id));
       if (existing) return current.filter((s) => s !== existing);
@@ -129,7 +137,12 @@ export function App() {
   }, []);
 
   const removeLast = useCallback(() => {
-    setSelections((s) => s.slice(0, -1));
+    setSelections((s) => {
+      if (s.length === 0) return s;
+      // HAPTIC — same light tick as toggle/add so removal feels consistent.
+      playSelectionHaptic();
+      return s.slice(0, -1);
+    });
   }, []);
 
   const reset = useCallback(() => setSelections([]), []);
@@ -137,6 +150,19 @@ export function App() {
   const jumpToTier = useCallback((target: Tier) => {
     setSelections(selectionsForTier(target));
   }, []);
+
+  /* ---------- tier-crossing haptic ---------- */
+  // Watch `tier` for changes. On any transition between adjacent tiers
+  // (or jumps spanning multiple at once via the debug buttons), fire a
+  // medium-impact haptic. Skip the initial mount so we don't vibrate on
+  // page load. No-op on iOS Safari.
+  const prevTierRef = useRef<Tier>(tier);
+  useEffect(() => {
+    if (prevTierRef.current !== tier) {
+      playTierCrossingHaptic();
+      prevTierRef.current = tier;
+    }
+  }, [tier]);
 
   // Map selected pick ids back to base ids (without -N suffix) for the
   // market accordion so it can highlight which picks are in the slip.
@@ -154,12 +180,31 @@ export function App() {
   /*  Render                                                      */
   /* ============================================================ */
   return (
-    <div className="flex min-h-screen w-full items-center justify-center p-6">
+    // RESPONSIVE LAYOUT — split at 431px (phone-only breakpoint).
+    //   ≤ 430px  (real mobile browsers): full-bleed, no mockup chrome.
+    //                                    Inner fills 100dvh × 100vw, square
+    //                                    corners, no bezel, no shadow, notch
+    //                                    hidden (real device has its own).
+    //                                    430 is the widest current iPhone
+    //                                    portrait width (14 Pro Max / 15
+    //                                    Pro Max / 16 Pro Max), so the
+    //                                    cutoff fires at 431+ to make sure
+    //                                    those devices land in mobile mode.
+    //   ≥ 431px  (desktop demo + tablets): 390×844 phone mockup centered
+    //                                      with bezel, rounded corners,
+    //                                      shadow, notch — preserves the
+    //                                      original desktop preview.
+    //   ≥ 640px  (sm): extra outer padding so the mockup floats away
+    //                  from the viewport edges.
+    // 100dvh (dynamic viewport height) accounts for iOS Safari's URL bar
+    // expand/collapse — uses the *current* viewport so the navbar doesn't
+    // get pushed under browser chrome.
+    <div className="flex min-h-[100dvh] w-full items-stretch justify-center min-[431px]:items-center min-[431px]:p-2 min-[640px]:p-6">
       {/* Phone frame */}
-      <div className="relative">
-        <div className="rounded-[44px] bg-black/40 p-3 shadow-[0_30px_80px_rgba(75,32,255,0.25)] ring-1 ring-white/10">
+      <div className="relative w-full min-[431px]:w-auto">
+        <div className="min-[431px]:rounded-[44px] min-[431px]:bg-black/40 min-[431px]:p-3 min-[431px]:shadow-[0_30px_80px_rgba(75,32,255,0.25)] min-[431px]:ring-1 min-[431px]:ring-white/10">
           <div
-            className="relative h-[844px] w-[390px] overflow-hidden rounded-[36px]"
+            className="relative h-[100dvh] w-full overflow-hidden min-[431px]:h-[844px] min-[431px]:w-[390px] min-[431px]:rounded-[36px]"
             style={{
               // Matches the Figma newLeagueMarkets card bg (#000000) so the
               // chrome around the card and the card itself read as one
@@ -168,8 +213,100 @@ export function App() {
               background: '#000000',
             }}
           >
-            {/* Notch */}
-            <div className="absolute left-1/2 top-2 z-30 h-6 w-28 -translate-x-1/2 rounded-full bg-black" />
+            {/* Notch — desktop mockup only. On real mobile the device has
+                its own physical notch / dynamic island, so we hide ours. */}
+            <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
+
+            {/* T4 SIRI-STYLE VIGNETTE.
+                Multi-color perimeter glow modeled on iOS 26 Siri
+                activation. A heavily-blurred conic gradient with
+                Apple-Intelligence-style colors (pink/magenta, purple,
+                blue-purple, warm amber) rotates around the screen.
+                A radial mask keeps the gradient clipped to the
+                perimeter — inner 55% of the radius stays transparent
+                so the markets/offers in the center column are
+                untouched.
+
+                Structure:
+                  outer motion.div = the mask layer + fade-in opacity
+                  inner motion.div = the rotating conic gradient
+
+                The inner div is sized at 200% × 200% with inset -50%
+                so rotation never reveals empty corners.
+
+                Sits at z-[15] — ABOVE scrollable content (z-10) so it
+                tints the edges of the cards, but BELOW the bet slip +
+                navbar (z-20) so the CTA stays at full brightness.
+
+                Tunables live at `cfg.tier4.vignette`. */}
+            <motion.div
+              aria-hidden
+              className="vignette-shape-breathe pointer-events-none absolute inset-0 z-[15]"
+              style={{
+                overflow: 'hidden',
+                // The radial mask is built from CSS custom properties
+                // declared in src/index.css (.vignette-shape-breathe).
+                // Those properties oscillate over an 18s loop so the
+                // mask's ellipse subtly morphs (width, height, center,
+                // and inner-stop each animate on slightly different
+                // phases). Same trick the iOS 26 Siri activation uses
+                // — continuous color rotation + organic shape morph.
+              }}
+              initial={{ opacity: 0 }}
+              animate={{
+                opacity:
+                  tier === 4
+                    ? buttonProgressionConfig.tier4.vignette.opacityMax
+                    : 0,
+              }}
+              transition={{
+                duration:
+                  buttonProgressionConfig.tier4.vignette.fadeInMs / 1000,
+                ease: 'easeOut',
+              }}
+            >
+              <motion.div
+                style={{
+                  position: 'absolute',
+                  inset: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  // Conic gradient using the SAME two-color palette as
+                  // the bet-slip outer glow swirl (see .outer-glow-swirl
+                  // in src/index.css): #4e7bff (blue) alternating with
+                  // #9730ff (purple). 5 stops at 90deg intervals create
+                  // two visible "color crests" of each hue as the
+                  // gradient rotates — so two waves of blue→purple
+                  // sweep across the perimeter per rotation. Keeps the
+                  // vignette tonally locked to the button's own glow
+                  // so the screen edges and the bet slip read as one
+                  // color system.
+                  backgroundImage:
+                    'conic-gradient(from 0deg, #4e7bff, #9730ff, #4e7bff, #9730ff, #4e7bff)',
+                  // Heavy blur so the conic reads as soft light, not
+                  // hard-edged color wedges.
+                  filter: 'blur(40px)',
+                  // Hardware-accelerate the rotation so it stays
+                  // smooth on mobile.
+                  willChange: 'transform',
+                }}
+                animate={
+                  tier === 4 && !reducedMotion ? { rotate: 360 } : { rotate: 0 }
+                }
+                transition={
+                  tier === 4 && !reducedMotion
+                    ? {
+                        // 16-second full rotation — slow enough to feel
+                        // meditative, fast enough that the colors are
+                        // visibly moving when the user looks at the screen.
+                        duration: 16,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }
+                    : { duration: 0.3 }
+                }
+              />
+            </motion.div>
 
             {/* Top decorative light. Per the Figma home frame
                 (1624:43499), the `ligh` element is sized to the
@@ -267,8 +404,17 @@ export function App() {
                 PASS 3 — The bet slip is now conditionally mounted via
                 AnimatePresence (mode="wait" queues the entry until any
                 in-flight exit finishes). A reserved-height slot keeps the
-                navbar pinned even when the button is unmounted. */}
-            <div className="absolute inset-x-0 bottom-0 z-20">
+                navbar pinned even when the button is unmounted.
+
+                RESPONSIVE — pb-safe-bottom uses env(safe-area-inset-bottom)
+                so on iOS phones with a home indicator the navbar floats
+                above it instead of being half-obscured. No-op on desktop
+                (the env value is 0) and on devices without a home
+                indicator. */}
+            <div
+              className="absolute inset-x-0 bottom-0 z-20"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
               <div
                 className="pointer-events-none absolute inset-x-0 -top-10 h-10"
                 style={{

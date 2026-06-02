@@ -189,6 +189,14 @@ export const buttonProgressionConfig = {
       3: 2000,
       4: 2200,
     } as Record<number, number>,
+    // Per-tier rhythm override map. Currently empty — every tier uses
+    // the default smooth sine wave. The 'heartbeat' rhythm (lub-dub
+    // double-pulse + long rest) was tried at T4 and reverted because
+    // the steady sine reads as more eye-catching at the faster T4
+    // amplitude (0.020 vs T1–T3's 0.008). Code branch for 'heartbeat'
+    // remains live in ButtonPreviewMomios — just add `4: 'heartbeat'`
+    // here to re-enable. See `pre-heartbeat-revert` git tag.
+    rhythmByTier: {} as Record<number, 'sine' | 'heartbeat'>,
   },
 
   /* --------------------------------------------------------------- */
@@ -210,6 +218,17 @@ export const buttonProgressionConfig = {
     countPulseScaleMax: 1.08,
     countPulseDurationMs: 220,
     countPulseGlowColor: 'rgba(151,48,255,0.7)', // existing accent
+    // ----- First-selection count-up sweep (T0 → T1 transition) -----
+    // Fires exactly once per session, on the very first 0 → 1 selection
+    // change. The odds slot roll uses a longer duration so the number
+    // visibly RAMPS UP instead of snapping, and the odds container gets
+    // a brief celebratory scale pulse. After this one-shot, subsequent
+    // odds changes use the default slotDurationMs.
+    firstSelectionCountUp: {
+      slotDurationMs: 800,    // vs default 380
+      pulseScalePeak: 1.08,
+      pulseDurationMs: 500,
+    },
   },
 
   /* --------------------------------------------------------------- */
@@ -327,6 +346,25 @@ export const buttonProgressionConfig = {
     outlineRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
     // Cap simultaneous outline ripples; older ones drop off when exceeded.
     outlineRippleMaxStacked: 3,
+    // ---- PROMINENT outline ripple (TIER-CROSSING UP into T3 or T4) ----
+    // Fires only when the user crosses INTO T3 (from T2) or INTO T4
+    // (from T3). NOT fired on regular selection adds at T3/T4 — those
+    // keep the standard ripple parameters above. The values mirror the
+    // T3 oddsRipple (1.5x scale, 1100ms duration, max opacity) so the
+    // "level-up" outline ripple feels like a sibling to the odds
+    // ripple that fires every odds change.
+    outlineRippleProminentScalePeak: 1.55,
+    outlineRippleProminentStrokeStartPx: 5,
+    outlineRippleProminentStrokeEndPx: 2,
+    outlineRippleProminentOpacityStart: 1.0,
+    outlineRippleProminentDurationMs: 1100,
+    // Motion-blur trace: as the prominent ripple expands outward, its
+    // blur filter ramps from 0px → maxBlurPx over the duration. The
+    // expanding ring smears progressively, leaving a soft trail behind
+    // it that reads as motion blur (faster a thing moves, the more it
+    // smears). Only the prominent variant gets this — the standard
+    // ripple stays sharp.
+    outlineRippleProminentMaxBlurPx: 4,
     // Ganancia (potential winnings) gets the same odds-glow treatment
     // scaled down by this factor at Tier 3.
     ganaGlowScaleDown: 0.7,
@@ -371,15 +409,52 @@ export const buttonProgressionConfig = {
     // (Bets, Momio, Monto, Gana). Keeps text readable; reads as a soft
     // luminous outline.
     numberGlow: 'drop-shadow(0 0 4px rgba(255,255,255,0.55))',
-    // ----- Fire-sparks overrides (inflow not applicable; outflow only) -----
-    // Spawn ~70% more often, more per spawn, shorter lifetime so the
-    // sparks visibly RACE upward instead of drifting.
-    fireSparksSpawnIntervalMs: 130, // was 220 at T3
-    fireSparksSpawnCountMin: 2,     // was 1
-    fireSparksSpawnCountMax: 3,     // was 2
-    fireSparksLifetimeMinMs: 500,   // was 800
-    fireSparksLifetimeMaxMs: 900,   // was 1400
-    fireSparksMaxActive: 32,        // was 20 — room for the denser flow
+    // ----- Fire-sparks magnetic INFLOW (T4 only) -----
+    // T3 emits sparks UPWARD from the top of the button (kinetic energy
+    // escaping). T4 flips the vector: round particles spawn at the four
+    // sides of a container that extends `inflowOffsetPx` outside the
+    // button, then converge toward a jittered point near the button
+    // center. Same density as the T3 emitter; opposite direction.
+    fireSparksInflow: true,
+    fireSparksInflowOffsetPx: 50,
+    // Spawn rate matches the T3 "racing" feel — frequent enough that
+    // there are usually 6–10 particles in flight at any moment.
+    fireSparksSpawnIntervalMs: 130,
+    fireSparksSpawnCountMin: 2,
+    fireSparksSpawnCountMax: 3,
+    fireSparksLifetimeMinMs: 700,
+    fireSparksLifetimeMaxMs: 1100,
+    fireSparksMaxActive: 32,
+    // ----- Weightier slot roll at T4 -----
+    // The cumulative odds digit changes feel slower + more deliberate
+    // at T4. 480ms vs the default 380ms — the number ARRIVES instead
+    // of just landing.
+    slotDurationMs: 480,
+    // ----- Ambient Siri-style perimeter vignette -----
+    // A multi-color conic gradient (Apple "Intelligence" palette —
+    // magenta → violet → indigo → amber → back to magenta) rotates
+    // around the screen perimeter, masked to the outer ~45% of the
+    // radius so the markets / offers in the center stay untouched.
+    // Models the iOS 26 Siri activation glow.
+    //
+    // Structure (see App.tsx):
+    //   outer div = radial mask + fade-in opacity on tier enter/leave
+    //   inner div = rotating conic gradient (200% × 200% with -50%
+    //               offset so rotation doesn't reveal empty corners)
+    //
+    // Color stops are hard-coded in the conic-gradient string in
+    // App.tsx (extracting them here would require runtime template
+    // assembly, which is fragile).
+    vignette: {
+      // Steady-state opacity at T4. The rotation animation does the
+      // motion; opacity stays constant once the fade-in completes.
+      opacityMax: 0.85,
+      // Fade in / out duration when tier enters / leaves T4.
+      fadeInMs: 700,
+      // Full conic rotation period in seconds. 16s feels meditative;
+      // 10s reads as "more energy"; 24s feels more contemplative.
+      rotationDurationSec: 16,
+    },
   },
 
   /* --------------------------------------------------------------- */
