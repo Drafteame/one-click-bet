@@ -189,15 +189,14 @@ export const buttonProgressionConfig = {
       3: 2000,
       4: 2200,
     } as Record<number, number>,
-    // T4 EXPERIMENT — heartbeat rhythm instead of uniform sine. Two
-    // quick pulses (lub-dub) in the first ~22% of the period, then
-    // ~78% of stillness before the next pair. Same amplitude as
-    // amplitudeByTier[4], same period — different cadence. Reads as
-    // "alive" vs T1–T3's mechanical pulse. Falls back to 'sine' for
-    // any tier not listed.
-    rhythmByTier: {
-      4: 'heartbeat',
-    } as Record<number, 'sine' | 'heartbeat'>,
+    // Per-tier rhythm override map. Currently empty — every tier uses
+    // the default smooth sine wave. The 'heartbeat' rhythm (lub-dub
+    // double-pulse + long rest) was tried at T4 and reverted because
+    // the steady sine reads as more eye-catching at the faster T4
+    // amplitude (0.020 vs T1–T3's 0.008). Code branch for 'heartbeat'
+    // remains live in ButtonPreviewMomios — just add `4: 'heartbeat'`
+    // here to re-enable. See `pre-heartbeat-revert` git tag.
+    rhythmByTier: {} as Record<number, 'sine' | 'heartbeat'>,
   },
 
   /* --------------------------------------------------------------- */
