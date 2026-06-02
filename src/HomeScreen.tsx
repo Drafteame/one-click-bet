@@ -389,7 +389,8 @@ function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
     { id: 'rma-w', l: 'RMA', v: '2.75x' },
   ];
   return (
-    <div className="w-full px-3 py-2">
+    // pt-3 = 12px gap from the pills row above (per design spec).
+    <div className="w-full px-3 pb-2 pt-3">
       <div
         className="relative w-full overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.24)] bg-black pt-2"
         style={{ backdropFilter: 'blur(10.15px)', WebkitBackdropFilter: 'blur(10.15px)' }}

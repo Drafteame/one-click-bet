@@ -171,8 +171,23 @@ export function App() {
             {/* Notch */}
             <div className="absolute left-1/2 top-2 z-30 h-6 w-28 -translate-x-1/2 rounded-full bg-black" />
 
+            {/* Top decorative light (Figma node 1665:43093). Sits in
+                the BACKGROUND of the phone frame, behind all content.
+                A wide blurred gradient blob centered horizontally near
+                the top. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 -top-32 z-0 h-[400px] w-[600px] -translate-x-1/2"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45.09deg, #4b20ff 0%, #9730ff 100%)',
+                filter: 'blur(50px)',
+                opacity: 0.48,
+              }}
+            />
+
             {/* Scrollable content area */}
-            <div className="no-scrollbar absolute inset-0 overflow-y-auto pb-[160px]">
+            <div className="no-scrollbar absolute inset-0 z-10 overflow-y-auto pb-[160px]">
               <HomeScreenChrome
                 picks={MOCK_PICKS}
                 selectedIds={baseSelectedIds}
