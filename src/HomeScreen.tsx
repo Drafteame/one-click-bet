@@ -162,38 +162,73 @@ function Header() {
 }
 
 /* ============================================================ */
-/*  Leagues row — circular sport/league tabs                    */
+/*  Leagues row — Figma node 1665:42976                         */
+/*  Horizontal scroll of league/sport icon buttons. Selected     */
+/*  league has a #4b20ff 2px ring + transparent purple gradient. */
+/*  Bottom border on the row + right-edge fade-to-black gradient.*/
+/*  Icons reuse the existing emoji glyphs.                       */
 /* ============================================================ */
 function LeaguesTab() {
-  const items = [
-    { id: 'todofut', label: 'TODOFUT', glyph: '⚽' },
-    { id: 'champ', label: 'CHAMPI…', glyph: '🏆' },
+  const [activeLeague, setActiveLeague] = useState<string>('todofut');
+  const leagues = [
+    { id: 'todofut', label: 'TODO FUT', glyph: '⚽' },
+    { id: 'champ', label: 'CHAMPIONS', glyph: '🏆' },
     { id: 'nfl', label: 'NFL', glyph: '🏈' },
     { id: 'mlb', label: 'MLB', glyph: '⚾' },
     { id: 'tenis', label: 'TENIS', glyph: '🎾' },
-    { id: 'prem', label: 'PREMI…', glyph: '🦁' },
+    { id: 'prem', label: 'PREMIER', glyph: '🦁' },
   ];
   return (
-    <div className="no-scrollbar flex w-full gap-3 overflow-x-auto px-3 py-2">
-      {items.map((it, i) => (
-        <div
-          key={it.id}
-          className="flex shrink-0 flex-col items-center gap-1.5"
-        >
-          <div
-            className={`flex h-[46px] w-[46px] items-center justify-center rounded-full border text-[18px] ${
-              i === 0
-                ? 'border-[#4b20ff] bg-gradient-to-br from-[#4b20ff] to-[#9730ff]'
-                : 'border-white/15 bg-white/5'
-            }`}
-          >
-            {it.glyph}
-          </div>
-          <span className="text-[9px] font-bold tracking-wider text-white/70">
-            {it.label}
-          </span>
-        </div>
-      ))}
+    <div className="relative w-full border-b border-[rgba(251,251,251,0.12)]">
+      <div className="no-scrollbar flex w-full items-center gap-3 overflow-x-auto px-3 pt-2">
+        {leagues.map((l) => {
+          const isActive = activeLeague === l.id;
+          return (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setActiveLeague(l.id)}
+              className="flex h-[70px] shrink-0 cursor-pointer flex-col items-center active:scale-[0.96] transition-transform"
+            >
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className={`flex size-11 items-center justify-center rounded-full text-[22px] leading-none ${
+                    isActive
+                      ? 'border-2 border-[#4b20ff]'
+                      : 'border border-[rgba(251,251,251,0.16)]'
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          backgroundImage:
+                            'linear-gradient(75.11deg, rgba(75,32,255,0.24) 0%, rgba(151,48,255,0.24) 100%)',
+                        }
+                      : undefined
+                  }
+                >
+                  {l.glyph}
+                </div>
+                <span
+                  className={`w-[52px] overflow-hidden text-ellipsis whitespace-nowrap text-center text-[10px] font-bold leading-[15px] ${
+                    isActive ? 'text-[#fbfbfb]' : 'text-[rgba(251,251,251,0.5)]'
+                  }`}
+                  style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                >
+                  {l.label}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      {/* Right-edge fade-to-black so trailing tabs hint at more content */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute right-0 top-0 h-full w-6"
+        style={{
+          background: 'linear-gradient(to right, rgba(0,0,0,0) 0%, #000 100%)',
+        }}
+      />
     </div>
   );
 }
