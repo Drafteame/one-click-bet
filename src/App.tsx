@@ -241,17 +241,16 @@ export function App() {
                 Tunables live at `cfg.tier4.vignette`. */}
             <motion.div
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-[15]"
+              className="vignette-shape-breathe pointer-events-none absolute inset-0 z-[15]"
               style={{
                 overflow: 'hidden',
-                // Radial mask: transparent center → opaque edges.
-                // The transparent inner 55% of the ellipse keeps the
-                // markets / leagues / pills untouched; the outer
-                // 45% reveals the rotating colors.
-                WebkitMaskImage:
-                  'radial-gradient(ellipse 75% 80% at 50% 50%, transparent 55%, black 100%)',
-                maskImage:
-                  'radial-gradient(ellipse 75% 80% at 50% 50%, transparent 55%, black 100%)',
+                // The radial mask is built from CSS custom properties
+                // declared in src/index.css (.vignette-shape-breathe).
+                // Those properties oscillate over an 18s loop so the
+                // mask's ellipse subtly morphs (width, height, center,
+                // and inner-stop each animate on slightly different
+                // phases). Same trick the iOS 26 Siri activation uses
+                // — continuous color rotation + organic shape morph.
               }}
               initial={{ opacity: 0 }}
               animate={{

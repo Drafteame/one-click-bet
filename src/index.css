@@ -202,6 +202,102 @@ body {
   animation: glowSwirl 7s linear infinite;
 }
 
+/* ---------------------------------------------------------------- */
+/*  T4 perimeter vignette — organic shape morph                     */
+/*  The mask ellipse's width, height, center, and inner-stop each    */
+/*  oscillate on slightly different phases over an 18s loop, so the  */
+/*  shape of the transparent "hole" in the perimeter glow gently     */
+/*  shifts — wider then taller then off-center, etc. — without the   */
+/*  changes being obvious frame-to-frame. Same trick the iOS 26 Siri */
+/*  activation uses: continuous rotation + subtle shape morph.       */
+/*                                                                    */
+/*  @property declarations give the custom properties typed values   */
+/*  so CSS interpolates them smoothly during the keyframe transitions.*/
+/* ---------------------------------------------------------------- */
+@property --vw {
+  syntax: '<percentage>';
+  initial-value: 75%;
+  inherits: false;
+}
+@property --vh {
+  syntax: '<percentage>';
+  initial-value: 80%;
+  inherits: false;
+}
+@property --vcx {
+  syntax: '<percentage>';
+  initial-value: 50%;
+  inherits: false;
+}
+@property --vcy {
+  syntax: '<percentage>';
+  initial-value: 50%;
+  inherits: false;
+}
+@property --vstop {
+  syntax: '<percentage>';
+  initial-value: 55%;
+  inherits: false;
+}
+
+@keyframes vignetteShapeBreathe {
+  0%, 100% {
+    --vw: 75%;
+    --vh: 80%;
+    --vcx: 50%;
+    --vcy: 50%;
+    --vstop: 55%;
+  }
+  20% {
+    --vw: 82%;
+    --vh: 76%;
+    --vcx: 52%;
+    --vcy: 49%;
+    --vstop: 53%;
+  }
+  40% {
+    --vw: 70%;
+    --vh: 85%;
+    --vcx: 48%;
+    --vcy: 52%;
+    --vstop: 58%;
+  }
+  60% {
+    --vw: 78%;
+    --vh: 74%;
+    --vcx: 51%;
+    --vcy: 50%;
+    --vstop: 52%;
+  }
+  80% {
+    --vw: 73%;
+    --vh: 82%;
+    --vcx: 49%;
+    --vcy: 51%;
+    --vstop: 56%;
+  }
+}
+
+.vignette-shape-breathe {
+  -webkit-mask-image: radial-gradient(
+    ellipse var(--vw) var(--vh) at var(--vcx) var(--vcy),
+    transparent var(--vstop),
+    black 100%
+  );
+  mask-image: radial-gradient(
+    ellipse var(--vw) var(--vh) at var(--vcx) var(--vcy),
+    transparent var(--vstop),
+    black 100%
+  );
+  animation: vignetteShapeBreathe 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vignette-shape-breathe {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .outer-glow-swirl {
     animation: none;
