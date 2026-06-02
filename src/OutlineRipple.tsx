@@ -53,6 +53,14 @@ export function OutlineRipple({ id, radius, accent, prominent = false }: Props) 
   const durationMs = prominent
     ? cfg.tier3.outlineRippleProminentDurationMs
     : cfg.tier3.outlineRippleDurationMs;
+  // Motion-blur ramp: only the PROMINENT variant gets a filter that
+  // grows from 0 → maxBlurPx over the flight. As the ring expands
+  // outward it visibly smears, leaving a soft trail behind the
+  // leading edge — same idea as a camera's motion blur on a fast
+  // moving subject. The standard ripple stays sharp throughout.
+  const blurMaxPx = prominent
+    ? cfg.tier3.outlineRippleProminentMaxBlurPx
+    : 0;
   return (
     <motion.div
       key={id}
@@ -63,17 +71,19 @@ export function OutlineRipple({ id, radius, accent, prominent = false }: Props) 
         borderColor: accent,
         borderStyle: 'solid',
         boxSizing: 'border-box',
-        willChange: 'transform, opacity, border-width',
+        willChange: 'transform, opacity, border-width, filter',
       }}
       initial={{
         scale: 1,
         opacity: opacityStart,
         borderWidth: strokeStartPx,
+        filter: 'blur(0px)',
       }}
       animate={{
         scale: scalePeak,
         opacity: 0,
         borderWidth: strokeEndPx,
+        filter: `blur(${blurMaxPx}px)`,
       }}
       transition={{
         duration: durationMs / 1000,

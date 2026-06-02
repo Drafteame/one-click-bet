@@ -346,10 +346,7 @@ export const buttonProgressionConfig = {
     outlineRippleDurationMs: 600,
     outlineRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
     // Cap simultaneous outline ripples; older ones drop off when exceeded.
-    // Bumped from 3 to 5 to accommodate the 3-ripple prominent burst
-    // on tier crossings PLUS the regular ripple from the same selection
-    // event (4 in flight at peak) without dropping the oldest.
-    outlineRippleMaxStacked: 5,
+    outlineRippleMaxStacked: 3,
     // ---- PROMINENT outline ripple (TIER-CROSSING UP into T3 or T4) ----
     // Fires only when the user crosses INTO T3 (from T2) or INTO T4
     // (from T3). NOT fired on regular selection adds at T3/T4 — those
@@ -362,14 +359,13 @@ export const buttonProgressionConfig = {
     outlineRippleProminentStrokeEndPx: 2,
     outlineRippleProminentOpacityStart: 1.0,
     outlineRippleProminentDurationMs: 1100,
-    // Triple-stack: on each tier-up into T3/T4 we spawn N ghostly
-    // repetitions of the prominent ripple, staggered by staggerMs.
-    // By the time the 2nd and 3rd spawn, the earlier ones are already
-    // mid-flight (larger scale + partially faded) — the cascade reads
-    // as concentric "echoes" expanding outward, same family as the
-    // stacked odds ripples on rapid adds.
-    outlineRippleProminentCount: 3,
-    outlineRippleProminentStaggerMs: 160,
+    // Motion-blur trace: as the prominent ripple expands outward, its
+    // blur filter ramps from 0px → maxBlurPx over the duration. The
+    // expanding ring smears progressively, leaving a soft trail behind
+    // it that reads as motion blur (faster a thing moves, the more it
+    // smears). Only the prominent variant gets this — the standard
+    // ripple stays sharp.
+    outlineRippleProminentMaxBlurPx: 4,
     // Ganancia (potential winnings) gets the same odds-glow treatment
     // scaled down by this factor at Tier 3.
     ganaGlowScaleDown: 0.7,

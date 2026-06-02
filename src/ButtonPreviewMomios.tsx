@@ -1000,41 +1000,27 @@ export function ButtonPreviewMomios({
       borderOverrideTotalRef.current = 600;
       borderOverrideUntilRef.current = now + 600;
     }
-    // PROMINENT outline ripple BURST — fires ONLY when crossing UP into
-    // T3 or T4 (the "level-up" moment). N ghostly ripples spawn at
-    // staggerMs intervals so the prominent variant cascades outward
-    // like concentric echoes. By the time ripple #3 spawns, ripple #1
-    // is already mid-flight (larger scale + partially faded) — the
-    // visual reads as a stack of expanding rings, same family as the
-    // odds ripples that stack on rapid selection adds.
+    // PROMINENT outline ripple — fires ONLY when crossing UP into T3
+    // or T4 (the "level-up" moment). Lives alongside the existing
+    // standard ripple that fires from the selection-change effect on
+    // every add. The prominent variant scales bigger (1.55x vs 1.18x),
+    // stays visible longer (1100ms vs 600ms), starts at full opacity
+    // (1.0 vs 0.85), AND ramps its blur filter from 0 → maxBlurPx
+    // over its flight — the expanding ring smears like motion blur,
+    // leaving a soft trail behind the leading edge.
     if (crossing.dir === 'up' && crossing.toTier >= 3) {
-      const count = cfg.tier3.outlineRippleProminentCount;
-      const stagger = cfg.tier3.outlineRippleProminentStaggerMs;
-      for (let i = 0; i < count; i++) {
-        const delayMs = i * stagger;
-        // Capture i in the closure so each timer uses a stable id.
-        // performance.now() + i avoids collision with the standard
-        // ripple (which uses bare performance.now()).
-        const spawnId = now + 1 + i;
-        setTimeout(() => {
-          setOutlineRipples((cur) => {
-            const next = [...cur, { id: spawnId, prominent: true }];
-            if (next.length > cfg.tier3.outlineRippleMaxStacked) {
-              return next.slice(
-                next.length - cfg.tier3.outlineRippleMaxStacked,
-              );
-            }
-            return next;
-          });
-          setTimeout(
-            () =>
-              setOutlineRipples((cur) =>
-                cur.filter((r) => r.id !== spawnId),
-              ),
-            cfg.tier3.outlineRippleProminentDurationMs + 60,
-          );
-        }, delayMs);
-      }
+      const id = now + 1; // +1 to avoid id collision with the standard ripple
+      setOutlineRipples((cur) => {
+        const next = [...cur, { id, prominent: true }];
+        if (next.length > cfg.tier3.outlineRippleMaxStacked) {
+          return next.slice(next.length - cfg.tier3.outlineRippleMaxStacked);
+        }
+        return next;
+      });
+      setTimeout(
+        () => setOutlineRipples((cur) => cur.filter((r) => r.id !== id)),
+        cfg.tier3.outlineRippleProminentDurationMs + 60,
+      );
     }
   }, [crossing, reduced]);
 
