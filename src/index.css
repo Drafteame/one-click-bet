@@ -249,32 +249,32 @@ body {
     --vstop: 55%;
   }
   20% {
-    --vw: 82%;
-    --vh: 76%;
-    --vcx: 52%;
-    --vcy: 49%;
-    --vstop: 53%;
+    --vw: 95%;
+    --vh: 65%;
+    --vcx: 58%;
+    --vcy: 44%;
+    --vstop: 45%;
   }
   40% {
-    --vw: 70%;
-    --vh: 85%;
-    --vcx: 48%;
-    --vcy: 52%;
-    --vstop: 58%;
+    --vw: 58%;
+    --vh: 95%;
+    --vcx: 42%;
+    --vcy: 58%;
+    --vstop: 65%;
   }
   60% {
-    --vw: 78%;
-    --vh: 74%;
-    --vcx: 51%;
-    --vcy: 50%;
-    --vstop: 52%;
+    --vw: 92%;
+    --vh: 68%;
+    --vcx: 55%;
+    --vcy: 52%;
+    --vstop: 48%;
   }
   80% {
-    --vw: 73%;
-    --vh: 82%;
-    --vcx: 49%;
-    --vcy: 51%;
-    --vstop: 56%;
+    --vw: 64%;
+    --vh: 90%;
+    --vcx: 45%;
+    --vcy: 55%;
+    --vstop: 62%;
   }
 }
 
@@ -289,7 +289,10 @@ body {
     transparent var(--vstop),
     black 100%
   );
-  animation: vignetteShapeBreathe 18s ease-in-out infinite;
+  /* 11s loop — fast enough that the shape change is clearly visible
+     within a few seconds of looking at the screen, slow enough that
+     no single transition feels rushed. */
+  animation: vignetteShapeBreathe 11s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
