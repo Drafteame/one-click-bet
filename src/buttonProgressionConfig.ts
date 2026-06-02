@@ -412,16 +412,28 @@ export const buttonProgressionConfig = {
     // at T4. 480ms vs the default 380ms — the number ARRIVES instead
     // of just landing.
     slotDurationMs: 480,
-    // ----- Ambient vignette -----
-    // A radial gradient overlay that quietly recedes the screen edges
-    // toward purple, focusing attention inward on the button. Fades in
-    // over fadeInMs when tier crosses into 4; fades out symmetrically
-    // on the way down. Pure ambient — does not affect text contrast.
+    // ----- Ambient side-curtain vignette -----
+    // Two soft purple pools anchored at the LEFT and RIGHT edges,
+    // vertically centered on the bet-slip row (~72% Y). Frames the
+    // button without darkening the markets / offer cards above.
+    //
+    // Animated with a heartbeat-pattern opacity oscillation that
+    // visually rhymes with the button's heartbeat breath at T4 (lub
+    // at ~4% of period, dub at ~17%, then a long rest). Period is
+    // synced to `cfg.breath.periodByTier[4]` in the App.tsx animator.
+    //
+    // Pure ambient — does not affect text contrast on the bet slip
+    // (transparent center column).
     vignette: {
-      opacityMax: 0.55,
-      fadeInMs: 600,
-      // Inner-shadow style: dark/transparent center → purple edges.
-      // Built as a single radial-gradient background-image at runtime.
+      // Min/max opacity during the heartbeat pulse cycle. The 'rest'
+      // value is the baseline (between beats); 'peakLub' and 'peakDub'
+      // are the two pulse peaks (dub slightly stronger than lub, just
+      // like the breath).
+      opacityRest: 0.45,
+      opacityPeakLub: 0.7,
+      opacityPeakDub: 0.85,
+      fadeInMs: 700,
+      // Edge color of the pools.
       edgeColor: 'rgba(75,32,255,0.9)',
     },
   },

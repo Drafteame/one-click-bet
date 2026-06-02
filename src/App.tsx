@@ -216,39 +216,73 @@ export function App() {
                 its own physical notch / dynamic island, so we hide ours. */}
             <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
 
-            {/* T4 AMBIENT VIGNETTE.
-                Quiet inverted radial gradient — transparent at the
-                bet-slip area (50% x, ~78% y) and darkening toward the
-                screen edges. Reads as "the world recedes; the button
-                is spotlit." Sits at z-[15] — ABOVE scrollable content
-                (z-10) so it tints the cards/leagues/pills, but BELOW
-                the bet slip + navbar (z-20) so the CTA stays at full
-                brightness. Fades in/out over fadeInMs whenever tier
-                enters/exits 4. Completely invisible at T0–T3.
-                Tunables live at `cfg.tier4.vignette`. */}
+            {/* T4 SIDE-CURTAIN VIGNETTE.
+                Two purple radial pools anchored at the LEFT and RIGHT
+                edges, vertically centered on the bet-slip row (~72%
+                Y). Frames the button area without darkening the
+                markets/offer cards in the upper portion of the screen.
+
+                Sits at z-[15] — ABOVE scrollable content (z-10) so it
+                tints leagues/cards/pills at the edges, but BELOW the
+                bet slip + navbar (z-20) so the CTA stays at full
+                brightness.
+
+                Animated with a heartbeat-pattern opacity pulse that
+                visually rhymes with the button's heartbeat breath at
+                T4. Period matches `cfg.breath.periodByTier[4]` so the
+                two effects feel like one organism. Times array maps
+                keyframes to specific cycle phases — lub at 3.75%, dub
+                at 16.75%, then a long rest until the loop restarts.
+                Completely invisible at T0–T3 (fades to opacity 0). */}
             <motion.div
               aria-hidden
               className="pointer-events-none absolute inset-0 z-[15]"
               style={{
-                // Anchor the bright spot on the bet slip (centered
-                // horizontally, sits ~78% down the screen, just above
-                // the navbar). The 35% inner stop keeps the bright
-                // pocket large enough that the button area is
-                // genuinely untouched.
-                backgroundImage: `radial-gradient(ellipse 70% 55% at 50% 78%, transparent 35%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 100%)`,
+                backgroundImage: `
+                  radial-gradient(ellipse 32% 55% at 0% 72%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 0%, transparent 65%),
+                  radial-gradient(ellipse 32% 55% at 100% 72%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 0%, transparent 65%)
+                `,
               }}
-              initial={false}
-              animate={{
-                opacity:
-                  tier === 4
-                    ? buttonProgressionConfig.tier4.vignette.opacityMax
-                    : 0,
-              }}
-              transition={{
-                duration:
-                  buttonProgressionConfig.tier4.vignette.fadeInMs / 1000,
-                ease: 'easeOut',
-              }}
+              initial={{ opacity: 0 }}
+              animate={
+                tier === 4
+                  ? {
+                      // Heartbeat: rest → lub peak → rest → dub peak → rest.
+                      // Matches the breath envelope at T4 (rhythmByTier[4]).
+                      opacity: [
+                        buttonProgressionConfig.tier4.vignette.opacityRest,
+                        buttonProgressionConfig.tier4.vignette.opacityPeakLub,
+                        buttonProgressionConfig.tier4.vignette.opacityRest,
+                        buttonProgressionConfig.tier4.vignette.opacityPeakDub,
+                        buttonProgressionConfig.tier4.vignette.opacityRest,
+                      ],
+                    }
+                  : { opacity: 0 }
+              }
+              transition={
+                tier === 4
+                  ? {
+                      // Period synced to the button's breath at T4.
+                      duration:
+                        (buttonProgressionConfig.breath.periodByTier[4] ??
+                          2200) /
+                        1000,
+                      // Lub at 3.75% (mid of 0–7.5%), dub at 16.75%
+                      // (mid of 12–21.5%) — the same pulse positions
+                      // used by the breath calculation in
+                      // ButtonPreviewMomios.
+                      times: [0, 0.0375, 0.075, 0.1675, 0.215],
+                      repeat: Infinity,
+                      repeatType: 'loop',
+                      ease: 'easeInOut',
+                    }
+                  : {
+                      duration:
+                        buttonProgressionConfig.tier4.vignette.fadeInMs /
+                        1000,
+                      ease: 'easeOut',
+                    }
+              }
             />
 
             {/* Top decorative light. Per the Figma home frame
