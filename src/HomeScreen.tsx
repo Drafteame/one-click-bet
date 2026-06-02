@@ -269,26 +269,64 @@ function MatchTabsRow() {
 }
 
 /* ============================================================ */
-/*  Match tabs + pills row                                      */
+/*  Pills row — Figma node 1665:43054                           */
+/*  6 chip-style pills with one selected (POPULARES) showing a  */
+/*  transparent purple gradient + #4b20ff border + flame icon.  */
 /* ============================================================ */
 function TabsAndPills() {
+  const [activePill, setActivePill] = useState<string>('POPULARES');
+  const pills = ['POPULARES', 'PARTIDOS', '1era MITAD', 'TIROS', 'GOLES', 'OTROS'];
+
   return (
-    <div className="flex w-full flex-col gap-2 px-3">
-      <div className="flex items-center gap-3 py-1">
-        <span className="text-[14px] font-black text-white">TODOS</span>
-        {['POPULARES', 'PARTIDOS', '1era MITAD', 'TIROS'].map((t, i) => (
+    <div className="no-scrollbar flex w-full items-center gap-1.5 overflow-x-auto px-3 pt-1">
+      {pills.map((label) => {
+        const isActive = activePill === label;
+        if (isActive) {
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => setActivePill(label)}
+              className="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-[56px] border border-[#4b20ff] py-[7px] pl-2 pr-3 transition-transform active:scale-[0.96]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(46.31deg, rgba(75,32,255,0.24) 0%, rgba(151,48,255,0.24) 100%)',
+              }}
+            >
+              {/* TODO: 16×16 flame / "popular" icon on the left of the
+                  selected pill (imgVector in the Figma export) —
+                  awaiting asset upload. Placeholder slot left blank so
+                  layout reserves its space. */}
+              <span
+                aria-hidden
+                className="block h-4 w-4 shrink-0"
+              />
+              <span
+                className="whitespace-nowrap text-center text-[12px] font-bold leading-[18px] text-[#fbfbfb]"
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {label}
+              </span>
+            </button>
+          );
+        }
+        // Default (unselected) pill.
+        return (
           <button
-            key={t}
-            className={`rounded-full px-3 py-1.5 text-[11px] font-bold tracking-wide ${
-              i === 0
-                ? 'bg-gradient-to-r from-[#4b20ff] to-[#9730ff] text-white'
-                : 'border border-white/15 text-white/70'
-            }`}
+            key={label}
+            type="button"
+            onClick={() => setActivePill(label)}
+            className="flex h-8 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[rgba(251,251,251,0.08)] px-3 py-[7px] transition-transform active:scale-[0.96]"
           >
-            {t}
+            <span
+              className="whitespace-nowrap text-center text-[12px] font-bold leading-[18px] text-[rgba(251,251,251,0.7)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              {label}
+            </span>
           </button>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
