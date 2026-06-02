@@ -3,12 +3,15 @@ import { useState } from 'react';
 import betsIcon from './assets/bets.svg';
 import chevronIcon from './assets/chevron.svg';
 import gamingIcon from './assets/gaming.svg';
+import logoDrafteaIcon from './assets/logo-draftea.svg';
 import misEntradasIcon from './assets/mis_entradas.svg';
 import playerIcon from './assets/player.svg';
+import plusIcon from './assets/plus.svg';
 import rewardsIcon from './assets/rewards.png';
 import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
 import statsIcon from './assets/stats.svg';
+import userIcon from './assets/user.svg';
 import type { Selection } from './types';
 
 /* ============================================================ */
@@ -74,63 +77,84 @@ function StatusBar() {
 /*  Header — Draftea logo, balance, lightning, profile          */
 /* ============================================================ */
 function Header() {
+  // Figma "header" node 1665:42931. Three regions:
+  //   • Left: Draftea wordmark logo (110×24).
+  //   • Right gap-2:
+  //     - Balance pair: "$0.00" + "BALANCE" stacked right-aligned,
+  //       then a 32×32 purple-gradient circle with the + icon.
+  //     - 36×36 circular user button on rgba(251,251,251,0.12) bg.
   return (
-    <div className="flex h-14 w-full items-center justify-between px-4">
-      {/* Draftea wordmark */}
-      <div className="flex items-center gap-1.5">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-          <path
-            d="M3 11a8 8 0 0116 0v8L11 16l-8 3v-8z"
-            fill="url(#dgrad)"
-          />
-          <defs>
-            <linearGradient id="dgrad" x1="0" y1="0" x2="22" y2="22">
-              <stop stopColor="#9730ff" />
-              <stop offset="1" stopColor="#4b20ff" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <span className="text-[15px] font-black tracking-wider text-white">
-          DRAFTEA
-        </span>
+    <div className="flex w-full items-center justify-between px-3 py-1">
+      {/* Left — Draftea logo */}
+      <div className="flex flex-1 items-center">
+        <img
+          src={logoDrafteaIcon}
+          alt="Draftea"
+          className="h-6"
+        />
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex flex-col items-end leading-tight">
-          <span className="text-[13px] font-black text-white">$0.00</span>
-          <span className="text-[9px] font-medium uppercase tracking-wider text-white/50">
-            Balance
-          </span>
+
+      {/* Right — balance + plus button + user button */}
+      <div className="flex h-full items-center justify-end gap-2">
+        {/* Balance pair (text + plus button) */}
+        <div className="flex items-center justify-end gap-2 rounded-xl">
+          <div className="flex flex-col items-end whitespace-nowrap">
+            <span
+              className="text-center text-[14px] font-bold leading-[21px] text-[#fbfbfb]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              $0.00
+            </span>
+            <span
+              className="text-right text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
+              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+            >
+              BALANCE
+            </span>
+          </div>
+          {/* Plus button — 32×32 purple gradient (75.11° angle) with
+              the standard inset shadow used on the Gana CTA. */}
+          <button
+            type="button"
+            aria-label="Add funds"
+            className="relative flex size-8 cursor-pointer items-center justify-center rounded-[56px] active:scale-[0.95] transition-transform"
+          >
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-[56px]"
+              style={{
+                backgroundImage:
+                  'linear-gradient(75.11deg, #4b20ff 0%, #9730ff 100%)',
+              }}
+            />
+            <img
+              src={plusIcon}
+              alt=""
+              aria-hidden
+              className="relative h-[18px] w-[18px]"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-[inherit]"
+              style={{
+                boxShadow: 'inset 0 0 12px rgba(0,0,0,0.24)',
+              }}
+            />
+          </button>
         </div>
-        {/* lightning quick-deposit */}
+
+        {/* User / profile button — 36×36 on faint white bg */}
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-full"
-          style={{
-            background:
-              'linear-gradient(135deg, #4b20ff 0%, #9730ff 100%)',
-          }}
-          aria-label="Quick deposit"
-        >
-          <svg width="14" height="16" viewBox="0 0 14 16" fill="none" aria-hidden>
-            <path
-              d="M8 0L0 9h5l-1 7 8-9H7l1-7z"
-              fill="white"
-            />
-          </svg>
-        </button>
-        {/* profile */}
-        <button
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5"
+          type="button"
           aria-label="Profile"
+          className="flex size-9 cursor-pointer items-center justify-center overflow-hidden rounded-[56px] bg-[rgba(251,251,251,0.12)] px-2 py-2.5 active:scale-[0.95] transition-transform"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <circle cx="8" cy="6" r="2.6" stroke="white" strokeWidth="1.4" />
-            <path
-              d="M3 14a5 5 0 0110 0"
-              stroke="white"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-          </svg>
+          <img
+            src={userIcon}
+            alt=""
+            aria-hidden
+            className="h-[18px] w-[18px]"
+          />
         </button>
       </div>
     </div>
