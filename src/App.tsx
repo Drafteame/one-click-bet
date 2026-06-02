@@ -216,15 +216,17 @@ export function App() {
                 its own physical notch / dynamic island, so we hide ours. */}
             <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
 
-            {/* T4 SIDE-CURTAIN VIGNETTE.
-                Two purple radial pools anchored at the LEFT and RIGHT
-                edges, vertically centered on the bet-slip row (~72%
-                Y). Frames the button area without darkening the
-                markets/offer cards in the upper portion of the screen.
+            {/* T4 PERIMETER VIGNETTE.
+                A purple glow that hugs the inner edges of the phone
+                screen, framing the entire viewport without reaching
+                inward into the markets/offer cards. Built with an
+                inset box-shadow (blur 70px, spread 0) — the soft
+                gradient stays within ~70px of each edge and fades to
+                transparent before reaching the center column.
 
                 Sits at z-[15] — ABOVE scrollable content (z-10) so it
-                tints leagues/cards/pills at the edges, but BELOW the
-                bet slip + navbar (z-20) so the CTA stays at full
+                tints the very edges of the cards, but BELOW the bet
+                slip + navbar (z-20) so the CTA stays at full
                 brightness.
 
                 Animated with a heartbeat-pattern opacity pulse that
@@ -238,10 +240,12 @@ export function App() {
               aria-hidden
               className="pointer-events-none absolute inset-0 z-[15]"
               style={{
-                backgroundImage: `
-                  radial-gradient(ellipse 32% 55% at 0% 72%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 0%, transparent 65%),
-                  radial-gradient(ellipse 32% 55% at 100% 72%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 0%, transparent 65%)
-                `,
+                // Inset box-shadow creates a soft inner glow around
+                // the entire perimeter. Blur 70px + spread 0 means
+                // the glow is widest at the edge and fades to nothing
+                // ~70px in — staying clear of the center column where
+                // the markets and offers live.
+                boxShadow: `inset 0 0 70px 0 ${buttonProgressionConfig.tier4.vignette.edgeColor}`,
               }}
               initial={{ opacity: 0 }}
               animate={
