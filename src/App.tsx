@@ -154,12 +154,26 @@ export function App() {
   /*  Render                                                      */
   /* ============================================================ */
   return (
-    <div className="flex min-h-screen w-full items-center justify-center p-6">
+    // RESPONSIVE LAYOUT — split at 430px (phone-only breakpoint).
+    //   < 430px  (real mobile browsers): full-bleed, no mockup chrome.
+    //                                    Inner fills 100dvh × 100vw, square
+    //                                    corners, no bezel, no shadow, notch
+    //                                    hidden (real device has its own).
+    //   ≥ 430px  (desktop demo + tablets): 390×844 phone mockup centered
+    //                                      with bezel, rounded corners,
+    //                                      shadow, notch — preserves the
+    //                                      original desktop preview.
+    //   ≥ 640px  (sm): extra outer padding so the mockup floats away
+    //                  from the viewport edges.
+    // 100dvh (dynamic viewport height) accounts for iOS Safari's URL bar
+    // expand/collapse — uses the *current* viewport so the navbar doesn't
+    // get pushed under browser chrome.
+    <div className="flex min-h-[100dvh] w-full items-stretch justify-center min-[430px]:items-center min-[430px]:p-2 min-[640px]:p-6">
       {/* Phone frame */}
-      <div className="relative">
-        <div className="rounded-[44px] bg-black/40 p-3 shadow-[0_30px_80px_rgba(75,32,255,0.25)] ring-1 ring-white/10">
+      <div className="relative w-full min-[430px]:w-auto">
+        <div className="min-[430px]:rounded-[44px] min-[430px]:bg-black/40 min-[430px]:p-3 min-[430px]:shadow-[0_30px_80px_rgba(75,32,255,0.25)] min-[430px]:ring-1 min-[430px]:ring-white/10">
           <div
-            className="relative h-[844px] w-[390px] overflow-hidden rounded-[36px]"
+            className="relative h-[100dvh] w-full overflow-hidden min-[430px]:h-[844px] min-[430px]:w-[390px] min-[430px]:rounded-[36px]"
             style={{
               // Matches the Figma newLeagueMarkets card bg (#000000) so the
               // chrome around the card and the card itself read as one
@@ -168,8 +182,9 @@ export function App() {
               background: '#000000',
             }}
           >
-            {/* Notch */}
-            <div className="absolute left-1/2 top-2 z-30 h-6 w-28 -translate-x-1/2 rounded-full bg-black" />
+            {/* Notch — desktop mockup only. On real mobile the device has
+                its own physical notch / dynamic island, so we hide ours. */}
+            <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[430px]:block" />
 
             {/* Top decorative light (Figma node 1665:43093). Sits in
                 the BACKGROUND of the phone frame, behind all content.
@@ -266,8 +281,17 @@ export function App() {
                 PASS 3 — The bet slip is now conditionally mounted via
                 AnimatePresence (mode="wait" queues the entry until any
                 in-flight exit finishes). A reserved-height slot keeps the
-                navbar pinned even when the button is unmounted. */}
-            <div className="absolute inset-x-0 bottom-0 z-20">
+                navbar pinned even when the button is unmounted.
+
+                RESPONSIVE — pb-safe-bottom uses env(safe-area-inset-bottom)
+                so on iOS phones with a home indicator the navbar floats
+                above it instead of being half-obscured. No-op on desktop
+                (the env value is 0) and on devices without a home
+                indicator. */}
+            <div
+              className="absolute inset-x-0 bottom-0 z-20"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+            >
               <div
                 className="pointer-events-none absolute inset-x-0 -top-10 h-10"
                 style={{
