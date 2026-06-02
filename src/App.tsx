@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BetSlipShell } from './BetSlipShell';
 import {
@@ -81,6 +81,7 @@ function selectionsForTier(target: Tier): Selection[] {
 
 export function App() {
   const debug = useDebug();
+  const reducedMotion = useReducedMotion();
   const [selections, setSelections] = useState<Selection[]>([]);
   const [speedScale, setSpeedScale] = useState(1);
   const [live, setLive] = useState<ButtonLiveState | null>(null);
@@ -216,78 +217,92 @@ export function App() {
                 its own physical notch / dynamic island, so we hide ours. */}
             <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
 
-            {/* T4 PERIMETER VIGNETTE.
-                A purple glow that hugs the inner edges of the phone
-                screen, framing the entire viewport without reaching
-                inward into the markets/offer cards. Built with an
-                inset box-shadow (blur 70px, spread 0) — the soft
-                gradient stays within ~70px of each edge and fades to
-                transparent before reaching the center column.
+            {/* T4 SIRI-STYLE VIGNETTE.
+                Multi-color perimeter glow modeled on iOS 26 Siri
+                activation. A heavily-blurred conic gradient with
+                Apple-Intelligence-style colors (pink/magenta, purple,
+                blue-purple, warm amber) rotates around the screen.
+                A radial mask keeps the gradient clipped to the
+                perimeter — inner 55% of the radius stays transparent
+                so the markets/offers in the center column are
+                untouched.
+
+                Structure:
+                  outer motion.div = the mask layer + fade-in opacity
+                  inner motion.div = the rotating conic gradient
+
+                The inner div is sized at 200% × 200% with inset -50%
+                so rotation never reveals empty corners.
 
                 Sits at z-[15] — ABOVE scrollable content (z-10) so it
-                tints the very edges of the cards, but BELOW the bet
-                slip + navbar (z-20) so the CTA stays at full
-                brightness.
+                tints the edges of the cards, but BELOW the bet slip +
+                navbar (z-20) so the CTA stays at full brightness.
 
-                Animated with a heartbeat-pattern opacity pulse that
-                visually rhymes with the button's heartbeat breath at
-                T4. Period matches `cfg.breath.periodByTier[4]` so the
-                two effects feel like one organism. Times array maps
-                keyframes to specific cycle phases — lub at 3.75%, dub
-                at 16.75%, then a long rest until the loop restarts.
-                Completely invisible at T0–T3 (fades to opacity 0). */}
+                Tunables live at `cfg.tier4.vignette`. */}
             <motion.div
               aria-hidden
               className="pointer-events-none absolute inset-0 z-[15]"
               style={{
-                // Inset box-shadow creates a soft inner glow around
-                // the entire perimeter. Blur 70px + spread 0 means
-                // the glow is widest at the edge and fades to nothing
-                // ~70px in — staying clear of the center column where
-                // the markets and offers live.
-                boxShadow: `inset 0 0 70px 0 ${buttonProgressionConfig.tier4.vignette.edgeColor}`,
+                overflow: 'hidden',
+                // Radial mask: transparent center → opaque edges.
+                // The transparent inner 55% of the ellipse keeps the
+                // markets / leagues / pills untouched; the outer
+                // 45% reveals the rotating colors.
+                WebkitMaskImage:
+                  'radial-gradient(ellipse 75% 80% at 50% 50%, transparent 55%, black 100%)',
+                maskImage:
+                  'radial-gradient(ellipse 75% 80% at 50% 50%, transparent 55%, black 100%)',
               }}
               initial={{ opacity: 0 }}
-              animate={
-                tier === 4
-                  ? {
-                      // Heartbeat: rest → lub peak → rest → dub peak → rest.
-                      // Matches the breath envelope at T4 (rhythmByTier[4]).
-                      opacity: [
-                        buttonProgressionConfig.tier4.vignette.opacityRest,
-                        buttonProgressionConfig.tier4.vignette.opacityPeakLub,
-                        buttonProgressionConfig.tier4.vignette.opacityRest,
-                        buttonProgressionConfig.tier4.vignette.opacityPeakDub,
-                        buttonProgressionConfig.tier4.vignette.opacityRest,
-                      ],
-                    }
-                  : { opacity: 0 }
-              }
-              transition={
-                tier === 4
-                  ? {
-                      // Period synced to the button's breath at T4.
-                      duration:
-                        (buttonProgressionConfig.breath.periodByTier[4] ??
-                          2200) /
-                        1000,
-                      // Lub at 3.75% (mid of 0–7.5%), dub at 16.75%
-                      // (mid of 12–21.5%) — the same pulse positions
-                      // used by the breath calculation in
-                      // ButtonPreviewMomios.
-                      times: [0, 0.0375, 0.075, 0.1675, 0.215],
-                      repeat: Infinity,
-                      repeatType: 'loop',
-                      ease: 'easeInOut',
-                    }
-                  : {
-                      duration:
-                        buttonProgressionConfig.tier4.vignette.fadeInMs /
-                        1000,
-                      ease: 'easeOut',
-                    }
-              }
-            />
+              animate={{
+                opacity:
+                  tier === 4
+                    ? buttonProgressionConfig.tier4.vignette.opacityMax
+                    : 0,
+              }}
+              transition={{
+                duration:
+                  buttonProgressionConfig.tier4.vignette.fadeInMs / 1000,
+                ease: 'easeOut',
+              }}
+            >
+              <motion.div
+                style={{
+                  position: 'absolute',
+                  inset: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  // Conic gradient with the Siri "Apple Intelligence"
+                  // palette: magenta → violet → indigo → amber → back
+                  // to magenta. Each stop at 90deg intervals for an
+                  // even distribution; the heavy blur below smooths
+                  // the transitions into a single continuous halo.
+                  backgroundImage:
+                    'conic-gradient(from 0deg, #ff52ba 0deg, #9730ff 90deg, #4b20ff 180deg, #ffa901 270deg, #ff52ba 360deg)',
+                  // Heavy blur so the conic reads as soft light, not
+                  // hard-edged color wedges.
+                  filter: 'blur(40px)',
+                  // Hardware-accelerate the rotation so it stays
+                  // smooth on mobile.
+                  willChange: 'transform',
+                }}
+                animate={
+                  tier === 4 && !reducedMotion ? { rotate: 360 } : { rotate: 0 }
+                }
+                transition={
+                  tier === 4 && !reducedMotion
+                    ? {
+                        // 16-second full rotation — slow enough to feel
+                        // meditative, fast enough that the colors are
+                        // visibly moving when the user looks at the screen.
+                        duration: 16,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }
+                    : { duration: 0.3 }
+                }
+              />
+            </motion.div>
 
             {/* Top decorative light. Per the Figma home frame
                 (1624:43499), the `ligh` element is sized to the

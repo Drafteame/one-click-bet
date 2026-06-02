@@ -412,29 +412,30 @@ export const buttonProgressionConfig = {
     // at T4. 480ms vs the default 380ms — the number ARRIVES instead
     // of just landing.
     slotDurationMs: 480,
-    // ----- Ambient side-curtain vignette -----
-    // Two soft purple pools anchored at the LEFT and RIGHT edges,
-    // vertically centered on the bet-slip row (~72% Y). Frames the
-    // button without darkening the markets / offer cards above.
+    // ----- Ambient Siri-style perimeter vignette -----
+    // A multi-color conic gradient (Apple "Intelligence" palette —
+    // magenta → violet → indigo → amber → back to magenta) rotates
+    // around the screen perimeter, masked to the outer ~45% of the
+    // radius so the markets / offers in the center stay untouched.
+    // Models the iOS 26 Siri activation glow.
     //
-    // Animated with a heartbeat-pattern opacity oscillation that
-    // visually rhymes with the button's heartbeat breath at T4 (lub
-    // at ~4% of period, dub at ~17%, then a long rest). Period is
-    // synced to `cfg.breath.periodByTier[4]` in the App.tsx animator.
+    // Structure (see App.tsx):
+    //   outer div = radial mask + fade-in opacity on tier enter/leave
+    //   inner div = rotating conic gradient (200% × 200% with -50%
+    //               offset so rotation doesn't reveal empty corners)
     //
-    // Pure ambient — does not affect text contrast on the bet slip
-    // (transparent center column).
+    // Color stops are hard-coded in the conic-gradient string in
+    // App.tsx (extracting them here would require runtime template
+    // assembly, which is fragile).
     vignette: {
-      // Min/max opacity during the heartbeat pulse cycle. The 'rest'
-      // value is the baseline (between beats); 'peakLub' and 'peakDub'
-      // are the two pulse peaks (dub slightly stronger than lub, just
-      // like the breath).
-      opacityRest: 0.45,
-      opacityPeakLub: 0.7,
-      opacityPeakDub: 0.85,
+      // Steady-state opacity at T4. The rotation animation does the
+      // motion; opacity stays constant once the fade-in completes.
+      opacityMax: 0.85,
+      // Fade in / out duration when tier enters / leaves T4.
       fadeInMs: 700,
-      // Edge color of the pools.
-      edgeColor: 'rgba(75,32,255,0.9)',
+      // Full conic rotation period in seconds. 16s feels meditative;
+      // 10s reads as "more energy"; 24s feels more contemplative.
+      rotationDurationSec: 16,
     },
   },
 
