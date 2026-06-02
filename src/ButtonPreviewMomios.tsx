@@ -546,7 +546,13 @@ export function ButtonPreviewMomios({
   const [breath40, setBreath40] = useState(false); // anticipation 40ms compress
   const [addBurst, setAddBurst] = useState<number | null>(null); // center radial burst key (all tiers)
   // POLISH PASS — stacked outline ripples. Cap at 3 simultaneous.
-  const [outlineRipples, setOutlineRipples] = useState<number[]>([]);
+  // Each ripple carries a `prominent` flag — false for normal selection
+  // adds, true for tier-up crossings into T3/T4 (see the crossing effect
+  // below). The `OutlineRipple` component branches its scale / stroke /
+  // opacity / duration on this flag.
+  const [outlineRipples, setOutlineRipples] = useState<
+    Array<{ id: number; prominent: boolean }>
+  >([]);
   // Odds ripples — T3-only ghost copies of the Momio digits that scale
   // outward + fade on every selection ADD. Each carries its odds-text
   // snapshot so the ghost doesn't re-render with the latest value mid-
@@ -813,9 +819,13 @@ export function ButtonPreviewMomios({
       // rapidly within ~400ms. (Config key still lives under cfg.tier3
       // because it was introduced there originally — same values used
       // at T2 for now.)
+      //
+      // prominent=false here. The PROMINENT variant (bigger / longer /
+      // brighter) fires from the crossing effect below, ONLY on tier-
+      // up crossings into T3 or T4.
       const rippleId = performance.now();
       setOutlineRipples((cur) => {
-        const next = [...cur, rippleId];
+        const next = [...cur, { id: rippleId, prominent: false }];
         if (next.length > cfg.tier3.outlineRippleMaxStacked) {
           return next.slice(next.length - cfg.tier3.outlineRippleMaxStacked);
         }
@@ -823,7 +833,7 @@ export function ButtonPreviewMomios({
       });
       setTimeout(
         () =>
-          setOutlineRipples((cur) => cur.filter((id) => id !== rippleId)),
+          setOutlineRipples((cur) => cur.filter((r) => r.id !== rippleId)),
         cfg.tier3.outlineRippleDurationMs + 60,
       );
     }
@@ -990,6 +1000,27 @@ export function ButtonPreviewMomios({
       borderOverrideTotalRef.current = 600;
       borderOverrideUntilRef.current = now + 600;
     }
+    // PROMINENT outline ripple — fires ONLY when crossing UP into T3
+    // or T4 (the "level-up" moment). Lives alongside the existing
+    // standard ripple that fires from the selection-change effect on
+    // every add. The prominent variant scales bigger (1.55x vs 1.18x),
+    // stays visible longer (1100ms vs 600ms), and starts at full
+    // opacity (1.0 vs 0.85) so the moment of reaching T3 or T4 reads
+    // as a distinct payoff rather than just "another selection".
+    if (crossing.dir === 'up' && crossing.toTier >= 3) {
+      const id = now + 1; // +1 to avoid id collision with the standard ripple
+      setOutlineRipples((cur) => {
+        const next = [...cur, { id, prominent: true }];
+        if (next.length > cfg.tier3.outlineRippleMaxStacked) {
+          return next.slice(next.length - cfg.tier3.outlineRippleMaxStacked);
+        }
+        return next;
+      });
+      setTimeout(
+        () => setOutlineRipples((cur) => cur.filter((r) => r.id !== id)),
+        cfg.tier3.outlineRippleProminentDurationMs + 60,
+      );
+    }
   }, [crossing, reduced]);
 
   /* =============================================================== */
@@ -1116,12 +1147,13 @@ export function ButtonPreviewMomios({
             shell's overflow-hidden clip. */}
         <AnimatePresence>
           {!reduced &&
-            outlineRipples.map((id) => (
+            outlineRipples.map((r) => (
               <OutlineRipple
-                key={id}
-                id={id}
+                key={r.id}
+                id={r.id}
                 radius={cfg.borderRadiusPx * 2} // visual pill radius
                 accent="#9730ff"
+                prominent={r.prominent}
               />
             ))}
         </AnimatePresence>

@@ -347,6 +347,18 @@ export const buttonProgressionConfig = {
     outlineRippleEase: [0.16, 1, 0.3, 1] as [number, number, number, number],
     // Cap simultaneous outline ripples; older ones drop off when exceeded.
     outlineRippleMaxStacked: 3,
+    // ---- PROMINENT outline ripple (TIER-CROSSING UP into T3 or T4) ----
+    // Fires only when the user crosses INTO T3 (from T2) or INTO T4
+    // (from T3). NOT fired on regular selection adds at T3/T4 — those
+    // keep the standard ripple parameters above. The values mirror the
+    // T3 oddsRipple (1.5x scale, 1100ms duration, max opacity) so the
+    // "level-up" outline ripple feels like a sibling to the odds
+    // ripple that fires every odds change.
+    outlineRippleProminentScalePeak: 1.55,
+    outlineRippleProminentStrokeStartPx: 5,
+    outlineRippleProminentStrokeEndPx: 2,
+    outlineRippleProminentOpacityStart: 1.0,
+    outlineRippleProminentDurationMs: 1100,
     // Ganancia (potential winnings) gets the same odds-glow treatment
     // scaled down by this factor at Tier 3.
     ganaGlowScaleDown: 0.7,
