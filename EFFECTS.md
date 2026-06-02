@@ -75,6 +75,18 @@ A running list of every animation, microinteraction, transition, and motion beha
 **On entering T3 (T2 → T3 crossing, one-shot)**
 - **Weight-gain anchor** — the Momio digits drop 1px (`weightAnchorY` translate) AND gain a purple text-shadow underneath, then settle back to 0 over `cfg.tier2.weightAnchorDurationMs` with an ease-out × decay envelope. Reads as "the number suddenly has weight". Fires only on the up-cross into T3.
 
+## T1 — *Intermedio* — first-selection sweep (NEW)
+
+Fires exactly once per session, on the very first 0 → 1 selection change. Distinguishes the moment the user starts building a bet slip from all subsequent count changes.
+
+- **Longer slot roll** — the odds digit roll uses `cfg.tier1.firstSelectionCountUp.slotDurationMs` (800ms vs default 380ms) so the number visibly RAMPS UP instead of snapping into place. The longer duration is computed at render time from `lastCountRef + hasFirstSelectedRef`, so the *very render* that triggers the roll uses the right transition duration. Subsequent renders fall back to the default.
+- **Celebratory scale pulse** — `oddsBurstControls` runs a 1 → 1.08 → 1 scale animation on the odds container over 500ms. Reuses the same `oddsBurstControls` that drives the T3+ on-add burst (safe to share because tiers don't overlap — T0 → T1 transition only).
+- **Settle overshoot retimed** — the post-slot settle overshoot (microinteraction d) is scheduled with `setTimeout(..., effectiveSlotMs)` so it lands the moment the longer slot animation completes, not 380ms in.
+
+Subsequent count changes use the default 380ms slot. `hasFirstSelectedRef` is per-session — it resets if the user reloads the page but persists across reset / select-all-debug-tiers within one session.
+
+---
+
 ## T4 — *Legendario* *(≥ 50.00x)*
 
 Everything from T3 stays. T4 layers on top:
@@ -83,11 +95,19 @@ Everything from T3 stays. T4 layers on top:
 - **Boosted outer glow** — opacity envelope `0.55 → 0.78` (was 0.36–0.50 at T3), pulse cycle `3600ms` (was 4800ms). Reads as visibly more "stoked".
 - **Subtle white glow on all four numbers** — `drop-shadow(0 0 4px rgba(255,255,255,0.55))` filter applied to Bets, Momio, Monto, AND Gana wrappers. Light enough not to blur the digits. At T4 this **replaces** Gana's purple `ganaGlowFilter` halo so the four numbers read as one luminous group.
 - **Edge-flash sparkles — much denser** — same per-burst look as T2, but spawn interval `5500ms → 1300ms` (≈4× more often) and count `1–3 → 4–8` (≈2× per burst).
-- **Breathing more pronounced** — amplitude jumps from `0.008` (T1–T3) to **`0.020`** (~2.5× swing) via `cfg.breath.amplitudeByTier[4]`. Period **2200ms** (a touch slower than T3's 2000ms) so the larger swing reads as a deep inhale rather than a fast pulse.
 - **OddsRipple inherited** — the ghost-text ripple + source flash on add fires at T4 (gate widened from `tier === 3` to `tier >= 3`).
 - **Outline ripple inherited** — same behavior as T2/T3.
 - **No micro-tremor** — T3's burst-tremor is intentionally not inherited. The shake tuning is parked on the `tier_4` branch in case we want to revisit.
 - *No font/color shift on the digits at T4 — the typography stays italic 900 in white. Color escalation continues to come from glow + sparks + breath, not the digit color itself.*
+
+### T4 qualitative differentiators (NEW — distinguish T4 from "T3 turned up")
+
+The original T4 spec was largely quantitative (denser sparks, brighter glow, more breath). These four additions make T4 feel like a different *category* — dignified / weighty / once-in-a-while — instead of "T3 but more."
+
+- **Heartbeat breath rhythm** — at T4, the uniform sine-wave breathing switches to a lub-dub heartbeat pattern. Two quick scale pulses inside the first ~22% of the period (lub at 0–7.5%, dub at 12–22% with 15% stronger amplitude), then ~78% of stillness before the next pair. Same amplitude (`0.020`), same period (`2200ms`), completely different feeling. T1–T3 keep the sine wave. Config: `cfg.breath.rhythmByTier[4] = 'heartbeat'`.
+- **Magnetic spark INFLOW** — flips the T3 fire-spark vector. Container expands `cfg.tier4.fireSparksInflowOffsetPx` (50px) outward in all four directions. Round particles (white core, purple bloom) spawn on a random outer edge and converge toward a jittered point inside the button rectangle. Ease-in curve (`[0.45, 0, 0.7, 1]`) — slow start, fast finish — reads as gravitational acceleration. Particles fade as they "absorb" into the button. Same density as T3's outflow; opposite vector. T3 keeps its rising streaks (filtered by `!s.inflow`); T4 renders only the inflow particles (filtered by `s.inflow`).
+- **Weightier slot roll** — odds digit changes use `cfg.tier4.slotDurationMs` (480ms vs default 380ms). The number arrives like a coronation. Computed at render time from `tier === 4`, so it applies from the very render that triggers the slot at T4. Settle overshoot is rescheduled with `effectiveSlotMs` so it still lands the moment the longer slot completes.
+- **Ambient vignette** — a low-opacity (`0.55`) inverted radial gradient in App.tsx fades in over 600ms when `tier === 4`. Anchored at `50% 78%` (the bet-slip position) with `transparent 35%` → `rgba(75,32,255,0.9) 100%`. Sits at `z-[15]` — above scrollable content (so it tints leagues / cards / pills) but below the bet slip + navbar (`z-20`) so the CTA stays at full brightness. Reads as "the world recedes; the button is spotlit." Fades out symmetrically on tier-down.
 
 ---
 

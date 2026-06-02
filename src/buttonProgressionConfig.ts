@@ -189,6 +189,15 @@ export const buttonProgressionConfig = {
       3: 2000,
       4: 2200,
     } as Record<number, number>,
+    // T4 EXPERIMENT — heartbeat rhythm instead of uniform sine. Two
+    // quick pulses (lub-dub) in the first ~22% of the period, then
+    // ~78% of stillness before the next pair. Same amplitude as
+    // amplitudeByTier[4], same period — different cadence. Reads as
+    // "alive" vs T1–T3's mechanical pulse. Falls back to 'sine' for
+    // any tier not listed.
+    rhythmByTier: {
+      4: 'heartbeat',
+    } as Record<number, 'sine' | 'heartbeat'>,
   },
 
   /* --------------------------------------------------------------- */
@@ -210,6 +219,17 @@ export const buttonProgressionConfig = {
     countPulseScaleMax: 1.08,
     countPulseDurationMs: 220,
     countPulseGlowColor: 'rgba(151,48,255,0.7)', // existing accent
+    // ----- First-selection count-up sweep (T0 → T1 transition) -----
+    // Fires exactly once per session, on the very first 0 → 1 selection
+    // change. The odds slot roll uses a longer duration so the number
+    // visibly RAMPS UP instead of snapping, and the odds container gets
+    // a brief celebratory scale pulse. After this one-shot, subsequent
+    // odds changes use the default slotDurationMs.
+    firstSelectionCountUp: {
+      slotDurationMs: 800,    // vs default 380
+      pulseScalePeak: 1.08,
+      pulseDurationMs: 500,
+    },
   },
 
   /* --------------------------------------------------------------- */
@@ -371,15 +391,39 @@ export const buttonProgressionConfig = {
     // (Bets, Momio, Monto, Gana). Keeps text readable; reads as a soft
     // luminous outline.
     numberGlow: 'drop-shadow(0 0 4px rgba(255,255,255,0.55))',
-    // ----- Fire-sparks overrides (inflow not applicable; outflow only) -----
-    // Spawn ~70% more often, more per spawn, shorter lifetime so the
-    // sparks visibly RACE upward instead of drifting.
-    fireSparksSpawnIntervalMs: 130, // was 220 at T3
-    fireSparksSpawnCountMin: 2,     // was 1
-    fireSparksSpawnCountMax: 3,     // was 2
-    fireSparksLifetimeMinMs: 500,   // was 800
-    fireSparksLifetimeMaxMs: 900,   // was 1400
-    fireSparksMaxActive: 32,        // was 20 — room for the denser flow
+    // ----- Fire-sparks magnetic INFLOW (T4 only) -----
+    // T3 emits sparks UPWARD from the top of the button (kinetic energy
+    // escaping). T4 flips the vector: round particles spawn at the four
+    // sides of a container that extends `inflowOffsetPx` outside the
+    // button, then converge toward a jittered point near the button
+    // center. Same density as the T3 emitter; opposite direction.
+    fireSparksInflow: true,
+    fireSparksInflowOffsetPx: 50,
+    // Spawn rate matches the T3 "racing" feel — frequent enough that
+    // there are usually 6–10 particles in flight at any moment.
+    fireSparksSpawnIntervalMs: 130,
+    fireSparksSpawnCountMin: 2,
+    fireSparksSpawnCountMax: 3,
+    fireSparksLifetimeMinMs: 700,
+    fireSparksLifetimeMaxMs: 1100,
+    fireSparksMaxActive: 32,
+    // ----- Weightier slot roll at T4 -----
+    // The cumulative odds digit changes feel slower + more deliberate
+    // at T4. 480ms vs the default 380ms — the number ARRIVES instead
+    // of just landing.
+    slotDurationMs: 480,
+    // ----- Ambient vignette -----
+    // A radial gradient overlay that quietly recedes the screen edges
+    // toward purple, focusing attention inward on the button. Fades in
+    // over fadeInMs when tier crosses into 4; fades out symmetrically
+    // on the way down. Pure ambient — does not affect text contrast.
+    vignette: {
+      opacityMax: 0.55,
+      fadeInMs: 600,
+      // Inner-shadow style: dark/transparent center → purple edges.
+      // Built as a single radial-gradient background-image at runtime.
+      edgeColor: 'rgba(75,32,255,0.9)',
+    },
   },
 
   /* --------------------------------------------------------------- */

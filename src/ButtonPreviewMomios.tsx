@@ -191,10 +191,33 @@ export function ButtonPreviewMomios({
     const phase = (t % period) / period;
     breathPhaseRef.current = phase;
     // Per-tier amplitude override (currently T4 only); rest fall back to
-    // the global default. Smooth sine: 1 → 1 + amp at 50% → 1 at 100%.
+    // the global default.
     const amp =
       cfg.breath.amplitudeByTier[tier] ?? cfg.breath.amplitude;
-    breathScale.set(1 + amp * Math.sin(phase * Math.PI * 2));
+    // Per-tier rhythm override (currently T4 = heartbeat). T1–T3 keep
+    // the uniform sine wave; T4 switches to a lub-dub heartbeat: two
+    // quick pulses inside the first ~22% of the period, then stillness
+    // for the rest. Same amp, same period, totally different feeling.
+    const rhythm = cfg.breath.rhythmByTier?.[tier] ?? 'sine';
+    let scaleDelta: number;
+    if (rhythm === 'heartbeat') {
+      // First beat (lub) — 0..0.075 of the cycle.
+      // Second beat (dub) — 0.12..0.215 of the cycle (slightly stronger).
+      // Rest — 0.215..1.0 (~78% of the period at neutral).
+      if (phase < 0.075) {
+        scaleDelta = Math.sin((phase / 0.075) * Math.PI);
+      } else if (phase >= 0.12 && phase < 0.215) {
+        // The "dub" is fractionally stronger than the "lub" so the
+        // pattern doesn't read as two identical taps.
+        scaleDelta = 1.15 * Math.sin(((phase - 0.12) / 0.095) * Math.PI);
+      } else {
+        scaleDelta = 0;
+      }
+    } else {
+      // Smooth sine: 1 → 1 + amp at 50% → 1 at 100%.
+      scaleDelta = Math.sin(phase * Math.PI * 2);
+    }
+    breathScale.set(1 + amp * scaleDelta);
   });
 
   /* =============================================================== */
@@ -338,19 +361,41 @@ export function ButtonPreviewMomios({
   }, [tier, reduced]);
 
   /* =============================================================== */
-  /*  AMBIENT — Tier 3 fire sparks (rising particles)                */
-  /*  Continuous emission from inside the button — particles float    */
-  /*  upward past the top edge while fading and shrinking. Like       */
-  /*  embers rising from a fire.                                      */
+  /*  AMBIENT — Fire sparks (rising particles at T3 / magnetic        */
+  /*  inflow at T4)                                                   */
+  /*                                                                  */
+  /*  T3: continuous emission from inside the button — streak         */
+  /*      particles float upward past the top edge while fading.      */
+  /*      Reads as embers rising from a fire (energy escaping).       */
+  /*                                                                  */
+  /*  T4: container is expanded inflowOffsetPx in all 4 directions.   */
+  /*      Round particles spawn at one of the 4 outer edges and       */
+  /*      converge toward a jittered point near the button center.    */
+  /*      Same density as T3 — opposite vector. Reads as a gravity    */
+  /*      well pulling ambient energy IN (a different category, not   */
+  /*      just "more fire").                                          */
   /* =============================================================== */
   type FireSpark = {
     id: number;
     spawnAtMs: number;
+    // ---- T3 OUTFLOW fields (unused for inflow sparks) ----
     xPct: number;
     yPctFromBottom: number;
     rise: number;
     drift: number;
     sway: number;
+    // ---- T4 INFLOW fields (undefined for T3 sparks) ----
+    inflow?: {
+      // Starting position in pixels, relative to the inflow container's
+      // top-left. Container extends `inflowOffsetPx` outside the button
+      // on all four sides, so the button occupies the central rectangle.
+      startXPx: number;
+      startYPx: number;
+      // Pixel deltas applied via framer-motion `animate.x` / `animate.y`.
+      // Sum (start + delta) lands on a jittered point inside the button.
+      deltaXPx: number;
+      deltaYPx: number;
+    };
     size: number;
     lifetimeMs: number;
   };
@@ -360,8 +405,9 @@ export function ButtonPreviewMomios({
   useEffect(() => {
     if (tier < 3 || reduced) return;
     const fs = cfg.fireSparks;
-    // T4 — faster + denser overrides. Otherwise (T3) use base values.
     const isT4 = tier === 4;
+    const useInflow = isT4 && cfg.tier4.fireSparksInflow;
+    // T4 spawn-rate overrides; T3 falls back to fs base values.
     const spawnIntervalMs = isT4
       ? cfg.tier4.fireSparksSpawnIntervalMs
       : fs.spawnIntervalMs;
@@ -370,6 +416,19 @@ export function ButtonPreviewMomios({
     const lifetimeMinMs = isT4 ? cfg.tier4.fireSparksLifetimeMinMs : fs.lifetimeMinMs;
     const lifetimeMaxMs = isT4 ? cfg.tier4.fireSparksLifetimeMaxMs : fs.lifetimeMaxMs;
     const maxActive = isT4 ? cfg.tier4.fireSparksMaxActive : fs.maxActive;
+    // Inflow container geometry (only used when useInflow). Button width
+    // is read from shellSize; if not yet measured we fall back to a sane
+    // default so the very first spawn isn't visually broken.
+    const off = cfg.tier4.fireSparksInflowOffsetPx;
+    const btnW = shellSize.w > 0 ? shellSize.w : 358; // typical bet-slip width
+    const btnH = cfg.borderHeightPx;
+    const containerW = btnW + off * 2;
+    const containerH = btnH + off * 2;
+    // Pre-compute the button rectangle inside the container.
+    const btnLeft = off;
+    const btnRight = off + btnW;
+    const btnTop = off;
+    const btnBottom = off + btnH;
     const tick = setInterval(() => {
       setFireSparks((cur) => {
         if (cur.length >= maxActive) return cur;
@@ -379,34 +438,83 @@ export function ButtonPreviewMomios({
         const fresh: FireSpark[] = [];
         const now = performance.now();
         for (let i = 0; i < count; i++) {
-          fresh.push({
-            id: fireSparkIdRef.current++,
-            spawnAtMs: now,
-            // Random horizontal position across the button width.
-            xPct: Math.random() * 100,
-            // Random Y origin in the lower portion of the button (so
-            // sparks visibly emerge from inside, not from the very edge).
-            yPctFromBottom:
-              fs.spawnOriginYRangePct[0] +
-              Math.random() *
-                (fs.spawnOriginYRangePct[1] - fs.spawnOriginYRangePct[0]),
-            rise: fs.riseMinPx + Math.random() * (fs.riseMaxPx - fs.riseMinPx),
-            // Random end direction + an independent mid-path sway so each
-            // spark wanders on its own curved path (not a straight line).
-            drift: (Math.random() * 2 - 1) * fs.driftMaxPx,
-            sway: (Math.random() * 2 - 1) * fs.driftMaxPx,
-            size:
-              fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
-            lifetimeMs:
-              lifetimeMinMs +
-              Math.random() * (lifetimeMaxMs - lifetimeMinMs),
-          });
+          if (useInflow) {
+            // T4 INFLOW — spawn on a random outer edge of the container,
+            // animate toward a jittered point inside the button. Each of
+            // the 4 sides spawns with equal probability so the magnetic
+            // pull reads from all directions.
+            const side = Math.floor(Math.random() * 4); // 0=top 1=bottom 2=left 3=right
+            let startXPx: number;
+            let startYPx: number;
+            if (side === 0) {
+              startXPx = Math.random() * containerW;
+              startYPx = 0;
+            } else if (side === 1) {
+              startXPx = Math.random() * containerW;
+              startYPx = containerH;
+            } else if (side === 2) {
+              startXPx = 0;
+              startYPx = Math.random() * containerH;
+            } else {
+              startXPx = containerW;
+              startYPx = Math.random() * containerH;
+            }
+            // Target point inside the button rectangle, with a small
+            // jitter (±8px) so all particles don't converge on one dot.
+            const jitter = 8;
+            const targetX =
+              btnLeft + Math.random() * (btnRight - btnLeft) +
+              (Math.random() * 2 - 1) * jitter;
+            const targetY =
+              btnTop + Math.random() * (btnBottom - btnTop) +
+              (Math.random() * 2 - 1) * jitter;
+            fresh.push({
+              id: fireSparkIdRef.current++,
+              spawnAtMs: now,
+              // Outflow fields unused but populated to keep the type happy.
+              xPct: 0,
+              yPctFromBottom: 0,
+              rise: 0,
+              drift: 0,
+              sway: 0,
+              inflow: {
+                startXPx,
+                startYPx,
+                deltaXPx: targetX - startXPx,
+                deltaYPx: targetY - startYPx,
+              },
+              size:
+                fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
+              lifetimeMs:
+                lifetimeMinMs +
+                Math.random() * (lifetimeMaxMs - lifetimeMinMs),
+            });
+          } else {
+            // T3 OUTFLOW — legacy behavior (rising streaks).
+            fresh.push({
+              id: fireSparkIdRef.current++,
+              spawnAtMs: now,
+              xPct: Math.random() * 100,
+              yPctFromBottom:
+                fs.spawnOriginYRangePct[0] +
+                Math.random() *
+                  (fs.spawnOriginYRangePct[1] - fs.spawnOriginYRangePct[0]),
+              rise: fs.riseMinPx + Math.random() * (fs.riseMaxPx - fs.riseMinPx),
+              drift: (Math.random() * 2 - 1) * fs.driftMaxPx,
+              sway: (Math.random() * 2 - 1) * fs.driftMaxPx,
+              size:
+                fs.sizeMinPx + Math.random() * (fs.sizeMaxPx - fs.sizeMinPx),
+              lifetimeMs:
+                lifetimeMinMs +
+                Math.random() * (lifetimeMaxMs - lifetimeMinMs),
+            });
+          }
         }
         return [...cur, ...fresh];
       });
     }, spawnIntervalMs);
     return () => clearInterval(tick);
-  }, [tier, reduced]);
+  }, [tier, reduced, shellSize.w]);
 
   // GC expired fire sparks so the array doesn't grow unboundedly.
   useEffect(() => {
@@ -427,6 +535,11 @@ export function ButtonPreviewMomios({
   /*  ONE-SHOTS — selection-change reactions                         */
   /* =============================================================== */
   const lastCountRef = useRef(selectionCount);
+  // T1 ONE-SHOT — fires exactly once per session on the very first
+  // 0 → 1 selection change. Used to gate the "count-up sweep"
+  // (longer slot roll + celebratory scale pulse) so it doesn't
+  // repeat on every subsequent count change.
+  const hasFirstSelectedRef = useRef(false);
   const countControls = useAnimation();
   const oddsSettleControls = useAnimation();
   const oddsBurstControls = useAnimation(); // POLISH PASS: T3 1.08 scale on add
@@ -611,6 +724,26 @@ export function ButtonPreviewMomios({
     lastCountRef.current = selectionCount;
     if (reduced) return;
 
+    // T1 FIRST-SELECTION COUNT-UP SWEEP — fires exactly once per
+    // session. Detected here in the effect (mirroring the render-time
+    // check that set `oddsSlotDurationMs` to the longer 800ms value).
+    // The longer slot duration was already applied on the render that
+    // scheduled this effect; here we (a) flip the ref so subsequent
+    // renders fall back to the default duration, and (b) fire the
+    // celebratory scale pulse on the odds container.
+    const isFirstSel =
+      prev === 0 && selectionCount === 1 && !hasFirstSelectedRef.current;
+    if (isFirstSel) {
+      hasFirstSelectedRef.current = true;
+      oddsBurstControls.start({
+        scale: [1, cfg.tier1.firstSelectionCountUp.pulseScalePeak, 1],
+        transition: {
+          duration: cfg.tier1.firstSelectionCountUp.pulseDurationMs / 1000,
+          ease: 'easeOut',
+        },
+      });
+    }
+
     // 1. Anticipation compress (40ms) — runs immediately.
     setBreath40(true);
     setTimeout(() => setBreath40(false), cfg.anticipationDurationMs);
@@ -637,6 +770,15 @@ export function ButtonPreviewMomios({
     }
 
     // 4. Settle overshoot (microinteraction d) — AFTER slot completes.
+    // Uses the *effective* slot duration (which already accounts for
+    // first-selection sweep at T1 = 800ms and weightier roll at T4 =
+    // 480ms) so the overshoot lands the moment the slot animation
+    // completes — not 380ms in regardless of tier.
+    const effectiveSlotMs = isFirstSel
+      ? cfg.tier1.firstSelectionCountUp.slotDurationMs
+      : tier === 4
+        ? cfg.tier4.slotDurationMs
+        : cfg.slotDurationMs;
     setTimeout(() => {
       oddsSettleControls.start({
         scale: [1, cfg.settleOvershootScale, 1],
@@ -646,7 +788,7 @@ export function ButtonPreviewMomios({
         },
       });
       playSound('slot-end');
-    }, cfg.slotDurationMs);
+    }, effectiveSlotMs);
 
     // 5. Center radial burst — white ring radiating from the button
     //    center on every selection add. Active at T0/T1/T2; suppressed
@@ -872,6 +1014,29 @@ export function ButtonPreviewMomios({
   const oddsLabel = useMemo(() => formatOdds(cumulativeOdds), [cumulativeOdds]);
   const stake = 200;
   const potentialWin = Math.round(cumulativeOdds * stake);
+
+  /* =============================================================== */
+  /*  Effective slot duration for the odds digit roll               */
+  /*  Two tier-dependent overrides + one one-shot override:         */
+  /*    T1 first 0 → 1 selection: 800ms (count-up sweep)            */
+  /*    T4 any update:            480ms (weightier, "coronation")    */
+  /*    everything else:          cfg.slotDurationMs (380ms default) */
+  /*  Computed during render so the SlotNumber sees the right value  */
+  /*  on the exact render that triggers the slot roll. lastCountRef  */
+  /*  and hasFirstSelectedRef are still at their PRE-effect values   */
+  /*  here, so this expression is correctly true on the very render   */
+  /*  that needs the longer animation.                               */
+  /* =============================================================== */
+  const isFirstSelectionRender =
+    lastCountRef.current === 0 &&
+    selectionCount === 1 &&
+    !hasFirstSelectedRef.current &&
+    !reduced;
+  const oddsSlotDurationMs = isFirstSelectionRender
+    ? cfg.tier1.firstSelectionCountUp.slotDurationMs
+    : tier === 4
+      ? cfg.tier4.slotDurationMs
+      : cfg.slotDurationMs;
 
   /* =============================================================== */
   /*  Inner CTA press handler — placeholder                          */
@@ -1251,6 +1416,7 @@ export function ButtonPreviewMomios({
                     >
                       <SlotNumber
                         value={oddsLabel}
+                        durationMs={oddsSlotDurationMs}
                         reducedMotion={reduced}
                         innerCharClassName={
                           tier >= 3 && !reduced
@@ -1401,37 +1567,27 @@ export function ButtonPreviewMomios({
             </div>
           </motion.div>
           {/* T3 fire sparks — rising embers emitted from the TOP of the
-              button that float upward into the space above it. Rendered
-              OUTSIDE the shell so overflow:hidden doesn't clip them, with
-              an explicit high z-index so they never sit behind any of
-              the shell's overlays. The container itself extends taller
-              than the button so the sparks have room to travel into. */}
-          {tier >= 3 && !reduced && (
+              button. Rendered OUTSIDE the shell so overflow:hidden
+              doesn't clip them. Container extends 60px above the
+              button so the sparks have room to travel into. */}
+          {tier === 3 && !reduced && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-x-0"
               style={{
                 bottom: 0,
-                // Extend just enough above the button to hold the short
-                // ember flight (~50px max rise). Keeping it tight prevents
-                // sparks from "wandering" far from the source.
                 height: 'calc(100% + 60px)',
                 zIndex: 50,
               }}
             >
-              {fireSparks.map((s) => (
+              {fireSparks.filter((s) => !s.inflow).map((s) => (
                 <motion.span
                   key={s.id}
                   className="absolute rounded-full"
                   style={{
                     left: `${s.xPct}%`,
-                    // Position in PIXELS relative to BUTTON height (not
-                    // container height — container is taller). Sparks
-                    // emerge at/near the top edge of the actual button.
                     bottom: s.yPctFromBottom * cfg.borderHeightPx,
                     width: s.size,
-                    // Elongated vertical streak (head at top, tail fading
-                    // downward) → motion-blur trail as it rises straight up.
                     height: s.size * 5,
                     background:
                       'linear-gradient(to top, rgba(151,48,255,0) 0%, rgba(151,48,255,0.85) 70%, #9730ff 100%)',
@@ -1440,7 +1596,6 @@ export function ButtonPreviewMomios({
                   }}
                   initial={{ y: 0, opacity: 0, scale: 1 }}
                   animate={{
-                    // Straight up — no horizontal drift, no tilt.
                     y: -s.rise,
                     opacity: [0, 1, 1, 0],
                     scale: [1, 1, 0.7, 0.3],
@@ -1453,6 +1608,66 @@ export function ButtonPreviewMomios({
                   }}
                 />
               ))}
+            </div>
+          )}
+          {/* T4 magnetic spark inflow — container extends
+              `inflowOffsetPx` outward in all 4 directions. Round
+              particles spawn on a random outer edge and animate
+              toward a jittered point inside the button. Round dots
+              (not streaks) so motion direction reads cleanly from
+              any spawn side. */}
+          {tier === 4 && !reduced && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute"
+              style={{
+                inset: `-${cfg.tier4.fireSparksInflowOffsetPx}px`,
+                zIndex: 50,
+              }}
+            >
+              {fireSparks.filter((s) => s.inflow).map((s) => {
+                const inf = s.inflow!;
+                return (
+                  <motion.span
+                    key={s.id}
+                    className="absolute rounded-full"
+                    style={{
+                      left: inf.startXPx,
+                      top: inf.startYPx,
+                      // Round dot — same color palette as T3 streaks
+                      // but symmetric so direction reads from motion.
+                      width: s.size * 2.5,
+                      height: s.size * 2.5,
+                      background:
+                        'radial-gradient(circle, #ffffff 0%, #9730ff 50%, rgba(151,48,255,0) 100%)',
+                      boxShadow:
+                        '0 0 8px rgba(151,48,255,0.95), 0 0 14px rgba(151,48,255,0.6)',
+                      // Center the dot ON the spawn coordinate so the
+                      // edges of the container are visually touched.
+                      translateX: '-50%',
+                      translateY: '-50%',
+                    }}
+                    initial={{ x: 0, y: 0, opacity: 0, scale: 1 }}
+                    animate={{
+                      // Converge toward the button center.
+                      x: inf.deltaXPx,
+                      y: inf.deltaYPx,
+                      // Fade in fast, ride at full opacity, then dim out
+                      // as the particle "absorbs" into the button.
+                      opacity: [0, 1, 1, 0],
+                      // Shrink slightly as it accelerates toward target
+                      // — reads as compression into the gravity well.
+                      scale: [1, 1, 0.9, 0.4],
+                    }}
+                    transition={{
+                      duration: s.lifetimeMs / 1000,
+                      ease: [0.45, 0, 0.7, 1], // ease-in: slow start, fast finish
+                      opacity: { times: [0, 0.1, 0.75, 1] },
+                      scale: { times: [0, 0.1, 0.75, 1] },
+                    }}
+                  />
+                );
+              })}
             </div>
           )}
           {/* EXPLORATION v3 — Horizontal stroke-sweep overlay.

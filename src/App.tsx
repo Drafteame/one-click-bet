@@ -216,6 +216,41 @@ export function App() {
                 its own physical notch / dynamic island, so we hide ours. */}
             <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
 
+            {/* T4 AMBIENT VIGNETTE.
+                Quiet inverted radial gradient — transparent at the
+                bet-slip area (50% x, ~78% y) and darkening toward the
+                screen edges. Reads as "the world recedes; the button
+                is spotlit." Sits at z-[15] — ABOVE scrollable content
+                (z-10) so it tints the cards/leagues/pills, but BELOW
+                the bet slip + navbar (z-20) so the CTA stays at full
+                brightness. Fades in/out over fadeInMs whenever tier
+                enters/exits 4. Completely invisible at T0–T3.
+                Tunables live at `cfg.tier4.vignette`. */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[15]"
+              style={{
+                // Anchor the bright spot on the bet slip (centered
+                // horizontally, sits ~78% down the screen, just above
+                // the navbar). The 35% inner stop keeps the bright
+                // pocket large enough that the button area is
+                // genuinely untouched.
+                backgroundImage: `radial-gradient(ellipse 70% 55% at 50% 78%, transparent 35%, ${buttonProgressionConfig.tier4.vignette.edgeColor} 100%)`,
+              }}
+              initial={false}
+              animate={{
+                opacity:
+                  tier === 4
+                    ? buttonProgressionConfig.tier4.vignette.opacityMax
+                    : 0,
+              }}
+              transition={{
+                duration:
+                  buttonProgressionConfig.tier4.vignette.fadeInMs / 1000,
+                ease: 'easeOut',
+              }}
+            />
+
             {/* Top decorative light. Per the Figma home frame
                 (1624:43499), the `ligh` element is sized to the
                 content-header strip: 375×100, anchored top:0. The
