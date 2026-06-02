@@ -191,13 +191,14 @@ export function App() {
                 its own physical notch / dynamic island, so we hide ours. */}
             <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
 
-            {/* Top decorative light (Figma node 1665:43093). Sits in
-                the BACKGROUND of the phone frame, behind all content.
-                A wide blurred gradient blob centered horizontally near
-                the top. */}
+            {/* Top decorative light. Per the Figma home frame
+                (1624:43499), the `ligh` element is sized to the
+                content-header strip: 375×100, anchored top:0. The
+                blur(50px) softens it into a band; the bloom only
+                spills ~50px outside its box. */}
             <div
               aria-hidden
-              className="pointer-events-none absolute left-1/2 -top-32 z-0 h-[400px] w-[600px] -translate-x-1/2"
+              className="pointer-events-none absolute left-0 top-0 z-0 h-[100px] w-full"
               style={{
                 backgroundImage:
                   'linear-gradient(45.09deg, #4b20ff 0%, #9730ff 100%)',
