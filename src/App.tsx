@@ -272,13 +272,18 @@ export function App() {
                   inset: '-50%',
                   width: '200%',
                   height: '200%',
-                  // Conic gradient with the Siri "Apple Intelligence"
-                  // palette: magenta → violet → indigo → amber → back
-                  // to magenta. Each stop at 90deg intervals for an
-                  // even distribution; the heavy blur below smooths
-                  // the transitions into a single continuous halo.
+                  // Conic gradient using the SAME two-color palette as
+                  // the bet-slip outer glow swirl (see .outer-glow-swirl
+                  // in src/index.css): #4e7bff (blue) alternating with
+                  // #9730ff (purple). 5 stops at 90deg intervals create
+                  // two visible "color crests" of each hue as the
+                  // gradient rotates — so two waves of blue→purple
+                  // sweep across the perimeter per rotation. Keeps the
+                  // vignette tonally locked to the button's own glow
+                  // so the screen edges and the bet slip read as one
+                  // color system.
                   backgroundImage:
-                    'conic-gradient(from 0deg, #ff52ba 0deg, #9730ff 90deg, #4b20ff 180deg, #ffa901 270deg, #ff52ba 360deg)',
+                    'conic-gradient(from 0deg, #4e7bff, #9730ff, #4e7bff, #9730ff, #4e7bff)',
                   // Heavy blur so the conic reads as soft light, not
                   // hard-edged color wedges.
                   filter: 'blur(40px)',
