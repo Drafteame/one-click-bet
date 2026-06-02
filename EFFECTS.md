@@ -168,6 +168,21 @@ Drives the slip's entry/exit when `selectionCount` crosses 0↔1.
 
 ---
 
+## Haptic feedback
+
+Wired in `src/haptics.ts`; called from `App.tsx`. Two patterns, both no-ops on devices without `navigator.vibrate` (most notably **iOS Safari** — Apple has not shipped a Web Haptics API, so on iPhone web these calls are silent. They still serve as **spec markers** for the Flutter port).
+
+| Trigger | Function | Duration | Flutter equivalent |
+|---|---|---|---|
+| Tap to add or remove a pick (via market card, debug "Añadir selección", or "Quitar") | `playSelectionHaptic()` | `navigator.vibrate(10)` | `HapticFeedback.selectionClick()` |
+| Cumulative odds cross a tier boundary in either direction (T0↔T1, T1↔T2, T2↔T3, T3↔T4) | `playTierCrossingHaptic()` | `navigator.vibrate(20)` | `HapticFeedback.mediumImpact()` |
+
+- Tier-crossing detection: a `useEffect` watches the derived `tier` value and compares against a `prevTierRef`. Fires on every change; the initial mount is naturally skipped because the ref starts equal to the first tier.
+- The selection haptic fires **before** `setSelections` so the user feels the confirmation in the same animation frame as their tap.
+- The CTA (pressing the bet-slip button) is **not** wired with a haptic in this branch — punt to a follow-up if/when that interaction lands.
+
+---
+
 ## Accessibility
 
 - **`prefers-reduced-motion: reduce`** disables:

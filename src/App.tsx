@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BetSlipShell } from './BetSlipShell';
 import {
   ButtonPreviewMomios,
@@ -7,6 +7,7 @@ import {
   type ButtonLiveState,
 } from './ButtonPreviewMomios';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
+import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
 import type { Selection, Tier } from './types';
 
@@ -115,9 +116,15 @@ export function App() {
     const pool = available.length > 0 ? available : MOCK_PICKS;
     const next = pool[Math.floor(Math.random() * pool.length)];
     setSelections((s) => [...s, { ...next, id: `${next.id}-${s.length}` }]);
+    // HAPTIC — light selection tick on add. No-op on iOS Safari.
+    playSelectionHaptic();
   }, [selections]);
 
   const togglePick = useCallback((id: string) => {
+    // HAPTIC — light selection tick on every toggle (add OR remove). The
+    // user's finger has already done the work; the haptic confirms it.
+    // No-op on iOS Safari (no Web Haptics API in 2026).
+    playSelectionHaptic();
     setSelections((current) => {
       const existing = current.find((s) => s.id.startsWith(id));
       if (existing) return current.filter((s) => s !== existing);
@@ -129,7 +136,12 @@ export function App() {
   }, []);
 
   const removeLast = useCallback(() => {
-    setSelections((s) => s.slice(0, -1));
+    setSelections((s) => {
+      if (s.length === 0) return s;
+      // HAPTIC — same light tick as toggle/add so removal feels consistent.
+      playSelectionHaptic();
+      return s.slice(0, -1);
+    });
   }, []);
 
   const reset = useCallback(() => setSelections([]), []);
@@ -137,6 +149,19 @@ export function App() {
   const jumpToTier = useCallback((target: Tier) => {
     setSelections(selectionsForTier(target));
   }, []);
+
+  /* ---------- tier-crossing haptic ---------- */
+  // Watch `tier` for changes. On any transition between adjacent tiers
+  // (or jumps spanning multiple at once via the debug buttons), fire a
+  // medium-impact haptic. Skip the initial mount so we don't vibrate on
+  // page load. No-op on iOS Safari.
+  const prevTierRef = useRef<Tier>(tier);
+  useEffect(() => {
+    if (prevTierRef.current !== tier) {
+      playTierCrossingHaptic();
+      prevTierRef.current = tier;
+    }
+  }, [tier]);
 
   // Map selected pick ids back to base ids (without -N suffix) for the
   // market accordion so it can highlight which picks are in the slip.
