@@ -7,6 +7,7 @@ import logoDrafteaIcon from './assets/logo-draftea.svg';
 import misEntradasIcon from './assets/mis_entradas.svg';
 import playerIcon from './assets/player.svg';
 import plusIcon from './assets/plus.svg';
+import popularIcon from './assets/popular.svg';
 import rewardsIcon from './assets/rewards.png';
 import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
@@ -328,13 +329,13 @@ function TabsAndPills() {
                   'linear-gradient(46.31deg, rgba(75,32,255,0.24) 0%, rgba(151,48,255,0.24) 100%)',
               }}
             >
-              {/* TODO: 16×16 flame / "popular" icon on the left of the
-                  selected pill (imgVector in the Figma export) —
-                  awaiting asset upload. Placeholder slot left blank so
-                  layout reserves its space. */}
-              <span
+              {/* "Popular" icon — 16×16, anchored to the left of the
+                  selected pill (Figma node 1665:43054). */}
+              <img
+                src={popularIcon}
+                alt=""
                 aria-hidden
-                className="block h-4 w-4 shrink-0"
+                className="h-4 w-4 shrink-0"
               />
               <span
                 className="whitespace-nowrap text-center text-[12px] font-bold leading-[18px] text-[#fbfbfb]"
