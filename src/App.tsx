@@ -425,8 +425,16 @@ export function App() {
               <div
                 className="relative"
                 style={{
+                  // Starts at 0.8 to match the upper -top-10 fade's
+                  // BOTTOM opacity — without that, the gradient
+                  // restarts at 0 and creates a visible horizontal
+                  // band of "lightness" sandwiched between two
+                  // darker zones. Normally invisible, but at T4 the
+                  // Siri vignette adds enough perimeter contrast for
+                  // the discontinuity to read as a hard edge / box
+                  // around the bet slip.
                   background:
-                    'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.95) 100%)',
+                    'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%)',
                 }}
               >
                 {/* Reserved-height slot — keeps navbar pinned regardless
