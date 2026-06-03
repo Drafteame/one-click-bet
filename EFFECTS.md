@@ -100,14 +100,19 @@ Everything from T3 stays. T4 layers on top:
 - **No micro-tremor** — T3's burst-tremor is intentionally not inherited. The shake tuning is parked on the `tier_4` branch in case we want to revisit.
 - *No font/color shift on the digits at T4 — the typography stays italic 900 in white. Color escalation continues to come from glow + sparks + breath, not the digit color itself.*
 
-### T4 qualitative differentiators (NEW — distinguish T4 from "T3 turned up")
+### T4 qualitative differentiators (distinguish T4 from "T3 turned up")
 
-The original T4 spec was largely quantitative (denser sparks, brighter glow, more breath). These four additions make T4 feel like a different *category* — dignified / weighty / once-in-a-while — instead of "T3 but more."
+The original T4 spec was largely quantitative (denser sparks, brighter glow, more breath). These additions make T4 feel like a different *category* — dignified / weighty / once-in-a-while — instead of "T3 but more."
 
-- **Heartbeat breath rhythm** — at T4, the uniform sine-wave breathing switches to a lub-dub heartbeat pattern. Two quick scale pulses inside the first ~22% of the period (lub at 0–7.5%, dub at 12–22% with 15% stronger amplitude), then ~78% of stillness before the next pair. Same amplitude (`0.020`), same period (`2200ms`), completely different feeling. T1–T3 keep the sine wave. Config: `cfg.breath.rhythmByTier[4] = 'heartbeat'`.
 - **Magnetic spark INFLOW** — flips the T3 fire-spark vector. Container expands `cfg.tier4.fireSparksInflowOffsetPx` (50px) outward in all four directions. Round particles (white core, purple bloom) spawn on a random outer edge and converge toward a jittered point inside the button rectangle. Ease-in curve (`[0.45, 0, 0.7, 1]`) — slow start, fast finish — reads as gravitational acceleration. Particles fade as they "absorb" into the button. Same density as T3's outflow; opposite vector. T3 keeps its rising streaks (filtered by `!s.inflow`); T4 renders only the inflow particles (filtered by `s.inflow`).
 - **Weightier slot roll** — odds digit changes use `cfg.tier4.slotDurationMs` (480ms vs default 380ms). The number arrives like a coronation. Computed at render time from `tier === 4`, so it applies from the very render that triggers the slot at T4. Settle overshoot is rescheduled with `effectiveSlotMs` so it still lands the moment the longer slot completes.
-- **Ambient vignette** — a low-opacity (`0.55`) inverted radial gradient in App.tsx fades in over 600ms when `tier === 4`. Anchored at `50% 78%` (the bet-slip position) with `transparent 35%` → `rgba(75,32,255,0.9) 100%`. Sits at `z-[15]` — above scrollable content (so it tints leagues / cards / pills) but below the bet slip + navbar (`z-20`) so the CTA stays at full brightness. Reads as "the world recedes; the button is spotlit." Fades out symmetrically on tier-down.
+- **iOS 26 Siri-style ambient vignette** — full-perimeter color halo in `App.tsx` (lives at `z-[15]`, above scrollable content but below the bet slip + navbar). Composed of:
+  - **Outer mask layer** — a radial mask whose ellipse `--vw`, `--vh`, `--vcx`, `--vcy`, `--vstop` CSS custom properties are declared with `@property` and animated by an 14s `vignetteShapeBreathe` keyframe (see `src/index.css`). The mask's transparent hole subtly stretches wider, then taller, then off-axis, then back — 9 keyframes with ~2-6 pt deltas each, creating a continuous wavy morph rather than discrete shape jumps.
+  - **Inner rotating conic gradient** — a 200% × 200% layer with `inset:-50%` so rotation never reveals empty corners. Background is `conic-gradient(from 0deg, #4e7bff, #9730ff, #4e7bff, #9730ff, #4e7bff)` — same blue + purple palette as the bet-slip's outer-glow swirl, locked so the two color systems feel like one organism. `filter: blur(40px)` softens the four hard color stops into a continuous bloom. `animate={{ rotate: 360 }}` over 16s linear infinite.
+  - **Tier gate** — outer div opacity tweens to `cfg.tier4.vignette.opacityMax` (0.85) over 700ms when `tier === 4`; back to 0 on tier-down. `useReducedMotion()` halts the conic rotation under reduced-motion preference; the shape-morph also disables via `@media (prefers-reduced-motion: reduce) { .vignette-shape-breathe { animation: none; } }`.
+  - The 14s shape period and 16s color rotation period are co-prime so the two animations never align identically — the vignette never visually repeats.
+- **Bottom-area gradient softens at T4** — the dark fade above the bet slip (anchoring it against the markets) is `0.8 → 0.95` opacity at T0-T3. At T4 it drops to `0.35 → 0.6` so the colored vignette bloom shows through the bottom area edges instead of being darkened into a visible rectangular "panel" sitting on top of the Siri colors. A 700ms `transition: background` smooths the swap.
+- *Heartbeat breath rhythm (tried + reverted)* — at one point T4 used a lub-dub heartbeat pattern instead of sine. Reverted because the steady sine at T4's larger amplitude reads as more eye-catching than the pulse-rest-pulse pattern. The `'heartbeat'` code branch lives in `ButtonPreviewMomios.tsx` and re-enables by adding `4: 'heartbeat'` back to `cfg.breath.rhythmByTier`. See `pre-heartbeat-revert` git tag.
 
 ---
 
@@ -168,6 +173,8 @@ Fire on any tier change (`prevTier → newTier` mismatch in `useEffect`), captur
 - **Floating sparkle** — single 3px white dot floats up from the collision point ~18px over 800ms while fading. Stays close to the button.
 - **Scale pulse** — button scales `1 → 1.06 → 1` with a bumpy spring (stiffness 320, damping 11) over 450ms.
 - **Border-glow surge** — the shell's `borderBoxShadow` motion value gets multiplied by ~3× via `borderOverride` refs for 700ms, then fades back. Reinforces the "tier-up payoff" beat.
+- **Prominent outline ripple with motion-blur trace** *(up-cross into T3 or T4 only)* — a single `OutlineRipple` with the `prominent` flag spawns from the same crossing useEffect. Bigger / longer / brighter than the standard add-ripple: scale `1.55` (vs 1.18), stroke `5px → 2px` (vs 3px → 1px), opacity `1.0` start (vs 0.85), duration `1100ms` (vs 600ms). Plus a `filter: blur(0px → 4px)` ramp over the flight — the expanding ring smears progressively, leaving a soft motion-blur trail behind the leading edge. Treated as a sibling to the T3 oddsRipple that fires every odds change — same family of motion, scaled to the level-up moment. Standard add-ripple keeps firing alongside it from the selection-change effect.
+- **Haptic thump** — `playTierCrossingHaptic()` fires a 20ms `navigator.vibrate(20)`. See **Haptic feedback** below.
 - **Tier-up sound** — `playSound('tier-up')` no-op hook (audio call site, currently unimplemented).
 
 **Down-cross** *(prevTier → lowerTier)*
@@ -203,12 +210,21 @@ Wired in `src/haptics.ts`; called from `App.tsx`. Two patterns, both no-ops on d
 
 ---
 
+## Responsive layout
+
+App-level shell (`App.tsx`), not an effect per se but worth documenting:
+
+- **Phone-only breakpoint at 431px** via Tailwind's arbitrary `min-[431px]:` variant. Below 431px the prototype renders **full-bleed** — no phone-mockup chrome, no bezel, no shadow, no notch. Above 431px (desktop demo + tablets) the original 390×844 mockup is centered with bezel, rounded corners, notch.
+- **431 chosen instead of 430** so iPhone Pro Max (14/15/16) at exactly 430pt portrait lands in mobile mode (`min-[430px]:` would be inclusive).
+- **`100dvh` (dynamic viewport height)** on the inner phone-screen container so the navbar tracks iOS Safari's URL-bar expand/collapse instead of getting pushed under browser chrome.
+- **`padding-bottom: env(safe-area-inset-bottom)`** on the bottom anchor so iPhones with a home indicator float the navbar above it.
+
 ## Accessibility
 
 - **`prefers-reduced-motion: reduce`** disables:
   - Tremor, all fire-shimmer / per-character brightness wave keyframes (`@media (prefers-reduced-motion: reduce) { .fire-shimmer, .odds-char-wave { animation: none; } }`)
   - Edge-flash sparkles + fire-spark emitter (gated by `reduced` early-return in their effect hooks)
-  - Outer glow swirl rotation (`@media ... { .outer-glow-swirl { animation: none; } }`)
+  - Outer glow swirl rotation + the T4 Siri-style vignette's color rotation + its shape morph (`@media ... { .outer-glow-swirl, .vignette-shape-breathe { animation: none; } }`, plus framer-motion `useReducedMotion()` halting the conic-gradient rotation)
 - **Slot rolls survive but compressed** — `cfg.reducedMotionSlotDurationMs` (180ms) replaces the normal 380ms so digit changes still read but don't dwell.
 - **All ambient effects throttleable** via `?debug=true` overlay (1× normal or 3× slow speed). Each tier has a jump-to-tier button (T0–T4) that auto-selects a pre-built combo from `selectionsForTier(N)` in App.tsx.
 - **T3 odds effect togglable** at runtime — `flames` (default, layered drop-shadow halo with flicker) or `smoke` (rising blurred blobs). Lives in `cfg.tier3OddsEffect`.
