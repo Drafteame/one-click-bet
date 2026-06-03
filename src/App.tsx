@@ -415,26 +415,42 @@ export function App() {
               className="absolute inset-x-0 bottom-0 z-20"
               style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
             >
+              {/* Upper fade above the bet-slip area.
+                  T0-T3: full 0.8 → transparent to anchor the slip
+                         visually against the markets above.
+                  T4:    much softer (0.35 max) so the dark backdrop
+                         doesn't compete with the Siri vignette's
+                         colored perimeter bloom — at T4 the vignette
+                         alone provides plenty of perimeter framing,
+                         and pushing the dark backdrop to full strength
+                         creates a visible rectangular "panel" on top
+                         of the colored bloom. */}
               <div
                 className="pointer-events-none absolute inset-x-0 -top-10 h-10"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
+                    tier === 4
+                      ? 'linear-gradient(to top, rgba(0,0,0,0.35), transparent)'
+                      : 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)',
                 }}
               />
               <div
                 className="relative"
                 style={{
-                  // Starts at 0.8 to match the upper -top-10 fade's
-                  // BOTTOM opacity — without that, the gradient
-                  // restarts at 0 and creates a visible horizontal
-                  // band of "lightness" sandwiched between two
-                  // darker zones. Normally invisible, but at T4 the
-                  // Siri vignette adds enough perimeter contrast for
-                  // the discontinuity to read as a hard edge / box
-                  // around the bet slip.
+                  // Same tier-conditional rule as the upper fade above
+                  // — the lower gradient softens at T4 so it doesn't
+                  // read as a rectangular panel against the rotating
+                  // vignette colors. Start opacity matches the upper
+                  // fade's end opacity so there's never a discontinuity
+                  // at the boundary regardless of tier.
                   background:
-                    'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%)',
+                    tier === 4
+                      ? 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.6) 100%)'
+                      : 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.95) 100%)',
+                  // Smooth-fade the gradient swap during tier change so
+                  // the dark backdrop fades up/down with the vignette
+                  // rather than snapping.
+                  transition: 'background 700ms ease-out',
                 }}
               >
                 {/* Reserved-height slot — keeps navbar pinned regardless
