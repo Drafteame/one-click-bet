@@ -8,6 +8,7 @@ import {
 import { useEffect } from 'react';
 import boosterIllus from './assets/booster.png';
 import chevronRightIcon from './assets/chevron_right.svg';
+import clockIcon from './assets/clock.svg';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
 import freebetIllus from './assets/freebet.png';
@@ -285,7 +286,8 @@ export function BetSlipFullSheet({
                   Apuesta gratis
                 </span>
                 <div className="flex items-center gap-2">
-                  <div className="flex h-5 items-center rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                  <div className="flex h-5 items-center gap-1 rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                    <img src={clockIcon} alt="" className="size-3" />
                     <span className="text-[12px] font-medium leading-4 text-[#fbfbfb]">
                       29d<span className="text-[rgba(251,251,251,0.7)]">:</span>23h
                     </span>
@@ -329,7 +331,8 @@ export function BetSlipFullSheet({
                     className="size-[18px] rotate-90 opacity-70"
                   />
                 </div>
-                <div className="flex h-5 items-center self-start rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                <div className="flex h-5 items-center gap-1 self-start rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                  <img src={clockIcon} alt="" className="size-3" />
                   <span className="text-[12px] font-medium leading-4 text-[#fbfbfb]">
                     23h<span className="text-[rgba(251,251,251,0.7)]">:</span>23m
                     <span className="text-[rgba(251,251,251,0.7)]">:</span>23s
