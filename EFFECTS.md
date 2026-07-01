@@ -2,6 +2,8 @@
 
 A running list of every animation, microinteraction, transition, and motion behavior in the prototype. Grouped by tier (each tier is **additive** on top of the lower tiers), then by **cross-cutting** sections (tier-crossing flourishes, bet-slip lifecycle, accessibility).
 
+> ⚠️ **On `main`, the progression system is currently OFF.** The master switch `cfg.animationsEnabled` (in `src/buttonProgressionConfig.ts`) is set to `false`, so **every effect catalogued below is suppressed** — the button renders static. Only the slip's entry/exit mount transition and the per-digit number rolls still play. Everything documented here still describes the intended behavior when the switch is flipped back to `true`; the fully-animated version is snapshotted on the `bet-slip-progression` branch. See the "Master switch" section at the bottom.
+
 > Keep this file in sync. Whenever an effect is added, removed, retuned, or moved between tiers, update the relevant section here in the **same commit**.
 
 > Conventions used below:
@@ -228,6 +230,24 @@ App-level shell (`App.tsx`), not an effect per se but worth documenting:
 - **Slot rolls survive but compressed** — `cfg.reducedMotionSlotDurationMs` (180ms) replaces the normal 380ms so digit changes still read but don't dwell.
 - **All ambient effects throttleable** via `?debug=true` overlay (1× normal or 3× slow speed). Each tier has a jump-to-tier button (T0–T4) that auto-selects a pre-built combo from `selectionsForTier(N)` in App.tsx.
 - **T3 odds effect togglable** at runtime — `flames` (default, layered drop-shadow halo with flicker) or `smoke` (rising blurred blobs). Lives in `cfg.tier3OddsEffect`.
+
+---
+
+## Master switch — `cfg.animationsEnabled`
+
+A single global flag in `src/buttonProgressionConfig.ts` that turns the entire progression system on or off. **Currently `false` on `main`** (static button); the fully-animated version lives on the `bet-slip-progression` branch.
+
+**What it suppresses when `false`:** every effect in this document — all ambient tier effects (breathing, glow, border-light sweep, shimmer, tremor, sparkles, fire-sparks, smoke/flames, magnetic attraction, T4 Siri vignette), all on-event micro-interactions (press scale, recoil, anticipation, settle overshoot, count-badge pulse, radial/odds/outline ripples), all tier-crossing one-shots, and haptics + sound.
+
+**What it preserves (functional motion):** the slip's entry/exit mount transition (`BetSlipShell` — bouncy entry, exit fall, velocity landing-squash) and the per-digit number rolls (`SlotNumber`). The tier is still computed from cumulative odds, so any *static* per-tier styling (background palette, font weight, static text-shadow) still applies — only motion/reactivity is removed.
+
+**How it's wired** (deliberately minimal, reuses the reduced-motion paths):
+- `ButtonPreviewMomios.tsx` — `const reduced = usePrefersReducedMotion() || !cfg.animationsEnabled;` This one line gates every `!reduced` effect. Plus the `whileTap` press-scale is gated on `!reduced`.
+- `App.tsx` — `reducedMotion` OR-s the flag (halts vignette rotation); the vignette opacity is additionally gated on `!reducedMotion`.
+- `haptics.ts` — both `playSelectionHaptic` / `playTierCrossingHaptic` early-return when the flag is `false`.
+- `playSound.ts` — already a no-op; unaffected.
+
+Flip to `true` to restore everything documented above.
 
 ---
 

@@ -81,7 +81,11 @@ function selectionsForTier(target: Tier): Selection[] {
 
 export function App() {
   const debug = useDebug();
-  const reducedMotion = useReducedMotion();
+  // MASTER SWITCH — see cfg.animationsEnabled. OR-ing it here suppresses the
+  // T4 Siri vignette rotation (and, via the opacity gate below, the vignette
+  // itself) alongside the OS-level reduced-motion preference.
+  const reducedMotion =
+    useReducedMotion() || !buttonProgressionConfig.animationsEnabled;
   const [selections, setSelections] = useState<Selection[]>([]);
   const [speedScale, setSpeedScale] = useState(1);
   const [live, setLive] = useState<ButtonLiveState | null>(null);
@@ -255,7 +259,7 @@ export function App() {
               initial={{ opacity: 0 }}
               animate={{
                 opacity:
-                  tier === 4
+                  tier === 4 && !reducedMotion
                     ? buttonProgressionConfig.tier4.vignette.opacityMax
                     : 0,
               }}

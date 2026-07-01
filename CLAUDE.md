@@ -60,9 +60,16 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 - **Debug overlay** (`?debug=true`) has tier-jump buttons, speed-scale (1× or 3× slow), and a T3 odds-effect toggle (flames / smoke). Add a button when you add a tier.
 - **Effects that extend outside the pill** must be siblings of the rounded shell (which has `overflow:hidden`), not children. The fire-sparks wrapper / outline-ripple / odds-ripple already follow this.
 
+## ⚠️ Master switch — progression animations are OFF on `main`
+
+`cfg.animationsEnabled` in `src/buttonProgressionConfig.ts` is **`false`** on `main`. The bet-slip button renders **static**: all tier ambient effects, on-event micro-interactions, tier-crossing flourishes, the T4 vignette, haptics, and sound are suppressed. Only the slip **entry/exit** (`BetSlipShell`) and **number rolls** (`SlotNumber`) still play. The fully-animated version is snapshotted on the **`bet-slip-progression`** branch. Flip the flag to `true` to restore everything.
+
+Wiring (intentionally minimal — reuses the reduced-motion gates): `ButtonPreviewMomios` OR-s the flag into `reduced`; `App.tsx` OR-s it into `reducedMotion` and gates the vignette opacity; `haptics.ts` early-returns. See the "Master switch" section in `EFFECTS.md`. When adding a NEW effect, gate it on `!reduced` (or `!reducedMotion` in App) so the master switch keeps covering it automatically.
+
 ## Branch model + deploy
 
-- **`main`** is deployable. GitHub Pages auto-publishes via `.github/workflows/deploy-pages.yml` on every push.
+- **`main`** is deployable, and currently ships the **static** button (master switch off — see above). GitHub Pages auto-publishes via `.github/workflows/deploy-pages.yml` on every push.
+- **`bet-slip-progression`** — snapshot of the full animated progression system (master switch on). Reference / restore point for the effects.
 - Feature/exploration branches off `main`: `tier_4`, `odds-effect`, `explorations`, etc. These do NOT auto-deploy.
 - Promote work to `main` via merge or by `git checkout <sha> -- <files>` from the feature branch (handy when you want some files but not others — e.g., merge T4 minus the shake).
 - **`vite.config.ts`** has `base: '/one-click-bet/'` for the Pages subpath. Don't remove it.
@@ -105,6 +112,8 @@ Key design principle to preserve: **no base color shifts across tiers** — esca
 
 ## Recent landmarks (rolling — keep current)
 
+- **Repo forked to "One Click Bet"** from `draftea-momios-prototype` as a base for new explorations. Original untouched.
+- **Progression animations switched OFF on `main`** via the `cfg.animationsEnabled` master switch (see section above). The animated version is preserved on the `bet-slip-progression` branch. New "One Click Bet" explorations build on the static baseline.
 - **T4 "Legendario" tier** added (≥ 50x). On `main`: boosted outer glow, white drop-shadow on all four numbers, denser edge-flash sparkles, faster + denser fire-sparks, more pronounced breath (amplitude 0.020 / 2200ms). Shake intentionally **excluded** on `main` (stays parked on `tier_4` branch).
 - **OddsRipple** (`src/OddsRipple.tsx`) — T3+ ghost-text ripple on every selection add; pairs with a synchronized white drop-shadow flash on the source.
 - **Italic typography at T3+** — the four bet-slip numbers switch to Red Hat Display Black Italic (matches Figma "Buscador" component).

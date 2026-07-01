@@ -75,7 +75,12 @@ export function ButtonPreviewMomios({
   onLiveState,
   tier3OddsEffect = cfg.tier3OddsEffect,
 }: Props) {
-  const reduced = usePrefersReducedMotion();
+  // MASTER SWITCH — when `cfg.animationsEnabled` is false, treat the button
+  // as reduced-motion. This reuses every existing `!reduced` gate to suppress
+  // all ambient effects + progression micro-interactions in one place. Number
+  // rolls (SlotNumber) still play — reduced only shortens their duration — and
+  // the slip entry/exit (BetSlipShell) is independent of this flag.
+  const reduced = usePrefersReducedMotion() || !cfg.animationsEnabled;
   const tier = tierForOdds(cumulativeOdds);
 
   /* =============================================================== */
@@ -1170,7 +1175,7 @@ export function ButtonPreviewMomios({
             x: tremorX,
             y: tremorY,
           }}
-          whileTap={{ scale: cfg.pressScale }}
+          whileTap={reduced ? undefined : { scale: cfg.pressScale }}
           animate={
             isUpCross
               ? { scale: [1, cfg.crossing.upPulseScalePeak, 1] }

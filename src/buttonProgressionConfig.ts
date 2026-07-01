@@ -22,6 +22,21 @@ export const buttonProgressionConfig = {
   /* --------------------------------------------------------------- */
   /*  GLOBAL                                                          */
   /* --------------------------------------------------------------- */
+  // MASTER SWITCH — bet-slip progression animations/micro-interactions.
+  // When `false`, the button renders in a static state: ALL tier ambient
+  // effects, progression micro-interactions (recoil, press scale,
+  // anticipation, settle overshoot, count pulse, radial/odds/outline
+  // ripples, tier-crossing flourishes, magnetic attraction, sparkles,
+  // fire-sparks, smoke/flames, glow, border-light sweep, breathing) and
+  // the T4 Siri vignette are suppressed, and haptics + sound are silenced.
+  // The slip's functional motion is preserved: entry/exit mount transition
+  // (BetSlipShell) and the per-digit number rolls (SlotNumber) still play.
+  // Flip to `true` to restore the full progression system (see also the
+  // `bet-slip-progression` branch, which snapshots the fully-animated
+  // version). Implemented by OR-ing this into the reduced-motion flag in
+  // ButtonPreviewMomios + App, so it reuses the existing reduced-motion
+  // gating paths rather than threading a new flag through every effect.
+  animationsEnabled: false as boolean,
   // Cap selections at this count to prevent runaway tiers.
   maxSelections: 8,
   // Press feedback — scale on press, spring back on release (all tiers).

@@ -27,8 +27,13 @@
 /*  caller so this module stays a thin wrapper.                   */
 /* ============================================================ */
 
+import { buttonProgressionConfig } from './buttonProgressionConfig';
+
 /** Light 10ms tick — selection click (add or remove a pick). */
 export function playSelectionHaptic(): void {
+  // MASTER SWITCH — silenced with the rest of the progression system when
+  // animations are disabled. See cfg.animationsEnabled.
+  if (!buttonProgressionConfig.animationsEnabled) return;
   if (typeof navigator === 'undefined') return;
   if (typeof navigator.vibrate !== 'function') return;
   // 10ms is the canonical Material "selection click" duration. Long
@@ -39,6 +44,8 @@ export function playSelectionHaptic(): void {
 
 /** Medium 20ms thump — tier crossing (T0↔T1, T1↔T2, etc.). */
 export function playTierCrossingHaptic(): void {
+  // MASTER SWITCH — see cfg.animationsEnabled.
+  if (!buttonProgressionConfig.animationsEnabled) return;
   if (typeof navigator === 'undefined') return;
   if (typeof navigator.vibrate !== 'function') return;
   // Roughly twice as long as the selection tick so the boundary
