@@ -4,6 +4,7 @@ import { tierForOdds, type ButtonLiveState } from './ButtonPreviewMomios';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
 import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
+import { BetSlipFullSheet } from './BetSlipFullSheet';
 import { BetSlipSheet } from './BetSlipSheet';
 import type { Selection, Tier } from './types';
 
@@ -98,6 +99,8 @@ export function App() {
   // down (or 4s of inactivity) morphs it back to the collapsed pill; tapping
   // the collapsed pill re-expands.
   const [expanded, setExpanded] = useState(false);
+  // Full-screen "Resumen de tu entrada" sheet (opened from the Lista tab).
+  const [listOpen, setListOpen] = useState(false);
   // Bumped on swipe-to-confirm interaction to defer the auto-collapse timer.
   const [keepAliveNonce, setKeepAliveNonce] = useState(0);
   const prevCountRef = useRef(0);
@@ -188,6 +191,7 @@ export function App() {
   // bet-placement here when a backend exists.
   const confirmBet = useCallback(() => {
     setSelections([]);
+    setListOpen(false);
   }, []);
 
   /* ---------- tier-crossing haptic ---------- */
@@ -517,6 +521,7 @@ export function App() {
                           onRemove={removeSelection}
                           onConfirm={confirmBet}
                           onKeepAlive={() => setKeepAliveNonce((n) => n + 1)}
+                          onOpenList={() => setListOpen(true)}
                         />
                       )}
                     </AnimatePresence>
@@ -525,6 +530,25 @@ export function App() {
                 <Navbar />
               </div>
             </div>
+
+            {/* Full-screen "Resumen de tu entrada" sheet — opens from the
+                parlay Lista tab; swipe down or × closes it and collapses the
+                bet slip. */}
+            <AnimatePresence>
+              {listOpen && selections.length > 0 && (
+                <BetSlipFullSheet
+                  key="bet-slip-full-sheet"
+                  selections={selections}
+                  cumulativeOdds={cumulativeOdds}
+                  onRemove={removeSelection}
+                  onClose={() => {
+                    setListOpen(false);
+                    setExpanded(false);
+                  }}
+                  onConfirm={confirmBet}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Debug overlay (tier badge + live ambient phases) */}
             {debug && (

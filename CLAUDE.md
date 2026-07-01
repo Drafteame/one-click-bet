@@ -40,6 +40,7 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 | File | Purpose |
 |---|---|
 | `src/BetSlipSheet.tsx` | **The bet slip on `main`.** Single morphing container: one shell animates height (+ a squash/stretch pulse) between the **collapsed state (the real `ButtonPreviewMomios` pill, unchanged)** and the expanded purple-glass card (straight bet at 1 selection / parlay at 2+); layers cross-fade so only one shows. The glass bg/border is an expanded-only layer, so collapsed shows just the pill. Owns swipe-down-to-collapse, tap-to-expand, swipe-to-confirm. |
+| `src/BetSlipFullSheet.tsx` | Full-screen "Resumen de tu entrada" sheet (Figma 33304:83122), opened from the parlay **Lista** tab. Slides up over the phone frame; swipe-down or × closes it AND collapses the bet slip. **Core only** — promos/booster box, accept-odds checkbox, and header delete-all (trash) button are omitted pending their assets. |
 | `src/ButtonPreviewMomios.tsx` | The collapsed bet-slip pill (~1.7k LOC, all tier-gated effects; effects OFF on `main` via the master switch → static pill). Rendered by `BetSlipSheet` as the collapsed state. Full animated version preserved on the `bet-slip-progression` branch. |
 | `src/buttonProgressionConfig.ts` | **Central tunables.** Every magic number lives here with a comment. |
 | `src/types.ts` | `Tier = 0 | 1 | 2 | 3 | 4`, `Selection`, `TierConfig`. |

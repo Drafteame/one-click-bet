@@ -65,6 +65,8 @@ type Props = {
   onConfirm: () => void;
   /** Called on swipe-to-confirm interaction so the 4s auto-collapse resets. */
   onKeepAlive: () => void;
+  /** Parlay "Lista" tab — opens the full-screen summary sheet. */
+  onOpenList: () => void;
 };
 
 export function BetSlipSheet({
@@ -76,6 +78,7 @@ export function BetSlipSheet({
   onRemove,
   onConfirm,
   onKeepAlive,
+  onOpenList,
 }: Props) {
   const potentialWin = Math.round(cumulativeOdds * STAKE);
   const isParlay = selections.length >= 2;
@@ -224,12 +227,17 @@ export function BetSlipSheet({
                       Promos
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={onOpenList}
+                    onPointerDownCapture={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 active:opacity-70"
+                  >
                     <img src={menuIcon} alt="" className="size-3" />
                     <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
                       Lista
                     </span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
