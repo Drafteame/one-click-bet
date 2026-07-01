@@ -5,51 +5,47 @@ import {
   usePresence,
   type PanInfo,
 } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import chevronRightIcon from './assets/chevron_right.svg';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
 import menuIcon from './assets/menu.svg';
 import promoIcon from './assets/promo.png';
 import shieldIcon from './assets/shield.svg';
+import { buttonProgressionConfig } from './buttonProgressionConfig';
+import { ButtonPreviewMomios } from './ButtonPreviewMomios';
 import type { Selection } from './types';
 
 /**
  * BetSlipSheet — the one-click bet slip, as a single morphing container.
  *
- * There is only ever ONE bet-slip element on screen. A single "glass" shell
- * (purple gradient + #4b20ff border) morphs between two variants by animating
- * its height + corner radius while the two content sets cross-fade — a
- * Liquid-Glass-style morph rather than a hide/show of two components:
+ * There is only ever ONE bet-slip element on screen. A single shell morphs
+ * between two variants by animating its height (+ a squash/stretch pulse)
+ * while the two content layers cross-fade — a Liquid-Glass-style morph, not a
+ * hide/show of two components:
  *
- *   - COLLAPSED → a compact pill: count · Momio · Monto · Gana CTA.
- *   - EXPANDED  → the full slip: selection(s) + Monto/Momio/Ganancia +
- *                 swipe-to-confirm. 1 selection = straight bet; 2+ = parlay
- *                 (header + horizontal, latest-first selections).
+ *   - COLLAPSED → the EXISTING collapsed bet slip, rendered by the real
+ *                 `ButtonPreviewMomios` pill, untouched. This is the resting
+ *                 collapsed state.
+ *   - EXPANDED  → the purple-glass one-click card: selection(s) +
+ *                 Monto/Momio/Ganancia + swipe-to-confirm. 1 selection =
+ *                 straight bet; 2+ = parlay (header + horizontal selections).
  *
- * Interaction:
- *   - Tap the collapsed pill        → onExpand()
- *   - Swipe the expanded card DOWN  → onCollapse() (morphs back to the pill)
- *   - Swipe the purple thumb RIGHT  → onConfirm() (places the bet)
- *   - Tap × on a selection          → onRemove(id)
- *   - Touching the swipe thumb       → onKeepAlive() (defers auto-collapse)
+ * The glass background/border belong to the EXPANDED variant only (a layer
+ * that fades in), so when collapsed the shell is transparent and only the
+ * ButtonPreviewMomios pill shows — pixel-identical to before.
  *
- * The mount/unmount slide (when selections cross 0↔1) is driven imperatively
- * on the OUTER wrapper (mirrors BetSlipShell); the morph is the shell's own
- * height/radius animation. Both are kept on separate elements so drag,
- * morph, and slide never fight over the same motion value.
- *
- * Assets: close/edit/chevron_right/menu (uploaded) + promo.png + shield.svg.
+ * Interaction: tap the pill → onExpand; swipe the card DOWN → onCollapse;
+ * swipe the thumb RIGHT → onConfirm; tap × → onRemove; touch the thumb →
+ * onKeepAlive (defers auto-collapse).
  */
 
-const STAKE = 200; // fixed demo stake
+const STAKE = 200; // fixed demo stake — matches ButtonPreviewMomios
 const fmtOdds = (n: number) => `${n.toFixed(2)}x`;
 
 // Morph geometry.
-const COLLAPSED_H = 56;
-const EXPANDED_H = 195; // matches the straight/parlay card footprint
-const COLLAPSED_RADIUS = 28;
-const EXPANDED_RADIUS = 20;
+const COLLAPSED_H = 72; // ButtonPreviewMomios footprint (56px pill + 8/8 pad)
+const EXPANDED_H = 195; // straight/parlay card footprint
 
 // Drag thresholds.
 const COLLAPSE_OFFSET_PX = 64;
@@ -83,8 +79,7 @@ export function BetSlipSheet({
 }: Props) {
   const potentialWin = Math.round(cumulativeOdds * STAKE);
   const isParlay = selections.length >= 2;
-  // Latest selection first (newest is appended last, so reverse for display).
-  const orderedSelections = [...selections].reverse();
+  const orderedSelections = [...selections].reverse(); // latest first
 
   // Mount/unmount slide (mirrors BetSlipShell — declarative initial/animate
   // strands at `initial` under React 18 StrictMode, so animate by hand).
@@ -116,6 +111,33 @@ export function BetSlipSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresent]);
 
+  // SQUASH & STRETCH — a brief scale pulse on each morph. Expanding stretches
+  // the shell taller/narrower; collapsing squashes it shorter/wider. Anchored
+  // at the bottom so it grows/shrinks from the navbar edge. Skipped on the
+  // first render (that's the entry slide, not a morph).
+  const scaleX = useMotionValue(1);
+  const scaleY = useMotionValue(1);
+  const firstRenderRef = useRef(true);
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    const ax = animate(scaleX, [1, expanded ? 0.97 : 1.03, 1], {
+      duration: 0.42,
+      ease: 'easeOut',
+    });
+    const ay = animate(scaleY, [1, expanded ? 1.06 : 0.95, 1], {
+      duration: 0.42,
+      ease: 'easeOut',
+    });
+    return () => {
+      ax.stop();
+      ay.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
+
   const handleCollapseDrag = (_e: unknown, info: PanInfo) => {
     if (info.offset.y > COLLAPSE_OFFSET_PX || info.velocity.y > COLLAPSE_VELOCITY) {
       onCollapse();
@@ -128,83 +150,55 @@ export function BetSlipSheet({
 
   return (
     <motion.div
-      className="w-full px-4"
+      className="w-full"
       style={{ y, opacity, fontFamily: "'Red Hat Display', sans-serif" }}
     >
-      {/* GLASS SHELL — morphs height + radius; content cross-fades inside. */}
+      {/* SHELL — morphs height (+ squash/stretch). Transparent itself: the
+          glass background belongs to the expanded layer, so a collapsed shell
+          shows only the ButtonPreviewMomios pill. */}
       <motion.div
-        className="relative w-full overflow-hidden border border-[#4b20ff]"
-        style={{ backgroundImage: GLASS_BG }}
-        animate={{
-          height: expanded ? EXPANDED_H : COLLAPSED_H,
-          borderRadius: expanded ? EXPANDED_RADIUS : COLLAPSED_RADIUS,
-        }}
+        className="relative w-full overflow-hidden"
+        style={{ scaleX, scaleY, transformOrigin: 'bottom center' }}
+        animate={{ height: expanded ? EXPANDED_H : COLLAPSED_H }}
         transition={{ type: 'spring', stiffness: 320, damping: 34 }}
         drag={expanded ? 'y' : false}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.5 }}
         onDragEnd={handleCollapseDrag}
-        onClick={expanded ? undefined : onExpand}
-        role={expanded ? undefined : 'button'}
-        tabIndex={expanded ? undefined : 0}
       >
-        {/* ---------- COLLAPSED: summary pill ---------- */}
+        {/* Expanded glass background — fades in as the shell grows. */}
         <motion.div
-          className="absolute inset-0 flex cursor-pointer items-center gap-3 px-3"
+          className="absolute inset-x-4 inset-y-0 rounded-[20px] border border-[#4b20ff]"
+          style={{ backgroundImage: GLASS_BG }}
+          animate={{ opacity: expanded ? 1 : 0 }}
+          transition={{ duration: 0.18 }}
+          aria-hidden
+        />
+
+        {/* ---------- COLLAPSED: the existing pill (unchanged) ---------- */}
+        <motion.div
+          className="absolute inset-x-0 bottom-0 cursor-pointer"
           animate={{ opacity: expanded ? 0 : 1 }}
           transition={{ duration: 0.16 }}
           style={{ pointerEvents: expanded ? 'none' : 'auto' }}
           aria-hidden={expanded}
+          onClick={expanded ? undefined : onExpand}
+          role={expanded ? undefined : 'button'}
+          tabIndex={expanded ? undefined : 0}
         >
-          <div className="flex shrink-0 items-center gap-1">
-            <div className="flex h-5 min-w-[20px] items-center justify-center rounded-[14px] bg-[rgba(251,251,251,0.16)] px-1">
-              <span className="text-[13px] font-bold leading-4 text-[#f0f2f4]">
-                {selections.length}
-              </span>
-            </div>
-            <span className="text-[13px] font-bold leading-4 text-[#fbfbfb]">
-              Bets
-            </span>
-          </div>
-          <div className="flex min-w-px flex-1 items-center justify-center gap-5">
-            <div className="flex flex-col items-center">
-              <span className="text-[14px] font-black leading-[18px] text-[#fbfbfb]">
-                {fmtOdds(cumulativeOdds)}
-              </span>
-              <span className="text-[11px] font-medium leading-[13px] text-[rgba(251,251,251,0.5)]">
-                Momio
-              </span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[14px] font-black leading-[18px] text-[#fbfbfb]">
-                ${STAKE}
-              </span>
-              <span className="text-[11px] font-medium leading-[13px] text-[rgba(251,251,251,0.5)]">
-                Monto
-              </span>
-            </div>
-          </div>
-          <div
-            className="flex shrink-0 items-center gap-1 rounded-full py-1.5 pl-3 pr-2"
-            style={{ backgroundImage: PURPLE_CTA }}
-          >
-            <div className="flex flex-col items-start">
-              <span className="text-[14px] font-black leading-[18px] text-white">
-                ${potentialWin}
-              </span>
-              <span className="text-[11px] font-medium leading-[13px] text-white/70">
-                Gana
-              </span>
-            </div>
-            <img src={chevronRightIcon} alt="" className="size-4" />
-          </div>
+          <ButtonPreviewMomios
+            selectionCount={selections.length}
+            cumulativeOdds={cumulativeOdds}
+            speedScale={1}
+            tier3OddsEffect={buttonProgressionConfig.tier3OddsEffect}
+          />
         </motion.div>
 
-        {/* ---------- EXPANDED: full slip ---------- */}
+        {/* ---------- EXPANDED: full slip (over the glass) ---------- */}
         <motion.div
-          className="absolute inset-x-0 top-0 flex flex-col"
+          className="absolute inset-x-4 top-0 flex flex-col"
           animate={{ opacity: expanded ? 1 : 0 }}
-          transition={{ duration: 0.16 }}
+          transition={{ duration: 0.18 }}
           style={{ pointerEvents: expanded ? 'auto' : 'none' }}
           aria-hidden={!expanded}
         >

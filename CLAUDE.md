@@ -39,8 +39,8 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 
 | File | Purpose |
 |---|---|
-| `src/BetSlipSheet.tsx` | **The bet slip on `main`.** Single morphing container: one purple-glass shell animates height + corner-radius between a collapsed summary pill and the expanded card (straight bet at 1 selection / parlay at 2+), content cross-fades. Owns swipe-down-to-collapse, tap-to-expand, swipe-to-confirm. Replaces `ButtonPreviewMomios` as the rendered slip. |
-| `src/ButtonPreviewMomios.tsx` | Legacy progression pill (~1.7k LOC, all tier-gated effects). **No longer rendered in the slip on `main`** (replaced by `BetSlipSheet`); App still imports its `tierForOdds`. Preserved for the `bet-slip-progression` branch. |
+| `src/BetSlipSheet.tsx` | **The bet slip on `main`.** Single morphing container: one shell animates height (+ a squash/stretch pulse) between the **collapsed state (the real `ButtonPreviewMomios` pill, unchanged)** and the expanded purple-glass card (straight bet at 1 selection / parlay at 2+); layers cross-fade so only one shows. The glass bg/border is an expanded-only layer, so collapsed shows just the pill. Owns swipe-down-to-collapse, tap-to-expand, swipe-to-confirm. |
+| `src/ButtonPreviewMomios.tsx` | The collapsed bet-slip pill (~1.7k LOC, all tier-gated effects; effects OFF on `main` via the master switch → static pill). Rendered by `BetSlipSheet` as the collapsed state. Full animated version preserved on the `bet-slip-progression` branch. |
 | `src/buttonProgressionConfig.ts` | **Central tunables.** Every magic number lives here with a comment. |
 | `src/types.ts` | `Tier = 0 | 1 | 2 | 3 | 4`, `Selection`, `TierConfig`. |
 | `src/App.tsx` | Top-level orchestration: selection state, debug overlay, `selectionsForTier(N)` helper. |
@@ -114,7 +114,7 @@ Key design principle to preserve: **no base color shifts across tiers** — esca
 ## Recent landmarks (rolling — keep current)
 
 - **Repo forked to "One Click Bet"** from `draftea-momios-prototype` as a base for new explorations. Original untouched.
-- **`BetSlipSheet` is the slip on `main`** — a single morphing container (collapsed pill ↔ expanded straight/parlay card) that replaced the two-component pill + card setup. Making a selection expands it; swipe down or 4s of inactivity (no new selection / no swipe-to-confirm) morphs it back; tapping the pill re-expands. `ButtonPreviewMomios` is no longer rendered in the slip.
+- **`BetSlipSheet` is the slip on `main`** — a single morphing container that fixed the "collapsed pill visible behind the expanded card" bug. The collapsed state is the **unchanged `ButtonPreviewMomios` pill**; the expanded state is the purple-glass one-click card. It morphs by animating shell height + a squash/stretch pulse while the two layers cross-fade (only one visible). Making a selection expands it; swipe down or 4s of inactivity (no new selection / no swipe-to-confirm) morphs it back; tapping the pill re-expands.
 - **Progression animations switched OFF on `main`** via the `cfg.animationsEnabled` master switch (see section above). The animated version is preserved on the `bet-slip-progression` branch. New "One Click Bet" explorations build on the static baseline.
 - **T4 "Legendario" tier** added (≥ 50x). On `main`: boosted outer glow, white drop-shadow on all four numbers, denser edge-flash sparkles, faster + denser fire-sparks, more pronounced breath (amplitude 0.020 / 2200ms). Shake intentionally **excluded** on `main` (stays parked on `tier_4` branch).
 - **OddsRipple** (`src/OddsRipple.tsx`) — T3+ ghost-text ripple on every selection add; pairs with a synchronized white drop-shadow flash on the source.
