@@ -6,10 +6,13 @@ import {
   type PanInfo,
 } from 'framer-motion';
 import { useEffect } from 'react';
+import boosterIllus from './assets/booster.png';
 import chevronRightIcon from './assets/chevron_right.svg';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
+import freebetIllus from './assets/freebet.png';
 import shieldIcon from './assets/shield.svg';
+import trashIcon from './assets/trash.svg';
 import type { Selection } from './types';
 
 /**
@@ -19,14 +22,15 @@ import type { Selection } from './types';
  * 33304:83122. Slides up over the whole phone frame; swiping it down or
  * pressing × closes it AND collapses the underlying bet slip (onClose).
  *
- * SCOPE: core sheet only — header (× + count + balance), scrollable
- * selections list, Monto/Momio/Ganancia footer, and swipe-to-play. The
- * promos/booster box, "accept odds changes" checkbox, and header delete-all
- * (trash) button are intentionally omitted pending their assets (see the
- * chat where we agreed to skip them for now).
+ * Includes: header (delete-all trash + × + count + balance), scrollable
+ * selections list, Monto/Momio/Ganancia footer, the free-bet/Booster promos
+ * box, the "accept odds changes" checkbox, and swipe-to-play. Toggle switches
+ * and the checkbox are CSS controls. STILL PENDING one asset: the countdown
+ * clock icon — the countdown pills currently show the time text without it.
  *
  * Assets: close.svg (× + per-row remove), shield.svg (team placeholder),
- * edit.svg (Monto), chevron_right.svg (swipe thumb).
+ * edit.svg (Monto), chevron_right.svg (swipe thumb + Booster caret),
+ * trash.svg (delete-all), freebet.png / booster.png (promo illustrations).
  */
 
 const STAKE = 200;
@@ -44,6 +48,8 @@ type Props = {
   selections: Selection[];
   cumulativeOdds: number;
   onRemove: (id: string) => void;
+  /** Delete-all (trash) — clears the whole slip. */
+  onClearAll: () => void;
   /** Swipe-down or × — closes the sheet and collapses the bet slip. */
   onClose: () => void;
   /** Swipe-to-play — places the bet. */
@@ -54,6 +60,7 @@ export function BetSlipFullSheet({
   selections,
   cumulativeOdds,
   onRemove,
+  onClearAll,
   onClose,
   onConfirm,
 }: Props) {
@@ -124,8 +131,18 @@ export function BetSlipFullSheet({
 
         {/* HEADER — (delete-all trash omitted) · title + count · × */}
         <div className="relative flex h-14 shrink-0 items-center border-b border-[rgba(240,242,244,0.08)]">
-          {/* Left spacer where the delete-all button will go. */}
-          <div className="w-12 shrink-0" />
+          {/* Delete-all (trash). */}
+          <div className="flex w-12 shrink-0 pl-1">
+            <button
+              type="button"
+              aria-label="Vaciar entrada"
+              onClick={onClearAll}
+              onPointerDownCapture={(e) => e.stopPropagation()}
+              className="flex size-10 items-center justify-center rounded-full active:scale-95"
+            >
+              <img src={trashIcon} alt="" className="size-5" />
+            </button>
+          </div>
           <div className="flex min-w-px flex-1 flex-col items-center justify-center px-3">
             <div className="flex items-center justify-center gap-1">
               <p className="text-[14px] font-bold leading-[21px] text-[#f0f2f4]">
@@ -248,6 +265,96 @@ export function BetSlipFullSheet({
               </div>
             </div>
           </div>
+
+          {/* Promos — free bet + Booster. Toggles are CSS controls; the
+              countdown clock glyph is still pending its asset. */}
+          <div className="flex flex-col overflow-hidden rounded-[16px] border border-[rgba(251,251,251,0.16)]">
+            {/* Free bet (disabled toggle) */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div
+                className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-[12px] p-1"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(140.5deg, #f0abfc 0%, #6b47ff 100%)',
+                }}
+              >
+                <img src={freebetIllus} alt="" className="size-7 object-contain" />
+              </div>
+              <div className="flex min-w-px flex-1 flex-col">
+                <span className="text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
+                  Apuesta gratis
+                </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-5 items-center rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                    <span className="text-[12px] font-medium leading-4 text-[#fbfbfb]">
+                      29d<span className="text-[rgba(251,251,251,0.7)]">:</span>23h
+                    </span>
+                  </div>
+                  <div className="h-4 w-px bg-[rgba(251,251,251,0.16)]" />
+                  <div className="flex items-center gap-1 text-[14px]">
+                    <span className="font-medium text-[rgba(251,251,251,0.5)]">
+                      Monto:
+                    </span>
+                    <span className="font-bold text-[rgba(251,251,251,0.7)]">$25</span>
+                  </div>
+                </div>
+              </div>
+              {/* toggle — off + disabled */}
+              <div className="flex h-8 w-[52px] shrink-0 items-center rounded-full bg-[rgba(251,251,251,0.16)] px-1 opacity-40">
+                <div className="size-6 rounded-full bg-white" />
+              </div>
+            </div>
+
+            <div className="mx-3 h-px bg-[rgba(251,251,251,0.16)]" />
+
+            {/* Booster */}
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div
+                className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-[12px] p-1"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(50deg, #ffa65b 0%, #f0abfc 100%)',
+                }}
+              >
+                <img src={boosterIllus} alt="" className="size-7 object-contain" />
+              </div>
+              <div className="flex min-w-px flex-1 flex-col">
+                <div className="flex items-center gap-0.5">
+                  <span className="text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
+                    Booster 20%
+                  </span>
+                  <img
+                    src={chevronRightIcon}
+                    alt=""
+                    className="size-[18px] rotate-90 opacity-70"
+                  />
+                </div>
+                <div className="flex h-5 items-center self-start rounded-[12px] bg-[rgba(251,251,251,0.12)] px-1">
+                  <span className="text-[12px] font-medium leading-4 text-[#fbfbfb]">
+                    23h<span className="text-[rgba(251,251,251,0.7)]">:</span>23m
+                    <span className="text-[rgba(251,251,251,0.7)]">:</span>23s
+                  </span>
+                </div>
+              </div>
+              {/* toggle — off */}
+              <div className="flex h-8 w-[52px] shrink-0 items-center rounded-full bg-[rgba(251,251,251,0.16)] px-1">
+                <div className="size-6 rounded-full bg-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Accept odds changes — CSS checkbox. */}
+          <button
+            type="button"
+            onPointerDownCapture={(e) => e.stopPropagation()}
+            className="flex items-center gap-3 px-3.5 active:opacity-70"
+          >
+            <div className="size-5 shrink-0 rounded-[6px] border-2 border-[rgba(251,251,251,0.3)]" />
+            <p className="text-left text-[14px] font-medium leading-[21px] text-[rgba(251,251,251,0.7)]">
+              Acepta siempre el cambio de momios.{' '}
+              <span className="underline">Más info.</span>
+            </p>
+          </button>
 
           {/* Swipe to play */}
           <div className="relative flex h-[60px] w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-1 pl-1 pr-6">

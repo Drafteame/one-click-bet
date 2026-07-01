@@ -541,6 +541,10 @@ export function App() {
                   selections={selections}
                   cumulativeOdds={cumulativeOdds}
                   onRemove={removeSelection}
+                  onClearAll={() => {
+                    setSelections([]);
+                    setListOpen(false);
+                  }}
                   onClose={() => {
                     setListOpen(false);
                     setExpanded(false);
