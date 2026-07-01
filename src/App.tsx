@@ -1,15 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BetSlipShell } from './BetSlipShell';
-import {
-  ButtonPreviewMomios,
-  tierForOdds,
-  type ButtonLiveState,
-} from './ButtonPreviewMomios';
+import { tierForOdds, type ButtonLiveState } from './ButtonPreviewMomios';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
 import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
-import { OneClickBetSlip } from './OneClickBetSlip';
+import { BetSlipSheet } from './BetSlipSheet';
 import type { Selection, Tier } from './types';
 
 /* ============================================================ */
@@ -99,10 +94,12 @@ export function App() {
   // subsequent 0 → 1 transitions skip the bounce.
   const hasBouncedOnceRef = useRef(false);
 
-  // Bet-slip view state. On any NEW selection the semi-expanded
-  // OneClickBetSlip is shown; swiping it down collapses back to the pill
-  // (ButtonPreviewMomios). Tapping the collapsed pill re-expands.
+  // Bet-slip view state. On any NEW selection the sheet expands; swiping it
+  // down (or 4s of inactivity) morphs it back to the collapsed pill; tapping
+  // the collapsed pill re-expands.
   const [expanded, setExpanded] = useState(false);
+  // Bumped on swipe-to-confirm interaction to defer the auto-collapse timer.
+  const [keepAliveNonce, setKeepAliveNonce] = useState(0);
   const prevCountRef = useRef(0);
   useEffect(() => {
     const count = selections.length;
@@ -112,6 +109,16 @@ export function App() {
     if (count === 0) setExpanded(false);
     prevCountRef.current = count;
   }, [selections.length]);
+
+  // AUTO-COLLAPSE — once expanded, if the user only browses/scrolls (no new
+  // selection, no swipe-to-confirm interaction) for 4s, morph back to the
+  // collapsed pill. Resets when a selection is added/removed (selections
+  // length changes) or the swipe thumb is touched (keepAliveNonce bumps).
+  useEffect(() => {
+    if (!expanded) return;
+    const t = setTimeout(() => setExpanded(false), 4000);
+    return () => clearTimeout(t);
+  }, [expanded, selections.length, keepAliveNonce]);
 
   const selectedIds = useMemo(
     () => new Set(selections.map((s) => s.id)),
@@ -493,52 +500,23 @@ export function App() {
                     height: buttonProgressionConfig.slotReservedHeightPx,
                   }}
                 >
-                  {/* COLLAPSED — the existing pill. Shown when not expanded;
-                      tapping it re-opens the semi-expanded slip. */}
-                  <AnimatePresence mode="wait">
-                    {selections.length > 0 && !expanded && (
-                      <BetSlipShell
-                        key="bet-slip"
-                        bouncy={!hasBouncedOnceRef.current}
-                        onMounted={() => {
-                          // REGRESSION FIX — flip the "session has bounced
-                          // once" flag AFTER this mount has consumed the
-                          // `bouncy` prop. The next 0 → 1 mount will see
-                          // bouncy=false and snap to final state.
-                          hasBouncedOnceRef.current = true;
-                        }}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => setExpanded(true)}
-                          className="cursor-pointer"
-                        >
-                          <ButtonPreviewMomios
-                            selectionCount={selections.length}
-                            cumulativeOdds={cumulativeOdds}
-                            speedScale={speedScale}
-                            onLiveState={debug ? setLive : undefined}
-                            tier3OddsEffect={tier3OddsEffect}
-                          />
-                        </div>
-                      </BetSlipShell>
-                    )}
-                  </AnimatePresence>
-
-                  {/* SEMI-EXPANDED — the one-click bet slip. Anchored to the
-                      same bottom baseline as the pill; overflows upward as a
-                      bottom sheet. Swipe down collapses back to the pill. */}
+                  {/* BET SLIP — a single morphing sheet (collapsed pill ↔
+                      expanded card). Anchored to the slot's bottom baseline;
+                      overflows upward when expanded. Only one bet-slip element
+                      ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && expanded && (
-                        <OneClickBetSlip
-                          key="one-click-slip"
+                      {selections.length > 0 && (
+                        <BetSlipSheet
+                          key="bet-slip-sheet"
                           selections={selections}
                           cumulativeOdds={cumulativeOdds}
-                          onRemove={removeSelection}
+                          expanded={expanded}
+                          onExpand={() => setExpanded(true)}
                           onCollapse={() => setExpanded(false)}
+                          onRemove={removeSelection}
                           onConfirm={confirmBet}
+                          onKeepAlive={() => setKeepAliveNonce((n) => n + 1)}
                         />
                       )}
                     </AnimatePresence>
