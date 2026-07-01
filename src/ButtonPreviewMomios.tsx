@@ -1214,10 +1214,10 @@ export function ButtonPreviewMomios({
               background: '#191919',
             }}
           >
-            {/* T2/T3 background gradient overlay — crossfades in/out on
-                tier change so the bg color doesn't pop at the T1↔T2
-                boundary. The shell's base flat #191919 remains
-                underneath; only this layer's opacity animates. */}
+            {/* Purple background gradient overlay. Originally only shown at
+                T2/T3 (leaving T0/T1 flat #191919 gray); now always on so the
+                collapsed pill is purple regardless of selection count — it
+                should match the multi-selection look at every tier. */}
             <motion.div
               aria-hidden
               className="pointer-events-none absolute inset-0"
@@ -1225,7 +1225,7 @@ export function ButtonPreviewMomios({
                 background:
                   'linear-gradient(to right, #14083d 0%, #230c3e 58%, #5224f1 100%)',
               }}
-              animate={{ opacity: tier >= 2 ? 1 : 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
             />
 
