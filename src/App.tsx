@@ -9,6 +9,7 @@ import {
 import { buttonProgressionConfig } from './buttonProgressionConfig';
 import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
+import { OneClickBetSlip } from './OneClickBetSlip';
 import type { Selection, Tier } from './types';
 
 /* ============================================================ */
@@ -98,6 +99,20 @@ export function App() {
   // subsequent 0 → 1 transitions skip the bounce.
   const hasBouncedOnceRef = useRef(false);
 
+  // Bet-slip view state. On any NEW selection the semi-expanded
+  // OneClickBetSlip is shown; swiping it down collapses back to the pill
+  // (ButtonPreviewMomios). Tapping the collapsed pill re-expands.
+  const [expanded, setExpanded] = useState(false);
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    const count = selections.length;
+    // Expand whenever the selection count grows (add / debug tier jump).
+    if (count > prevCountRef.current) setExpanded(true);
+    // No selections → nothing to show; reset for the next session.
+    if (count === 0) setExpanded(false);
+    prevCountRef.current = count;
+  }, [selections.length]);
+
   const selectedIds = useMemo(
     () => new Set(selections.map((s) => s.id)),
     [selections],
@@ -153,6 +168,19 @@ export function App() {
 
   const jumpToTier = useCallback((target: Tier) => {
     setSelections(selectionsForTier(target));
+  }, []);
+
+  // Remove a single selection from the semi-expanded slip (× on its row).
+  const removeSelection = useCallback((id: string) => {
+    playSelectionHaptic();
+    setSelections((s) => s.filter((sel) => sel.id !== id));
+  }, []);
+
+  // Place the bet from the semi-expanded slip (swipe-to-confirm). Prototype
+  // behavior: clear the slip, as a placed bet would. Wire to real
+  // bet-placement here when a backend exists.
+  const confirmBet = useCallback(() => {
+    setSelections([]);
   }, []);
 
   /* ---------- tier-crossing haptic ---------- */
@@ -465,8 +493,10 @@ export function App() {
                     height: buttonProgressionConfig.slotReservedHeightPx,
                   }}
                 >
+                  {/* COLLAPSED — the existing pill. Shown when not expanded;
+                      tapping it re-opens the semi-expanded slip. */}
                   <AnimatePresence mode="wait">
-                    {selections.length > 0 && (
+                    {selections.length > 0 && !expanded && (
                       <BetSlipShell
                         key="bet-slip"
                         bouncy={!hasBouncedOnceRef.current}
@@ -478,16 +508,41 @@ export function App() {
                           hasBouncedOnceRef.current = true;
                         }}
                       >
-                        <ButtonPreviewMomios
-                          selectionCount={selections.length}
-                          cumulativeOdds={cumulativeOdds}
-                          speedScale={speedScale}
-                          onLiveState={debug ? setLive : undefined}
-                          tier3OddsEffect={tier3OddsEffect}
-                        />
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setExpanded(true)}
+                          className="cursor-pointer"
+                        >
+                          <ButtonPreviewMomios
+                            selectionCount={selections.length}
+                            cumulativeOdds={cumulativeOdds}
+                            speedScale={speedScale}
+                            onLiveState={debug ? setLive : undefined}
+                            tier3OddsEffect={tier3OddsEffect}
+                          />
+                        </div>
                       </BetSlipShell>
                     )}
                   </AnimatePresence>
+
+                  {/* SEMI-EXPANDED — the one-click bet slip. Anchored to the
+                      same bottom baseline as the pill; overflows upward as a
+                      bottom sheet. Swipe down collapses back to the pill. */}
+                  <div className="absolute inset-x-0 bottom-0 z-10">
+                    <AnimatePresence>
+                      {selections.length > 0 && expanded && (
+                        <OneClickBetSlip
+                          key="one-click-slip"
+                          selections={selections}
+                          cumulativeOdds={cumulativeOdds}
+                          onRemove={removeSelection}
+                          onCollapse={() => setExpanded(false)}
+                          onConfirm={confirmBet}
+                        />
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
                 <Navbar />
               </div>
