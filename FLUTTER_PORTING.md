@@ -6,7 +6,7 @@ This repo is the **visual + behavioral spec** for a Flutter mobile app feature. 
 
 **Read in this order:**
 
-1. **The live site** — https://drafteame.github.io/draftea-momios-prototype/ — open with `?debug=true` to jump between tiers and slow to 3× for inspecting motion. This is the visual ground truth.
+1. **The live site** — https://drafteame.github.io/one-click-bet/ — open with `?debug=true` to jump between tiers and slow to 3× for inspecting motion. This is the visual ground truth.
 2. **[`EFFECTS.md`](./EFFECTS.md)** — plain-English catalog of every animation/microinteraction, grouped by tier. This is your feature spec.
 3. **[`src/buttonProgressionConfig.ts`](./src/buttonProgressionConfig.ts)** — every magic number (durations, amplitudes, opacities, easing curves, tier thresholds) lives here with a comment. **Copy these values verbatim** into Dart — they're tuned, not arbitrary.
 4. **This file** — translation hints + gotchas (below).

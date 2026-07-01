@@ -1,4 +1,4 @@
-# CLAUDE.md — buttonPreviewMomios prototype
+# CLAUDE.md — One Click Bet
 
 Project memory for any Claude session opened in this repo. Read first; **keep this file updated in the same commit as any change that meaningfully shifts architecture, conventions, branch model, or "where things live."**
 
@@ -6,17 +6,20 @@ Project memory for any Claude session opened in this repo. Read first; **keep th
 
 ## What this is
 
-A high-fidelity interactive prototype of a **Draftea sportsbook bet-slip CTA** that escalates user engagement across 5 tiers (T0 → T4) using motion, light, and behavior — **not color shifts**. Built from Figma "Buscador" frames via the Figma MCP connector.
+**One Click Bet** — an exploration repo forked from `Drafteame/draftea-momios-prototype` (the buttonPreviewMomios progressive-engagement prototype) and used as a base for new explorations. The original repo is left untouched; iterate here.
 
-**Live preview:** https://drafteame.github.io/draftea-momios-prototype/
-**Repo:** `Drafteame/draftea-momios-prototype` (private)
-**Local path:** `~/sportsbook-prototype`
+The current baseline is a high-fidelity interactive prototype of a **Draftea sportsbook bet-slip CTA** that escalates user engagement across 5 tiers (T0 → T4) using motion, light, and behavior — **not color shifts**. Built from Figma "Buscador" frames via the Figma MCP connector.
+
+**Live preview:** https://drafteame.github.io/one-click-bet/
+**Repo:** `Drafteame/one-click-bet` (public)
+**Forked from:** `Drafteame/draftea-momios-prototype` (private)
+**Local path:** `~/development/one-click-bet`
 
 ## Stack
 
 - **Vite 5** + **React 18** + **TypeScript (strict)** + **Tailwind 3** + **Framer Motion 11**
 - Build: `npm run build` (uses `vite build` only — `tsc` is intentionally **dropped** because pre-existing TS errors in `App.tsx`, `BetSlipShell.tsx` etc. would block CI. Run type-checking via `npm run typecheck` when you need it.)
-- Dev: `npm run dev` → **http://localhost:5174/draftea-momios-prototype/** (note the subpath — root `/` 302-redirects there because of `base:` in `vite.config.ts`).
+- Dev: `npm run dev` → **http://localhost:5174/one-click-bet/** (note the subpath — root `/` 302-redirects there because of `base:` in `vite.config.ts`).
 
 ## Tier system
 
@@ -62,7 +65,7 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 - **`main`** is deployable. GitHub Pages auto-publishes via `.github/workflows/deploy-pages.yml` on every push.
 - Feature/exploration branches off `main`: `tier_4`, `odds-effect`, `explorations`, etc. These do NOT auto-deploy.
 - Promote work to `main` via merge or by `git checkout <sha> -- <files>` from the feature branch (handy when you want some files but not others — e.g., merge T4 minus the shake).
-- **`vite.config.ts`** has `base: '/draftea-momios-prototype/'` for the Pages subpath. Don't remove it.
+- **`vite.config.ts`** has `base: '/one-click-bet/'` for the Pages subpath. Don't remove it.
 
 ## Working-style defaults (carry across chats)
 
@@ -96,7 +99,7 @@ Key design principle to preserve: **no base color shifts across tiers** — esca
 
 1. Branch from `main`: `git checkout -b feature/whatever`.
 2. Make changes (touching `EFFECTS.md` in the same commit).
-3. Verify locally at `http://localhost:5174/draftea-momios-prototype/?debug=true` — use the debug tier buttons to skip ahead.
+3. Verify locally at `http://localhost:5174/one-click-bet/?debug=true` — use the debug tier buttons to skip ahead.
 4. When ready, merge or cherry-pick to `main` → auto-deploys in ~30s.
 5. Tag with `git tag -a <name> -m "..."` before destructive changes.
 

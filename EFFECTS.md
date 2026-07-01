@@ -1,4 +1,4 @@
-# Effects catalog — buttonPreviewMomios
+# Effects catalog — One Click Bet (buttonPreviewMomios baseline)
 
 A running list of every animation, microinteraction, transition, and motion behavior in the prototype. Grouped by tier (each tier is **additive** on top of the lower tiers), then by **cross-cutting** sections (tier-crossing flourishes, bet-slip lifecycle, accessibility).
 

@@ -1,4 +1,6 @@
-# buttonPreviewMomios — progressive engagement prototype
+# One Click Bet
+
+> **Exploration base.** This repo is a fork of [`Drafteame/draftea-momios-prototype`](https://github.com/Drafteame/draftea-momios-prototype) — the buttonPreviewMomios progressive-engagement prototype — used as a starting point for new "One Click Bet" explorations. The original is left untouched; iterate here.
 
 > **Working in Claude Code?** Read [`CLAUDE.md`](./CLAUDE.md) first — it has the architecture, file map, tier system, branch model, conventions, and gotchas the AI needs to be efficient in this repo. Auto-loaded by any Claude session opened here. See also [`EFFECTS.md`](./EFFECTS.md) for the canonical effect catalog.
 >
