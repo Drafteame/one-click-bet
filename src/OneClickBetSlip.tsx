@@ -9,6 +9,8 @@ import { useEffect } from 'react';
 import chevronRightIcon from './assets/chevron_right.svg';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
+import menuIcon from './assets/menu.svg';
+import promoIcon from './assets/promo.png';
 import shieldIcon from './assets/shield.svg';
 import type { Selection } from './types';
 
@@ -68,6 +70,12 @@ export function OneClickBetSlip({
   onConfirm,
 }: Props) {
   const potentialWin = Math.round(cumulativeOdds * STAKE);
+
+  // 2+ selections = parlay → horizontal, latest-first layout with a header.
+  // 1 selection = straight bet → the original single stacked row.
+  const isParlay = selections.length >= 2;
+  // Latest selection first (newest is appended last, so reverse for display).
+  const orderedSelections = [...selections].reverse();
 
   // Entry/exit slide driven imperatively (mirrors BetSlipShell). The
   // declarative initial/animate path gets stranded at `initial` under
@@ -133,52 +141,133 @@ export function OneClickBetSlip({
         dragElastic={{ top: 0, bottom: 0.6 }}
         onDragEnd={handleCardDragEnd}
       >
-        {/* Handle — drag affordance for swipe-to-collapse. */}
-        <div className="flex items-center justify-center p-3">
-          <div className="h-1 w-8 rounded-full bg-[rgba(251,251,251,0.32)]" />
-        </div>
-
-        {/* Selections — one row per pick. */}
-        <div className="flex flex-col gap-1 px-[10px] pb-3 pt-[10px]">
-          {selections.map((sel) => (
-            <div key={sel.id} className="flex items-center gap-1">
-              {/* Remove (×) */}
-              <button
-                type="button"
-                aria-label="Quitar selección"
-                onClick={() => onRemove(sel.id)}
-                onPointerDownCapture={(e) => e.stopPropagation()}
-                className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] transition-opacity hover:opacity-100 active:scale-95"
-              >
-                <img src={closeIcon} alt="" className="size-3" />
-              </button>
-
-              {/* Placeholder + selection text */}
+        {isParlay ? (
+          <>
+            {/* PARLAY HEADER — count badge · drag handle · tabs. pt-2 (not
+                pt-3) so the header block matches the straight-bet handle's
+                height, keeping the overall card the same size for a parlay. */}
+            <div className="flex w-full items-start justify-between px-3 pt-2">
               <div className="flex min-w-px flex-1 items-center gap-1">
-                <div className="size-9 shrink-0 backdrop-blur-[2px]">
-                  <img
-                    src={shieldIcon}
-                    alt=""
-                    className="size-full object-contain p-[3px]"
-                  />
+                <div className="flex h-5 min-w-[20px] items-center justify-center rounded-[14px] bg-[rgba(251,251,251,0.16)] px-1">
+                  <span className="text-[13px] font-bold leading-4 text-[#f0f2f4]">
+                    {selections.length}
+                  </span>
                 </div>
-                <div className="flex min-w-px flex-col justify-center">
-                  <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                    {sel.match}
-                  </p>
-                  <p className="truncate text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
-                    {sel.pick}
-                  </p>
-                </div>
+                <span className="text-[13px] font-bold leading-4 text-[#fbfbfb]">
+                  Bets
+                </span>
               </div>
-
-              {/* Time / date (mock — the app has no per-pick kickoff data) */}
-              <div className="flex w-[92px] shrink-0 flex-col justify-center text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                <span className="truncate">Hoy 18:00</span>
+              {/* Drag affordance for swipe-to-collapse. */}
+              <div className="mt-1 h-1 w-8 shrink-0 rounded-full bg-[rgba(251,251,251,0.32)]" />
+              <div className="flex min-w-px flex-1 items-center justify-end gap-4">
+                <div className="flex items-center gap-1">
+                  <img src={promoIcon} alt="" className="size-4" />
+                  <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                    Promos
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <img src={menuIcon} alt="" className="size-3" />
+                  <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                    Lista
+                  </span>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* PARLAY SELECTIONS — horizontal, latest first, scrolls sideways. */}
+            <div className="flex w-full items-center overflow-x-auto px-[10px] pb-3 pt-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {orderedSelections.map((sel) => (
+                <div
+                  key={sel.id}
+                  className="flex shrink-0 items-center gap-1 border-r border-[rgba(251,251,251,0.16)] pr-[10px] [&:not(:first-child)]:pl-[6px]"
+                >
+                  {/* Remove (×) */}
+                  <button
+                    type="button"
+                    aria-label="Quitar selección"
+                    onClick={() => onRemove(sel.id)}
+                    onPointerDownCapture={(e) => e.stopPropagation()}
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] active:scale-95"
+                  >
+                    <img src={closeIcon} alt="" className="size-3" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <div className="size-9 shrink-0 backdrop-blur-[2px]">
+                        <img
+                          src={shieldIcon}
+                          alt=""
+                          className="size-full object-contain p-[3px]"
+                        />
+                      </div>
+                      <div className="flex h-[37px] flex-col justify-center">
+                        <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                          {sel.match}
+                        </p>
+                        <p className="whitespace-nowrap text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                          {sel.pick}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                      {fmtOdds(sel.odds)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* STRAIGHT-BET HANDLE — drag affordance for swipe-to-collapse. */}
+            <div className="flex items-center justify-center p-3">
+              <div className="h-1 w-8 rounded-full bg-[rgba(251,251,251,0.32)]" />
+            </div>
+
+            {/* STRAIGHT-BET SELECTION — single stacked row. */}
+            <div className="flex flex-col gap-1 px-[10px] pb-3 pt-[10px]">
+              {selections.map((sel) => (
+                <div key={sel.id} className="flex items-center gap-1">
+                  {/* Remove (×) */}
+                  <button
+                    type="button"
+                    aria-label="Quitar selección"
+                    onClick={() => onRemove(sel.id)}
+                    onPointerDownCapture={(e) => e.stopPropagation()}
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] transition-opacity hover:opacity-100 active:scale-95"
+                  >
+                    <img src={closeIcon} alt="" className="size-3" />
+                  </button>
+
+                  {/* Placeholder + selection text */}
+                  <div className="flex min-w-px flex-1 items-center gap-1">
+                    <div className="size-9 shrink-0 backdrop-blur-[2px]">
+                      <img
+                        src={shieldIcon}
+                        alt=""
+                        className="size-full object-contain p-[3px]"
+                      />
+                    </div>
+                    <div className="flex min-w-px flex-col justify-center">
+                      <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                        {sel.match}
+                      </p>
+                      <p className="truncate text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
+                        {sel.pick}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Time / date (mock — the app has no per-pick kickoff data) */}
+                  <div className="flex w-[92px] shrink-0 flex-col justify-center text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                    <span className="truncate">Hoy 18:00</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Divider */}
         <div className="h-px w-full bg-[rgba(251,251,251,0.1)]" />
