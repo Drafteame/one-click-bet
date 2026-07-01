@@ -204,7 +204,7 @@ export function BetSlipFullSheet({
                 </div>
                 <div className="flex min-w-px flex-1 flex-col justify-center">
                   <p className="max-w-[162px] truncate text-[10px] font-bold uppercase leading-[15px] text-[rgba(251,251,251,0.5)]">
-                    {sel.match}
+                    {sel.market}
                   </p>
                   <p className="truncate text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
                     {sel.pick}

@@ -16,26 +16,28 @@ import userIcon from './assets/user.svg';
 import type { Selection } from './types';
 
 /* ============================================================ */
-/*  Mock match data — six picks the user can add                */
+/*  Mock pick data — the two markets this prototype offers:       */
+/*    • Money line (PSG vs Real Madrid outcomes)                  */
+/*    • Anota gol en cualquier momento (per-player)               */
+/*  Each pick is {market, pick(selection), odds}. Higher-odds     */
+/*  player entries are additional Anota-gol variants used to reach */
+/*  the upper tiers; they carry the same market/name, only odds    */
+/*  differ.                                                        */
 /* ============================================================ */
 export const MOCK_PICKS: Selection[] = [
-  // Base picks — straightforward goal/team props at T0–T1 odds.
-  { id: 'psg-w', match: 'PSG vs Real Madrid', pick: 'PSG gana', odds: 1.75 },
-  { id: 'rma-w', match: 'PSG vs Real Madrid', pick: 'Real Madrid gana', odds: 2.75 },
-  { id: 'draw', match: 'PSG vs Real Madrid', pick: 'Empate', odds: 3.8 },
-  { id: 'lewa', match: 'Anota gol — Lewandowski', pick: 'Lewandowski anota', odds: 1.95 },
-  { id: 'mbappe', match: 'Anota gol — Mbappé', pick: 'Mbappé anota', odds: 1.65 },
-  { id: 'vini', match: 'Anota gol — Vinicius', pick: 'Vinicius anota', odds: 2.1 },
-  // Mid-odds picks — single-pick T2 ("Súper", ≥ 5x).
-  { id: 'combo-psg-mbappe', match: 'Combo doble', pick: 'PSG gana + Mbappé anota', odds: 5.5 },
-  { id: 'mbappe-htrick', match: 'Hat-trick', pick: 'Mbappé hat-trick', odds: 9.0 },
-  { id: 'lewa-htrick', match: 'Hat-trick', pick: 'Lewandowski hat-trick', odds: 11.0 },
-  { id: 'psg-4plus', match: 'Goleada', pick: 'PSG 4+ goles', odds: 13.5 },
-  // High-odds picks — single-pick T3 ("Máximo", ≥ 15x).
-  { id: 'vini-htrick', match: 'Hat-trick', pick: 'Vinicius hat-trick', odds: 16.0 },
-  { id: 'lewa-4goals', match: 'Goleada', pick: 'Lewandowski 4+ goles', odds: 28.0 },
-  // Jackpot pick — single-pick T4 ("Legendario", ≥ 50x).
-  { id: 'mbappe-4goals', match: 'Goleada', pick: 'Mbappé 4+ goles', odds: 60.0 },
+  // Money line — PSG vs Real Madrid.
+  { id: 'psg-w', market: 'Money line', pick: 'PSG', odds: 1.75 },
+  { id: 'rma-w', market: 'Money line', pick: 'Real Madrid', odds: 2.75 },
+  { id: 'draw', market: 'Money line', pick: 'Empate', odds: 3.8 },
+  // Anota gol en cualquier momento — players (the only player market here).
+  { id: 'lewa', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 1.95 },
+  { id: 'mbappe', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 1.65 },
+  { id: 'vini', market: 'Anota gol en cualquier momento', pick: 'Vinicius', odds: 2.1 },
+  { id: 'mbappe-htrick', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 9.0 },
+  { id: 'lewa-htrick', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 11.0 },
+  { id: 'vini-htrick', market: 'Anota gol en cualquier momento', pick: 'Vinicius', odds: 16.0 },
+  { id: 'lewa-4goals', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 28.0 },
+  { id: 'mbappe-4goals', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 60.0 },
 ];
 
 /* ============================================================ */

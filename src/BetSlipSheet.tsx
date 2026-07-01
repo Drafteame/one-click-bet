@@ -266,16 +266,19 @@ export function BetSlipSheet({
                             className="size-full object-contain p-[3px]"
                           />
                         </div>
-                        <div className="flex h-[37px] flex-col justify-center">
-                          <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                            {sel.match}
+                        {/* Market + selection — capped at 202px; long market
+                            or selection text is cropped with "…". */}
+                        <div className="flex h-[37px] min-w-0 max-w-[202px] flex-col justify-center">
+                          <p className="truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                            {sel.market}
                           </p>
-                          <p className="whitespace-nowrap text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                          <p className="truncate text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
                             {sel.pick}
                           </p>
                         </div>
                       </div>
-                      <span className="whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                      {/* Odds — always visible (never cropped). */}
+                      <span className="shrink-0 whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
                         {fmtOdds(sel.odds)}
                       </span>
                     </div>
@@ -312,7 +315,7 @@ export function BetSlipSheet({
                       </div>
                       <div className="flex min-w-px flex-col justify-center">
                         <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                          {sel.match}
+                          {sel.market}
                         </p>
                         <p className="truncate text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
                           {sel.pick}

@@ -114,12 +114,12 @@ export function App() {
   }, [selections.length]);
 
   // AUTO-COLLAPSE — once expanded, if the user only browses/scrolls (no new
-  // selection, no swipe-to-confirm interaction) for 4s, morph back to the
+  // selection, no swipe-to-confirm interaction) for 10s, morph back to the
   // collapsed pill. Resets when a selection is added/removed (selections
   // length changes) or the swipe thumb is touched (keepAliveNonce bumps).
   useEffect(() => {
     if (!expanded) return;
-    const t = setTimeout(() => setExpanded(false), 4000);
+    const t = setTimeout(() => setExpanded(false), 10000);
     return () => clearTimeout(t);
   }, [expanded, selections.length, keepAliveNonce]);
 
