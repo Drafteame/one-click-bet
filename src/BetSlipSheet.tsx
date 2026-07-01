@@ -246,7 +246,9 @@ export function BetSlipSheet({
                 {orderedSelections.map((sel) => (
                   <div
                     key={sel.id}
-                    className="flex shrink-0 items-center gap-1 border-r border-[rgba(251,251,251,0.16)] pr-[10px] [&:not(:first-child)]:pl-[6px]"
+                    // Whole selection capped at 202px; long market/selection
+                    // text truncates with "…" inside it, odds stay visible.
+                    className="flex max-w-[202px] shrink-0 items-center gap-1 border-r border-[rgba(251,251,251,0.16)] pr-[10px] [&:not(:first-child)]:pl-[6px]"
                   >
                     <button
                       type="button"
@@ -257,8 +259,8 @@ export function BetSlipSheet({
                     >
                       <img src={closeIcon} alt="" className="size-3" />
                     </button>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <div className="flex min-w-0 flex-1 items-center gap-1">
                         <div className="size-9 shrink-0 backdrop-blur-[2px]">
                           <img
                             src={shieldIcon}
@@ -266,9 +268,7 @@ export function BetSlipSheet({
                             className="size-full object-contain p-[3px]"
                           />
                         </div>
-                        {/* Market + selection — capped at 202px; long market
-                            or selection text is cropped with "…". */}
-                        <div className="flex h-[37px] min-w-0 max-w-[202px] flex-col justify-center">
+                        <div className="flex h-[37px] min-w-0 flex-1 flex-col justify-center">
                           <p className="truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
                             {sel.market}
                           </p>
