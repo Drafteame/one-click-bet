@@ -1,6 +1,7 @@
 import {
   animate,
   motion,
+  useDragControls,
   useMotionValue,
   usePresence,
   type PanInfo,
@@ -141,6 +142,11 @@ export function BetSlipSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
+  // Collapse drag is started manually (dragListener=false) so it never fires
+  // from a pointerdown on the swipe thumb or the ×/Lista buttons — those keep
+  // their own gestures/taps. Swiping the card body still collapses.
+  const dragControls = useDragControls();
+
   const handleCollapseDrag = (_e: unknown, info: PanInfo) => {
     if (info.offset.y > COLLAPSE_OFFSET_PX || info.velocity.y > COLLAPSE_VELOCITY) {
       onCollapse();
@@ -165,9 +171,18 @@ export function BetSlipSheet({
         animate={{ height: expanded ? EXPANDED_H : COLLAPSED_H }}
         transition={{ type: 'spring', stiffness: 320, damping: 34 }}
         drag={expanded ? 'y' : false}
+        dragListener={false}
+        dragControls={dragControls}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.5 }}
         onDragEnd={handleCollapseDrag}
+        onPointerDown={(e) => {
+          // Start collapse-drag only from the card body — not the swipe thumb
+          // or the ×/Lista buttons (they own their gestures/taps).
+          if (!expanded) return;
+          if ((e.target as HTMLElement).closest('button')) return;
+          dragControls.start(e);
+        }}
       >
         {/* Expanded glass background — fades in as the shell grows. */}
         <motion.div
@@ -379,10 +394,6 @@ export function BetSlipSheet({
                 dragSnapToOrigin
                 onDragStart={onKeepAlive}
                 onDragEnd={handleThumbDragEnd}
-                onPointerDownCapture={(e) => {
-                  e.stopPropagation();
-                  onKeepAlive();
-                }}
                 whileTap={{ scale: 0.97 }}
               >
                 <img

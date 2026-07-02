@@ -1,6 +1,7 @@
 import {
   animate,
   motion,
+  useDragControls,
   useMotionValue,
   usePresence,
   type PanInfo,
@@ -99,6 +100,10 @@ export function BetSlipFullSheet({
     if (info.offset.x > CONFIRM_OFFSET_PX) onConfirm();
   };
 
+  // Close-drag is started manually so it never fires from the scrollable
+  // list, the swipe thumb, or the header buttons — only the sheet chrome.
+  const dragControls = useDragControls();
+
   return (
     <div
       className="absolute inset-0 z-50"
@@ -119,9 +124,18 @@ export function BetSlipFullSheet({
         className="absolute inset-x-0 bottom-0 top-2 flex flex-col overflow-hidden rounded-t-[28px]"
         style={{ y, backgroundImage: SHEET_BG }}
         drag="y"
+        dragListener={false}
+        dragControls={dragControls}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.5 }}
         onDragEnd={handleSheetDragEnd}
+        onPointerDown={(e) => {
+          // Close-drag only from sheet chrome — not the scroll list, thumb,
+          // or buttons (they keep their own scroll/gesture/tap).
+          const el = e.target as HTMLElement;
+          if (el.closest('button') || el.closest('[data-scroll]')) return;
+          dragControls.start(e);
+        }}
       >
         {/* Purple glow, top edge. */}
         <div
@@ -172,10 +186,11 @@ export function BetSlipFullSheet({
           </div>
         </div>
 
-        {/* CONTENT — scrollable selections (stops drag so it scrolls). */}
+        {/* CONTENT — scrollable selections (data-scroll: excluded from the
+            sheet close-drag so it scrolls normally). */}
         <div
+          data-scroll
           className="relative min-h-px flex-1 overflow-y-auto"
-          onPointerDownCapture={(e) => e.stopPropagation()}
         >
           {orderedSelections.map((sel) => (
             <div key={sel.id} className="flex w-full items-stretch">
@@ -371,7 +386,6 @@ export function BetSlipFullSheet({
               dragElastic={0.12}
               dragSnapToOrigin
               onDragEnd={handleThumbDragEnd}
-              onPointerDownCapture={(e) => e.stopPropagation()}
               whileTap={{ scale: 0.97 }}
             >
               <img
