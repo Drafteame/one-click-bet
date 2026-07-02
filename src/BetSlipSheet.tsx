@@ -4,6 +4,7 @@ import {
   useDragControls,
   useMotionValue,
   usePresence,
+  useTransform,
   type PanInfo,
 } from 'framer-motion';
 import { useEffect, useRef } from 'react';
@@ -146,6 +147,10 @@ export function BetSlipSheet({
   // from a pointerdown on the swipe thumb or the ×/Lista buttons — those keep
   // their own gestures/taps. Swiping the card body still collapses.
   const dragControls = useDragControls();
+
+  // Swipe-thumb x → drives a purple fill that grows across the track.
+  const swipeX = useMotionValue(0);
+  const swipeFill = useTransform(swipeX, (v) => `${50 + v}px`);
 
   const handleCollapseDrag = (_e: unknown, info: PanInfo) => {
     if (info.offset.y > COLLAPSE_OFFSET_PX || info.velocity.y > COLLAPSE_VELOCITY) {
@@ -383,11 +388,17 @@ export function BetSlipSheet({
           {/* Swipe to confirm */}
           <div className="flex w-full flex-col px-[10px] pb-[10px] pt-2">
             <div className="relative flex h-10 w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-[2px] pl-[2px] pr-6">
+              {/* Purple fill — grows with the thumb as the user swipes. */}
+              <motion.div
+                aria-hidden
+                className="pointer-events-none absolute left-[2px] top-[2px] h-9 rounded-full"
+                style={{ width: swipeFill, backgroundImage: PURPLE_CTA }}
+              />
               <motion.button
                 type="button"
                 aria-label={`Desliza para jugar por $${STAKE}`}
-                className="absolute left-[2px] top-1/2 z-10 flex h-9 w-12 -translate-y-1/2 items-center justify-center rounded-full"
-                style={{ backgroundImage: PURPLE_CTA }}
+                className="absolute left-[2px] top-[2px] z-10 flex h-9 w-12 items-center justify-center rounded-full"
+                style={{ x: swipeX, backgroundImage: PURPLE_CTA }}
                 drag="x"
                 dragConstraints={{ left: 0, right: 220 }}
                 dragElastic={0.12}

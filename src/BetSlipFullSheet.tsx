@@ -4,6 +4,7 @@ import {
   useDragControls,
   useMotionValue,
   usePresence,
+  useTransform,
   type PanInfo,
 } from 'framer-motion';
 import { useEffect } from 'react';
@@ -103,6 +104,10 @@ export function BetSlipFullSheet({
   // Close-drag is started manually so it never fires from the scrollable
   // list, the swipe thumb, or the header buttons — only the sheet chrome.
   const dragControls = useDragControls();
+
+  // Swipe-thumb x → purple fill that grows across the track.
+  const swipeX = useMotionValue(0);
+  const swipeFill = useTransform(swipeX, (v) => `${56 + v}px`);
 
   return (
     <div
@@ -376,11 +381,17 @@ export function BetSlipFullSheet({
 
           {/* Swipe to play */}
           <div className="relative flex h-[60px] w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-1 pl-1 pr-6">
+            {/* Purple fill — grows with the thumb as the user swipes. */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute left-1 top-1 h-[52px] rounded-full"
+              style={{ width: swipeFill, backgroundImage: PURPLE_CTA }}
+            />
             <motion.button
               type="button"
               aria-label={`Desliza para jugar por $${STAKE}`}
-              className="absolute left-1 top-1/2 z-10 flex size-[52px] -translate-y-1/2 items-center justify-center rounded-full"
-              style={{ backgroundImage: PURPLE_CTA }}
+              className="absolute left-1 top-1 z-10 flex size-[52px] items-center justify-center rounded-full"
+              style={{ x: swipeX, backgroundImage: PURPLE_CTA }}
               drag="x"
               dragConstraints={{ left: 0, right: 240 }}
               dragElastic={0.12}
