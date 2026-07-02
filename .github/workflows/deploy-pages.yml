@@ -16,11 +16,11 @@ permissions:
   pages: write
   id-token: write
 
-# Only one deployment in flight at a time; new pushes cancel queued runs but
-# never interrupt a deploy that is already publishing.
+# One deployment at a time; a new run cancels any in-flight/stuck one so a
+# hung "deployment_queued" can't block later deploys (was the stall cause).
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
