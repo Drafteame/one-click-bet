@@ -342,3 +342,35 @@ body {
     -webkit-text-fill-color: #fbfbfb;
   }
 }
+
+/* Entry-count badge pop — used when an entry is created (Navbar). */
+@keyframes badgePop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* "¿Reusar o compartir?" prompt entrance (post-entry-created). */
+@keyframes promptIn {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Green "Entrada creada" card appearing (slip → green). */
+@keyframes greenIn {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Mis entradas icon "catch" bump when the genie ticket lands. */
+@keyframes iconBump {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+/* Brand-color flash on the tab as the ticket is caught. */
+@keyframes tabFlash {
+  0% { opacity: 0.45; }
+  100% { opacity: 0; }
+}

@@ -805,7 +805,13 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
 /*  4 tabs (Bets default-selected) + dedicated search button.   */
 /*  Icons sourced from src/assets/ by name-matching the tab id. */
 /* ============================================================ */
-function Navbar() {
+function Navbar({
+  entryCount = 0,
+  bump = 0,
+}: {
+  entryCount?: number;
+  bump?: number;
+}) {
   const [activeTab, setActiveTab] = useState<'bets' | 'entradas' | 'gaming' | 'rewards'>('bets');
   const tabs: Array<{
     id: 'bets' | 'entradas' | 'gaming' | 'rewards';
@@ -828,8 +834,9 @@ function Navbar() {
             <button
               key={t.id}
               type="button"
+              data-tab={t.id === 'entradas' ? 'entradas' : undefined}
               onClick={() => setActiveTab(t.id)}
-              className={`flex h-[46px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 overflow-hidden rounded-[56px] px-1 pt-[3px] transition-colors duration-150 active:scale-[0.97] ${
+              className={`relative flex h-[46px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[56px] px-1 pt-[3px] transition-colors duration-150 active:scale-[0.97] ${
                 isActive ? 'bg-[rgba(251,251,251,0.12)]' : ''
               }`}
             >
@@ -838,13 +845,36 @@ function Navbar() {
                   the row's nominal 20px height by ~3px each side, so the
                   row and button drop overflow-hidden / clip and the
                   badge can poke above/below the surrounding row. */}
-              <div className="flex h-5 w-full items-center justify-center">
-                <img
-                  src={t.icon}
-                  alt=""
+              {/* Brand flash as the genie ticket lands (Mis entradas). */}
+              {t.id === 'entradas' && bump > 0 && (
+                <span
+                  key={`flash-${bump}`}
                   aria-hidden
-                  className={t.id === 'rewards' ? 'h-[26px] w-[26px]' : 'h-5 w-5'}
+                  className="pointer-events-none absolute inset-0 animate-[tabFlash_0.22s_ease-out_forwards] rounded-[56px] bg-[#4b20ff] opacity-0"
                 />
+              )}
+              <div className="relative flex h-5 w-full items-center justify-center">
+                <span
+                  key={t.id === 'entradas' ? `icon-${bump}` : 'icon'}
+                  className={`flex items-center justify-center ${
+                    t.id === 'entradas' && bump > 0
+                      ? 'animate-[iconBump_0.4s_ease-out]'
+                      : ''
+                  }`}
+                >
+                  <img
+                    src={t.icon}
+                    alt=""
+                    aria-hidden
+                    className={t.id === 'rewards' ? 'h-[26px] w-[26px]' : 'h-5 w-5'}
+                  />
+                </span>
+                {/* Entry-count badge — pops after an entry is created. */}
+                {t.id === 'entradas' && entryCount > 0 && (
+                  <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 animate-[badgePop_0.4s_ease-out] items-center justify-center rounded-full bg-[#1fc77d] px-1 text-[10px] font-bold leading-none text-[#0a0a0d]">
+                    {entryCount}
+                  </span>
+                )}
               </div>
               <span
                 className={`whitespace-nowrap text-[10px] font-medium leading-[15px] ${

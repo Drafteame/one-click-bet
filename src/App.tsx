@@ -4,8 +4,12 @@ import { tierForOdds, type ButtonLiveState } from './ButtonPreviewMomios';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
 import { playSelectionHaptic, playTierCrossingHaptic } from './haptics';
 import { HomeScreenChrome, MOCK_PICKS, Navbar } from './HomeScreen';
+import closeIcon from './assets/close.svg';
+import compartirIcon from './assets/compartir.svg';
+import reusarIcon from './assets/reusar.svg';
 import { BetSlipFullSheet } from './BetSlipFullSheet';
 import { BetSlipSheet } from './BetSlipSheet';
+import { EntryCreatedOverlay } from './EntryCreatedOverlay';
 import type { Selection, Tier } from './types';
 
 /* ============================================================ */
@@ -101,6 +105,12 @@ export function App() {
   const [expanded, setExpanded] = useState(false);
   // Full-screen "Resumen de tu entrada" sheet (opened from the Lista tab).
   const [listOpen, setListOpen] = useState(false);
+  // Swipe-to-confirm success sequence: green "Entrada creada" card + ticket
+  // fly into Mis entradas, then the "¿Reusar?" prompt + count badge.
+  const [success, setSuccess] = useState(false);
+  const [entryCount, setEntryCount] = useState(0);
+  const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
+  const [promptOpen, setPromptOpen] = useState(false);
   // Bumped on swipe-to-confirm interaction to defer the auto-collapse timer.
   const [keepAliveNonce, setKeepAliveNonce] = useState(0);
   const prevCountRef = useRef(0);
@@ -189,9 +199,20 @@ export function App() {
   // Place the bet from the semi-expanded slip (swipe-to-confirm). Prototype
   // behavior: clear the slip, as a placed bet would. Wire to real
   // bet-placement here when a backend exists.
+  // Swipe-to-confirm → play the success animation (slip hidden behind the
+  // green overlay via `success`). The overlay's onDone finishes the sequence.
   const confirmBet = useCallback(() => {
-    setSelections([]);
     setListOpen(false);
+    setSuccess(true);
+  }, []);
+
+  // Fired when the green ticket has flown into Mis entradas.
+  const finishEntryCreated = useCallback(() => {
+    setSuccess(false);
+    setSelections([]);
+    setExpanded(false);
+    setEntryCount((c) => c + 1);
+    setPromptOpen(true);
   }, []);
 
   /* ---------- tier-crossing haptic ---------- */
@@ -510,7 +531,7 @@ export function App() {
                       ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && (
+                      {selections.length > 0 && !success && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
@@ -525,9 +546,47 @@ export function App() {
                         />
                       )}
                     </AnimatePresence>
+
+                    {/* Post-success "¿Reusar o compartir tu entrada?" prompt —
+                        shown once an entry is created (slip gone). */}
+                    {promptOpen && selections.length === 0 && (
+                      <div
+                        className="absolute inset-x-0 bottom-0 flex animate-[promptIn_0.4s_ease-out] items-center justify-between gap-2 px-4 py-2"
+                        style={{ fontFamily: "'Red Hat Display', sans-serif" }}
+                      >
+                        <span className="text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                          ¿Reusar o compartir tu entrada?
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Reusar entrada"
+                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                          >
+                            <img src={reusarIcon} alt="" className="size-5" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Compartir entrada"
+                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                          >
+                            <img src={compartirIcon} alt="" className="size-5" />
+                          </button>
+                          <div className="mx-0.5 h-5 w-px bg-[rgba(251,251,251,0.16)]" />
+                          <button
+                            type="button"
+                            aria-label="Descartar"
+                            onClick={() => setPromptOpen(false)}
+                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                          >
+                            <img src={closeIcon} alt="" className="size-3" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <Navbar />
+                <Navbar entryCount={entryCount} bump={entryBump} />
               </div>
             </div>
 
@@ -553,6 +612,16 @@ export function App() {
                 />
               )}
             </AnimatePresence>
+
+            {/* Swipe-to-confirm success — green "Entrada creada" card that
+                flies into Mis entradas, then finishEntryCreated() pops the
+                badge + "¿Reusar?" prompt. */}
+            {success && (
+              <EntryCreatedOverlay
+                onCatch={() => setEntryBump((n) => n + 1)}
+                onDone={finishEntryCreated}
+              />
+            )}
 
             {/* Debug overlay (tier badge + live ambient phases) */}
             {debug && (
