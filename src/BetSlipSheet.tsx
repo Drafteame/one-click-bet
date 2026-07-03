@@ -367,6 +367,12 @@ export function BetSlipSheet({
           scaleX: shellScaleX,
           scaleY: shellScaleY,
           transformOrigin: 'bottom center',
+          // The collapse drag is started manually via dragControls
+          // (dragListener=false), so Framer does NOT auto-apply touch-action.
+          // Without this the mobile browser scrolls the page and steals the
+          // downward swipe. `none` when expanded lets the drag grab the gesture;
+          // `auto` when collapsed so the tiny pill never blocks page scroll.
+          touchAction: expanded ? 'none' : 'auto',
         }}
         drag={expanded ? 'y' : false}
         dragListener={false}

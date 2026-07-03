@@ -390,9 +390,3 @@ body {
   45% { transform: scale(1.18); }
   100% { transform: scale(1); }
 }
-
-/* Brand-color flash on the tab as the ticket is caught. */
-@keyframes tabFlash {
-  0% { opacity: 0.45; }
-  100% { opacity: 0; }
-}

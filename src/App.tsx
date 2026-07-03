@@ -12,6 +12,10 @@ import { BetSlipSheet } from './BetSlipSheet';
 import { EntryCreatedOverlay } from './EntryCreatedOverlay';
 import type { Selection, Tier } from './types';
 
+// Lightning bet: how long the pressed pick shows its selected state before the
+// entry-creation animation starts.
+const LIGHTNING_SELECT_MS = 320;
+
 /* ============================================================ */
 /*  Debug overlay helpers                                        */
 /* ============================================================ */
@@ -111,6 +115,10 @@ export function App() {
   // True once the green card's circular reveal fully covers the slip — the
   // slip stays mounted (visible behind the expanding circle) until then.
   const [slipCovered, setSlipCovered] = useState(false);
+  // Lightning bet in progress — the pressed pick is added (so its button shows
+  // the selected state) but the slip is suppressed; the entry is created a
+  // beat later. See lightningBet().
+  const [lightning, setLightning] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
   const [promptOpen, setPromptOpen] = useState(false);
@@ -239,22 +247,28 @@ export function App() {
   }, []);
 
   // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
-  // Skips the bet slip entirely: clear any slip state so it can't be shown,
-  // then play only the green success animation (finishEntryCreated then runs
-  // the usual post-entry actions — badge bump, count, "¿Reusar?" prompt).
-  const lightningBet = useCallback(() => {
+  // First applies the SELECTED state to the pressed pick (add it, so its button
+  // lights up) while suppressing the slip via `lightning`; a beat later plays
+  // only the green success animation. `finishEntryCreated` then runs the usual
+  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
+  const lightningBet = useCallback((id: string) => {
+    const pick = MOCK_PICKS.find((p) => p.id === id);
+    if (!pick) return;
     playSelectionHaptic();
     setListOpen(false);
     setExpanded(false);
-    setSelections([]);
     setSlipCovered(false);
-    setSuccess(true);
+    setLightning(true);
+    setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
+    // Hold the selected state briefly, then create the entry.
+    window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
   }, []);
 
   // Fired when the green ticket has flown into Mis entradas.
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
     setSlipCovered(false);
+    setLightning(false);
     setSelections([]);
     setExpanded(false);
     setEntryCount((c) => c + 1);
@@ -418,21 +432,8 @@ export function App() {
               />
             </motion.div>
 
-            {/* Top decorative light. Per the Figma home frame
-                (1624:43499), the `ligh` element is sized to the
-                content-header strip: 375×100, anchored top:0. The
-                blur(50px) softens it into a band; the bloom only
-                spills ~50px outside its box. */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute left-0 top-0 z-0 h-[100px] w-full"
-              style={{
-                backgroundImage:
-                  'linear-gradient(45.09deg, #4b20ff 0%, #9730ff 100%)',
-                filter: 'blur(50px)',
-                opacity: 0.48,
-              }}
-            />
+            {/* Top decorative light moved into the sticky topbar
+                (HomeScreenChrome) so it stays with the pinned header. */}
 
             {/* Scrollable content area */}
             <div className="no-scrollbar absolute inset-0 z-10 overflow-y-auto pb-[160px]">
@@ -580,7 +581,7 @@ export function App() {
                       element ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && (!success || !slipCovered) && (
+                      {selections.length > 0 && !lightning && (!success || !slipCovered) && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
@@ -681,6 +682,7 @@ export function App() {
                 badge + "¿Reusar?" prompt. */}
             {success && (
               <EntryCreatedOverlay
+                lightning={lightning}
                 onCovered={() => setSlipCovered(true)}
                 onCatch={() => setEntryBump((n) => n + 1)}
                 onDone={finishEntryCreated}

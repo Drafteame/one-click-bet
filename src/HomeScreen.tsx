@@ -256,7 +256,7 @@ function MatchTabsRow() {
 
   return (
     <div className="flex w-full flex-col items-start px-3">
-      <div className="no-scrollbar sticky top-0 flex w-full items-center gap-3 overflow-x-auto pb-1 pr-3 pt-2">
+      <div className="no-scrollbar flex w-full items-center gap-3 overflow-x-auto pb-1 pr-3 pt-2">
         {matchTabs.map((t) => {
           const isTodos = t.id === 'todos';
           const isActive = activeMatch === t.id;
@@ -918,14 +918,6 @@ function Navbar({
                   the row's nominal 20px height by ~3px each side, so the
                   row and button drop overflow-hidden / clip and the
                   badge can poke above/below the surrounding row. */}
-              {/* Brand flash as the genie ticket lands (Mis entradas). */}
-              {t.id === 'entradas' && bump > 0 && (
-                <span
-                  key={`flash-${bump}`}
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 animate-[tabFlash_0.22s_ease-out_forwards] rounded-[56px] bg-[#4b20ff] opacity-0"
-                />
-              )}
               <div className="relative flex h-5 w-full items-center justify-center">
                 {/* Icon-sized wrapper so the badge anchors to the ICON's
                     corner (not the full-width tab), keeping it close to the
@@ -1007,13 +999,49 @@ export function HomeScreenChrome({
   onTogglePick,
   onLightningBet,
 }: HomeScreenChromeProps) {
+  // Two-tier sticky header: the topbar (status + logo/balance) pins at the
+  // very top; the match tabs + pill markets pin just below it (so we measure
+  // the topbar's height). The league tabs sit between them in normal flow, so
+  // they simply scroll away UNDER the pinned topbar — i.e. hide on scroll.
+  const topbarRef = useRef<HTMLDivElement>(null);
+  const [topbarH, setTopbarH] = useState(88);
+  useEffect(() => {
+    const measure = () => {
+      if (topbarRef.current) setTopbarH(topbarRef.current.offsetHeight);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
   return (
     <div className="flex w-full flex-col">
-      <StatusBar />
-      <Header />
+      {/* TOPBAR — always pinned. Opaque so content scrolls under it; the top
+          decorative glow lives here (moved from App) so it stays with it. */}
+      <div ref={topbarRef} className="sticky top-0 z-30 bg-black">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-[100px]"
+          style={{
+            backgroundImage:
+              'linear-gradient(45.09deg, #4b20ff 0%, #9730ff 100%)',
+            filter: 'blur(50px)',
+            opacity: 0.48,
+          }}
+        />
+        <StatusBar />
+        <Header />
+      </div>
+
+      {/* LEAGUE TABS — normal flow; scroll away under the pinned topbar. */}
       <LeaguesTab />
-      <MatchTabsRow />
-      <TabsAndPills />
+
+      {/* MATCH TABS + PILL MARKETS — pin just below the topbar. */}
+      <div className="sticky z-20 bg-black" style={{ top: topbarH }}>
+        <MatchTabsRow />
+        <TabsAndPills />
+      </div>
+
       <PromoCarousel
         selectedIds={selectedIds}
         onTogglePick={onTogglePick}

@@ -249,10 +249,14 @@ These are the "One Click Bet" exploration effects, distinct from the tier-progre
 **Success animation** (`EntryCreatedOverlay.tsx`) — plays for swipe-confirm AND lightning bet
 - **Entrance:** circular clip-path reveal (`greenCircleIn`) + check/text pop (`greenContentIn`).
 - **On reveal-complete:** green spark burst (recolored T4 fire-spark dots), a card squash/stretch "pop" (`cfg.pop`), and a green glow flash. Fires `onCovered` so the slip unmounts only once fully covered.
-- **Flight:** genie into "Mis entradas" — y + x springs launched together (no anticipation), position-driven squash/stretch + shrink + borderRadius/rotation, **opacity fades to 0 ~3px before the tab** (`cfg.genie.vanish`) so it never overlaps. `onCatch` at the vanish point bumps the tab icon; `onDone` finishes.
+- **Flight:** genie into "Mis entradas" — snappy y + x springs launched together (no anticipation); the shrink, squash/stretch and **opacity fade are all driven by overall flight PROGRESS (both axes)** — the path is a short near-horizontal diagonal, so a y-only fade blinked it out early. Stays fully visible through the trajectory, fades over the last ~15%, corner radius stays constant (the scale handles the visual rounding). `onCatch` bumps the tab icon on arrival (the purple tab-flash was removed); `onDone` finishes.
+- **Lightning variant:** for lightning bets the card is a smaller **ticket/stub** (Figma 33605:90122) — 220×140, notch on mid-left/right via CSS `mask`, light-green stroke + green glow via a wrapper `drop-shadow` (box-shadow would be mask-clipped), 12px above the navbar, centered via `left:50%`+`marginLeft` (not a transform, to avoid subpixel edge glitches). Same animations + message. `cfg.ticket`.
 
 **Lightning Straight Bet** (`useLongPress` in `HomeScreen.tsx`, `lightningBet()` in `App.tsx`)
-- Long-press (450ms) a pick → create an entry instantly, skipping the slip entirely; only the success animation + post-entry actions play. A quick tap still toggles the pick into the slip.
+- Long-press (450ms) a pick → the pressed pick shows its **selected state** first, then an entry is created instantly (a beat later, `LIGHTNING_SELECT_MS`), skipping the slip entirely. A quick tap still toggles the pick into the slip.
+
+**Sticky header** (`HomeScreenChrome` in `HomeScreen.tsx`)
+- Two-tier CSS sticky: topbar (status + logo/balance) pins at `top:0`; match tabs + pill markets pin just below it (offset = measured topbar height); the league tabs scroll away/hide under the topbar. Pure CSS, no scroll listener.
 
 **Post-entry actions** (`App.tsx` + `Navbar` in `HomeScreen.tsx`) — Figma "navbarFooter" 33563:154460
 - **Count badge:** `#3d3d3d` pill, 2px `#191919` ring, bold white count at the icon's top-right. Squash-stretch pop on appear (`@keyframes badgePop`, keyed per entry to replay) + opacity fade-out.
