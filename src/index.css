@@ -8,6 +8,14 @@ body,
   height: 100%;
 }
 
+/* Kill the browser's pull-to-refresh / overscroll bounce on the viewport
+   scroller. Swiping DOWN to collapse the bet slip was triggering the mobile
+   browser's native pull-to-refresh; `overscroll-behavior-y: none` disables it. */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: 'Red Hat Display', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -25,6 +33,9 @@ body {
 }
 .no-scrollbar {
   scrollbar-width: none;
+  /* Don't let a downward drag at the top of this inner scroller chain out to
+     the document (which would re-trigger pull-to-refresh). */
+  overscroll-behavior: contain;
 }
 
 /* ---------------------------------------------------------------- */
