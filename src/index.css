@@ -343,10 +343,13 @@ body {
   }
 }
 
-/* Entry-count badge pop — used when an entry is created (Navbar). */
+/* Entry-count badge pop — squash & stretch as it appears (Navbar). Grows
+   from nothing, overshoots wide-then-tall, then settles. */
 @keyframes badgePop {
   0% { transform: scale(0); }
-  60% { transform: scale(1.25); }
+  45% { transform: scale(1.3, 0.8); }
+  70% { transform: scale(0.9, 1.12); }
+  86% { transform: scale(1.04, 0.97); }
   100% { transform: scale(1); }
 }
 
@@ -356,9 +359,17 @@ body {
   100% { opacity: 1; transform: translateY(0); }
 }
 
-/* Green "Entrada creada" card appearing (slip → green). */
-@keyframes greenIn {
-  0% { opacity: 0; transform: scale(0.98); }
+/* Green "Entrada creada" card appearing (slip → green) — a circle expanding
+   outward from the card's center until it covers the whole card. 75% of the
+   clip reference box comfortably covers the card's corners. */
+@keyframes greenCircleIn {
+  0% { clip-path: circle(12px at 50% 50%); }
+  100% { clip-path: circle(75% at 50% 50%); }
+}
+
+/* Check + text popping in with the circular reveal (same duration). */
+@keyframes greenContentIn {
+  0% { opacity: 0; transform: scale(0.5); }
   100% { opacity: 1; transform: scale(1); }
 }
 

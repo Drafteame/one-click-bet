@@ -108,9 +108,40 @@ export function App() {
   // Swipe-to-confirm success sequence: green "Entrada creada" card + ticket
   // fly into Mis entradas, then the "¿Reusar?" prompt + count badge.
   const [success, setSuccess] = useState(false);
+  // True once the green card's circular reveal fully covers the slip — the
+  // slip stays mounted (visible behind the expanding circle) until then.
+  const [slipCovered, setSlipCovered] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
   const [promptOpen, setPromptOpen] = useState(false);
+  // Entry-count badge over "Mis entradas": appears on each new entry, holds
+  // 10s, then hides. Re-shown (timer reset) every time the count changes.
+  const [badgeVisible, setBadgeVisible] = useState(false);
+  // Post-entry: the count badge AND the action buttons appear together and
+  // auto-hide TOGETHER after 5s of no interaction. One timer per entry, so
+  // they disappear at the same moment.
+  useEffect(() => {
+    if (entryCount === 0) return;
+    setBadgeVisible(true);
+    const t = setTimeout(() => {
+      setBadgeVisible(false);
+      setPromptOpen(false);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [entryCount]);
+
+  // Keep the action buttons mounted through a fade-out before unmounting —
+  // same treatment as the badge, so both ease out instead of popping.
+  const promptShown = promptOpen && selections.length === 0;
+  const [promptMounted, setPromptMounted] = useState(false);
+  useEffect(() => {
+    if (promptShown) {
+      setPromptMounted(true);
+      return;
+    }
+    const t = setTimeout(() => setPromptMounted(false), 250); // after fade-out
+    return () => clearTimeout(t);
+  }, [promptShown]);
   // Bumped on swipe-to-confirm interaction to defer the auto-collapse timer.
   const [keepAliveNonce, setKeepAliveNonce] = useState(0);
   const prevCountRef = useRef(0);
@@ -203,12 +234,27 @@ export function App() {
   // green overlay via `success`). The overlay's onDone finishes the sequence.
   const confirmBet = useCallback(() => {
     setListOpen(false);
+    setSlipCovered(false);
+    setSuccess(true);
+  }, []);
+
+  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
+  // Skips the bet slip entirely: clear any slip state so it can't be shown,
+  // then play only the green success animation (finishEntryCreated then runs
+  // the usual post-entry actions — badge bump, count, "¿Reusar?" prompt).
+  const lightningBet = useCallback(() => {
+    playSelectionHaptic();
+    setListOpen(false);
+    setExpanded(false);
+    setSelections([]);
+    setSlipCovered(false);
     setSuccess(true);
   }, []);
 
   // Fired when the green ticket has flown into Mis entradas.
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
+    setSlipCovered(false);
     setSelections([]);
     setExpanded(false);
     setEntryCount((c) => c + 1);
@@ -394,6 +440,7 @@ export function App() {
                 picks={MOCK_PICKS}
                 selectedIds={baseSelectedIds}
                 onTogglePick={togglePick}
+                onLightningBet={lightningBet}
               />
               {/* Debug controls inline (only visible with ?debug=true) */}
               {debug && (
@@ -527,11 +574,13 @@ export function App() {
                 >
                   {/* BET SLIP — a single morphing sheet (collapsed pill ↔
                       expanded card). Anchored to the slot's bottom baseline;
-                      overflows upward when expanded. Only one bet-slip element
-                      ever exists, so nothing shows behind it. */}
+                      overflows upward when expanded. The 8px gap above the
+                      navbar comes from the pill's own pb-2 (collapsed) and the
+                      glass card's bottom-2 inset (expanded). Only one bet-slip
+                      element ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && !success && (
+                      {selections.length > 0 && (!success || !slipCovered) && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
@@ -549,44 +598,58 @@ export function App() {
 
                     {/* Post-success "¿Reusar o compartir tu entrada?" prompt —
                         shown once an entry is created (slip gone). */}
-                    {promptOpen && selections.length === 0 && (
+                    {promptMounted && (
                       <div
-                        className="absolute inset-x-0 bottom-0 flex animate-[promptIn_0.4s_ease-out] items-center justify-between gap-2 px-4 py-2"
+                        key={entryCount}
+                        className={`absolute inset-x-0 bottom-3 flex items-center justify-between gap-2 px-4 transition-opacity duration-200 ease-out ${
+                          promptShown
+                            ? 'opacity-100 animate-[promptIn_0.4s_ease-out]'
+                            : 'opacity-0'
+                        }`}
                         style={{ fontFamily: "'Red Hat Display', sans-serif" }}
                       >
-                        <span className="text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                        {/* Post-entry actions — Figma "entry actions"
+                            (33563:154461): text + reuse/share pill buttons, a
+                            divider, then the discard (×) button. All three are
+                            44px circles: #191919 fill, rgba(251,251,251,0.16)
+                            border, 20px icons. */}
+                        <p className="w-[127px] text-[14px] font-normal leading-[21px] text-[#fbfbfb]">
                           ¿Reusar o compartir tu entrada?
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1">
+                        </p>
+                        <div className="flex shrink-0 items-center gap-2">
                           <button
                             type="button"
                             aria-label="Reusar entrada"
-                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                            className="flex size-11 items-center justify-center rounded-full border border-[rgba(251,251,251,0.16)] bg-[#191919] transition-transform active:scale-95"
                           >
                             <img src={reusarIcon} alt="" className="size-5" />
                           </button>
                           <button
                             type="button"
                             aria-label="Compartir entrada"
-                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                            className="flex size-11 items-center justify-center rounded-full border border-[rgba(251,251,251,0.16)] bg-[#191919] transition-transform active:scale-95"
                           >
                             <img src={compartirIcon} alt="" className="size-5" />
                           </button>
-                          <div className="mx-0.5 h-5 w-px bg-[rgba(251,251,251,0.16)]" />
+                          <div className="h-[21px] w-px bg-[rgba(251,251,251,0.16)]" />
                           <button
                             type="button"
                             aria-label="Descartar"
                             onClick={() => setPromptOpen(false)}
-                            className="flex size-9 items-center justify-center rounded-full active:scale-95"
+                            className="flex size-11 items-center justify-center rounded-full border border-[rgba(251,251,251,0.16)] bg-[#191919] transition-transform active:scale-95"
                           >
-                            <img src={closeIcon} alt="" className="size-3" />
+                            <img src={closeIcon} alt="" className="size-5" />
                           </button>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
-                <Navbar entryCount={entryCount} bump={entryBump} />
+                <Navbar
+                  entryCount={entryCount}
+                  bump={entryBump}
+                  badgeVisible={badgeVisible}
+                />
               </div>
             </div>
 
@@ -618,6 +681,7 @@ export function App() {
                 badge + "¿Reusar?" prompt. */}
             {success && (
               <EntryCreatedOverlay
+                onCovered={() => setSlipCovered(true)}
                 onCatch={() => setEntryBump((n) => n + 1)}
                 onDone={finishEntryCreated}
               />

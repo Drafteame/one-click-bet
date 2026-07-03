@@ -233,6 +233,34 @@ App-level shell (`App.tsx`), not an effect per se but worth documenting:
 
 ---
 
+## One Click Bet — slip & entry-creation interactions (`main`)
+
+These are the "One Click Bet" exploration effects, distinct from the tier-progression system above and **not** gated by the `cfg.animationsEnabled` master switch (they gate on `prefers-reduced-motion` where relevant).
+
+**Bet slip — liquid-glass morph** (`BetSlipSheet.tsx`)
+- **Single morphing surface:** one always-opaque glass element morphs its *shape* — height (`EXPANDED_GLASS_H`→`COLLAPSED_GLASS_H`) and corner radius (`20`→`28`, capsule), bottom-anchored — between the expanded card and the collapsed pill. Card content fades out over the first ~60%; the real pill fades in only over the last ~20%, onto the identical capsule → seamless, never an empty frame. All derived from one `collapseP` motion value (0 = expanded, 1 = collapsed).
+- **Gesture-driven collapse:** dragging down writes `collapseP` from the raw pointer offset (range = height delta), so the surface shrinks 1:1 with the finger (top edge tracks it, bottom anchored). Elastic 0 — no translate. Past `COLLAPSE_OFFSET_PX`/velocity → commit; else spring back.
+- **Swipe up** → opens the full-screen `BetSlipFullSheet`. **Swipe down / 10s inactivity** → collapse.
+- **Squash-&-stretch pulses:** subtle on appear (`ENTRY_PULSE_*`, springier) and on collapse (`COLLAPSE_PULSE_*`), composed onto the shell scale with a mid-transition `MORPH_DEFORM_*` squash. Plus a per-selection-add pulse (`ADD_PULSE_*`).
+
+**Swipe-to-confirm** (`BetSlipSheet` + `BetSlipFullSheet`)
+- Confirms **only** when the thumb reaches the measured end of the track (not a fixed px). On completion the thumb pins and shows a spinner for `CONFIRM_LOADER_MS` (900ms, simulated ticket creation) before firing the success flow.
+
+**Success animation** (`EntryCreatedOverlay.tsx`) — plays for swipe-confirm AND lightning bet
+- **Entrance:** circular clip-path reveal (`greenCircleIn`) + check/text pop (`greenContentIn`).
+- **On reveal-complete:** green spark burst (recolored T4 fire-spark dots), a card squash/stretch "pop" (`cfg.pop`), and a green glow flash. Fires `onCovered` so the slip unmounts only once fully covered.
+- **Flight:** genie into "Mis entradas" — y + x springs launched together (no anticipation), position-driven squash/stretch + shrink + borderRadius/rotation, **opacity fades to 0 ~3px before the tab** (`cfg.genie.vanish`) so it never overlaps. `onCatch` at the vanish point bumps the tab icon; `onDone` finishes.
+
+**Lightning Straight Bet** (`useLongPress` in `HomeScreen.tsx`, `lightningBet()` in `App.tsx`)
+- Long-press (450ms) a pick → create an entry instantly, skipping the slip entirely; only the success animation + post-entry actions play. A quick tap still toggles the pick into the slip.
+
+**Post-entry actions** (`App.tsx` + `Navbar` in `HomeScreen.tsx`) — Figma "navbarFooter" 33563:154460
+- **Count badge:** `#3d3d3d` pill, 2px `#191919` ring, bold white count at the icon's top-right. Squash-stretch pop on appear (`@keyframes badgePop`, keyed per entry to replay) + opacity fade-out.
+- **Action buttons:** 44px circular reuse / share / discard (`#191919` fill, `rgba(251,251,251,0.16)` border), 12px above the navbar, slide-in (`promptIn`) + fade-out.
+- **Shared 5s window:** the badge and the action buttons appear together and auto-hide **together** after 5s (one timer keyed to each entry). Both fade out (opacity transition + delayed unmount), not a hard pop.
+
+---
+
 ## Master switch — `cfg.animationsEnabled`
 
 A single global flag in `src/buttonProgressionConfig.ts` that turns the entire progression system on or off. **Currently `false` on `main`** (static button); the fully-animated version lives on the `bet-slip-progression` branch.

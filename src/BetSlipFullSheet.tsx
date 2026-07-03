@@ -7,7 +7,7 @@ import {
   useTransform,
   type PanInfo,
 } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import boosterIllus from './assets/booster.png';
 import chevronRightIcon from './assets/chevron_right.svg';
 import clockIcon from './assets/clock.svg';
@@ -41,7 +41,14 @@ const fmtOdds = (n: number) => `${n.toFixed(2)}x`;
 
 const CLOSE_OFFSET_PX = 120;
 const CLOSE_VELOCITY = 550;
-const CONFIRM_OFFSET_PX = 160;
+// Swipe-to-play only completes when the thumb is pinned at the track's far
+// end (within this tolerance) — any partial swipe snaps back instead.
+const CONFIRM_END_TOLERANCE_PX = 2;
+// Thumb inset from the track edge (matches the thumb's left-1).
+const THUMB_INSET_PX = 4;
+// Simulated ticket-creation time — the thumb shows a spinner for this long
+// after a completed swipe, then onConfirm plays the success flow.
+const CONFIRM_LOADER_MS = 900;
 
 const SHEET_BG = 'linear-gradient(to bottom, #191919 0%, #0f0f0f 100%)';
 const GLOW_BG = 'linear-gradient(26.6deg, #4b20ff 0%, #9730ff 100%)';
@@ -97,17 +104,48 @@ export function BetSlipFullSheet({
       onClose();
     }
   };
-  const handleThumbDragEnd = (_e: unknown, info: PanInfo) => {
-    if (info.offset.x > CONFIRM_OFFSET_PX) onConfirm();
-  };
-
   // Close-drag is started manually so it never fires from the scrollable
   // list, the swipe thumb, or the header buttons — only the sheet chrome.
   const dragControls = useDragControls();
 
-  // Swipe-thumb x → purple fill that grows across the track.
+  // Swipe-thumb x → purple fill that grows across the track. The drag is
+  // constrained by the track element itself, so the confirm gate is "thumb
+  // reached the far end" whatever the rendered track width is.
   const swipeX = useMotionValue(0);
   const swipeFill = useTransform(swipeX, (v) => `${56 + v}px`);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const thumbRef = useRef<HTMLButtonElement>(null);
+  // Completed swipe → thumb pins at the end and shows a spinner while the
+  // (simulated) ticket creation runs, then onConfirm plays the success flow.
+  const [confirming, setConfirming] = useState(false);
+
+  // Max thumb travel: track inner width minus the thumb and its inset.
+  const maxThumbX = () => {
+    const track = trackRef.current;
+    const thumb = thumbRef.current;
+    if (!track || !thumb) return Infinity; // unmeasured — never confirm
+    return track.clientWidth - thumb.offsetWidth - THUMB_INSET_PX;
+  };
+
+  const handleThumbDragEnd = () => {
+    const maxX = maxThumbX();
+    if (swipeX.get() >= maxX - CONFIRM_END_TOLERANCE_PX) {
+      setConfirming(true);
+      animate(swipeX, maxX, { type: 'spring', stiffness: 500, damping: 44 });
+    } else {
+      // Partial swipe — snap back (manual, since dragSnapToOrigin would also
+      // yank a completed swipe back to the start).
+      animate(swipeX, 0, { type: 'spring', stiffness: 500, damping: 40 });
+    }
+  };
+
+  // Keep the spinner pinned through the sheet's slide-down exit (onConfirm
+  // closes it); the instance unmounts fully afterwards, which resets state.
+  useEffect(() => {
+    if (!confirming) return;
+    const t = setTimeout(onConfirm, CONFIRM_LOADER_MS);
+    return () => clearTimeout(t);
+  }, [confirming, onConfirm]);
 
   return (
     <div
@@ -380,7 +418,10 @@ export function BetSlipFullSheet({
           </button>
 
           {/* Swipe to play */}
-          <div className="relative flex h-[60px] w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-1 pl-1 pr-6">
+          <div
+            ref={trackRef}
+            className="relative flex h-[60px] w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-1 pl-1 pr-6"
+          >
             {/* Purple fill — grows with the thumb as the user swipes. */}
             <motion.div
               aria-hidden
@@ -388,22 +429,34 @@ export function BetSlipFullSheet({
               style={{ width: swipeFill, backgroundImage: PURPLE_CTA }}
             />
             <motion.button
+              ref={thumbRef}
               type="button"
-              aria-label={`Desliza para jugar por $${STAKE}`}
+              aria-label={
+                confirming
+                  ? 'Creando entrada'
+                  : `Desliza para jugar por $${STAKE}`
+              }
               className="absolute left-1 top-1 z-10 flex size-[52px] items-center justify-center rounded-full"
               style={{ x: swipeX, backgroundImage: PURPLE_CTA }}
-              drag="x"
-              dragConstraints={{ left: 0, right: 240 }}
+              drag={confirming ? false : 'x'}
+              dragConstraints={trackRef}
               dragElastic={0.12}
-              dragSnapToOrigin
+              dragMomentum={false}
               onDragEnd={handleThumbDragEnd}
-              whileTap={{ scale: 0.97 }}
+              whileTap={confirming ? undefined : { scale: 0.97 }}
             >
-              <img
-                src={chevronRightIcon}
-                alt=""
-                className="pointer-events-none size-5"
-              />
+              {confirming ? (
+                <span
+                  aria-hidden
+                  className="size-6 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                />
+              ) : (
+                <img
+                  src={chevronRightIcon}
+                  alt=""
+                  className="pointer-events-none size-5"
+                />
+              )}
             </motion.button>
             <p className="w-full text-center text-[16px] font-medium leading-6 text-[#f0f2f4]">
               Desliza para jugar por ${STAKE}

@@ -14,41 +14,69 @@ import { useEffect, useRef, useState } from 'react';
  *
  * Ported from the "genie" prototype (github.com/Jate099/entry-success-animation),
  * adapted to our slip + navbar:
- *   1. A green "¡Entrada creada!" card appears where the slip was and holds.
- *   2. It performs a macOS-style genie flight into the "Mis entradas" tab —
+ *   1. A green "¡Entrada creada!" card emerges where the slip was — a circular
+ *      clip-path reveal from the card's center (keyframes `greenCircleIn` /
+ *      `greenContentIn` in index.css), check + text scaling in with it — and
+ *      holds.
+ *   2. It performs a genie flight straight into the "Mis entradas" tab —
  *      velocity/position-derived squash & stretch, a base shrink envelope,
- *      rotation from x-velocity, and a borderRadius morph, all driven by two
- *      springs (y with anticipation lift, x delayed). No keyframes.
- *   3. onCatch() fires at ~88% so the tab icon bumps to "catch" the ticket;
- *      onDone() fires when the flight ends (app then pops the count badge +
- *      "¿Reusar?" prompt).
+ *      rotation from x-velocity, and a borderRadius morph, driven by two
+ *      springs launched together (no anticipation). No keyframes.
+ *   3. The ticket fades out over its last few px of travel so it is fully
+ *      gone `vanish.gapPx` above the tab — never overlapping it. onCatch()
+ *      fires at that vanish moment (tab icon bumps to "catch" it); onDone()
+ *      follows `doneDelayMs` later (app then pops the badge + "¿Reusar?").
  *
- * All timing lives in `cfg` — tweak there.
+ * Flight timing lives in `cfg`; entrance timing in the index.css keyframes.
  */
 
 const cfg = {
   confirmedHoldMs: 900,
+  // One-shot celebration burst when the circular reveal completes — the
+  // T4 fire-spark dots from ButtonPreviewMomios, recolored to the success
+  // green, exploding radially outward from the card's perimeter.
+  burst: {
+    count: 26,
+    distanceMinPx: 28, // outward travel
+    distanceMaxPx: 72,
+    sizeMinPx: 3,
+    sizeMaxPx: 7,
+    durationMinMs: 420,
+    durationMaxMs: 700,
+    angleJitterRad: 0.3, // deviation from the pure radial direction
+  },
+  // Explosion "pop" on the card when the reveal completes (fires with the
+  // burst): a subtle squash & stretch that springs back with overshoot, plus
+  // a green glow flash that decays. Reads as something detonating inside.
+  pop: {
+    scaleX: 1.035, // initial stretch (springs back to 1 with a gentle overshoot)
+    scaleY: 0.965,
+    spring: { stiffness: 300, damping: 17 },
+    glowDecayMs: 620, // glow flashes to peak, then eases back to base
+  },
   genie: {
-    totalMs: 950,
-    y: { stiffness: 95, damping: 16, mass: 1.15, velocity: -800 },
-    x: { stiffness: 150, damping: 22, mass: 0.75, delayMs: 235 },
+    y: { stiffness: 240, damping: 24, mass: 0.8 },
+    x: { stiffness: 260, damping: 26, mass: 0.7 },
     deformSmoothing: { stiffness: 220, damping: 30, mass: 1 },
     velocitySmoothing: { stiffness: 200, damping: 30, mass: 1 },
-    liftPeakY: -30,
     baseScale: { yAnchors: [0, 0.65, 0.85, 1], scaleAnchors: [1, 0.3, 0.12, 0.05] },
     deform: {
-      anchors: [-1, 0, 0.65, 1],
-      scaleY: [1.08, 1, 0.8, 1],
-      scaleX: [0.92, 1, 1.2, 1],
+      anchors: [0, 0.65, 1],
+      scaleY: [1, 0.8, 1],
+      scaleX: [1, 1.2, 1],
     },
     rotation: {
       vRange: [-150, 0, 150] as [number, number, number],
       degRange: [3, 0, -3] as [number, number, number],
     },
     borderRadius: { yAnchors: [0, 0.65, 0.85, 1], radiusAnchors: [20, 8, 4, 4] },
-    opacity: { delayMs: 700, durationMs: 250 },
+    // Position-driven vanish: fade runs over the last `fadePx` of travel and
+    // completes with the ticket's leading edge `gapPx` above the tab's top.
+    // Keep fadePx small — the whole flight is only ~80px of y travel, so a
+    // wide window makes the ticket disappear mid-flight.
+    vanish: { gapPx: 3, fadePx: 12 },
+    doneDelayMs: 150, // onDone this long after the vanish/catch moment
   },
-  iconBumpFireAt: 0.88, // fraction of totalMs
 };
 
 const GREEN_BG =
@@ -71,20 +99,68 @@ function CheckBadge() {
   );
 }
 
-/** The green "¡Entrada creada!" face — fills its rounded parent. */
-function GreenFace() {
+/** The green "¡Entrada creada!" face — fills its rounded parent. `entering`
+ * plays the content pop (check + text scale in with the circular reveal). */
+function GreenFace({ entering = false }: { entering?: boolean }) {
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+      className="absolute inset-0"
       style={{ borderRadius: 'inherit', backgroundImage: GREEN_BG, boxShadow: GREEN_GLOW }}
     >
-      <CheckBadge />
-      <p className="text-[16px] font-bold leading-6 text-white">¡Entrada creada!</p>
+      <div
+        className={`flex h-full w-full flex-col items-center justify-center gap-3${
+          entering ? ' animate-[greenContentIn_0.2s_cubic-bezier(0.16,1,0.3,1)]' : ''
+        }`}
+      >
+        <CheckBadge />
+        <p className="text-[16px] font-bold leading-6 text-white">¡Entrada creada!</p>
+      </div>
     </div>
   );
 }
 
 type Rect = { left: number; top: number; width: number; height: number };
+
+type BurstSpark = {
+  id: number;
+  leftPct: number; // spawn point on the card perimeter, % of card size
+  topPct: number;
+  dx: number; // outward travel in px
+  dy: number;
+  size: number;
+  durationMs: number;
+};
+
+/** Sparks on the card perimeter, aimed radially outward (+ jitter). */
+function makeBurst(): BurstSpark[] {
+  const b = cfg.burst;
+  // Nominal card aspect (≈350×184) — corrects the radial angle for the
+  // percentage coordinate space so corners still fire diagonally.
+  const aspect = 1.9;
+  return Array.from({ length: b.count }, (_, id) => {
+    // Horizontal sides are ~2× longer, so they get 2/3 of the spawns.
+    const horizontal = Math.random() < 2 / 3;
+    const along = Math.random() * 100;
+    const far = Math.random() < 0.5 ? 0 : 100;
+    const leftPct = horizontal ? along : far;
+    const topPct = horizontal ? far : along;
+    const angle =
+      Math.atan2(topPct - 50, (leftPct - 50) / aspect) +
+      (Math.random() * 2 - 1) * b.angleJitterRad;
+    const distance =
+      b.distanceMinPx + Math.random() * (b.distanceMaxPx - b.distanceMinPx);
+    return {
+      id,
+      leftPct,
+      topPct,
+      dx: Math.cos(angle) * distance,
+      dy: Math.sin(angle) * distance,
+      size: b.sizeMinPx + Math.random() * (b.sizeMaxPx - b.sizeMinPx),
+      durationMs:
+        b.durationMinMs + Math.random() * (b.durationMaxMs - b.durationMinMs),
+    };
+  });
+}
 
 /** The flying genie clone — position-fixed at `from`, genies into `to`. */
 function GenieClone({
@@ -99,19 +175,21 @@ function GenieClone({
   onDone: () => void;
 }) {
   const g = cfg.genie;
-  // Slip bottom-center → tab center.
+  // Slip bottom-center → gapPx above the tab's top edge. The y spring LANDS
+  // at the vanish point (not the tab center) so the whole flight is visible:
+  // the ticket decelerates into the spot just above the tab and dissolves
+  // there. Targeting deeper would spend most of the spring's fast early
+  // travel past the fade window, blinking the ticket out mid-flight.
   const dx = to.left + to.width / 2 - (from.left + from.width / 2);
-  const dy = to.top + to.height / 2 - (from.top + from.height);
+  const dy = to.top - g.vanish.gapPx - (from.top + from.height);
 
   const yMV = useMotionValue(0);
   const xMV = useMotionValue(0);
-  const opacityMV = useMotionValue(1);
 
   const smoothXVel = useSpring(useVelocity(xMV), g.velocitySmoothing);
 
-  // Anchor helper — negative fractions map onto the lift peak, positive onto dy.
-  const yAnchors = (m: number[]) =>
-    m.map((v) => (v < 0 ? g.liftPeakY * -v : (dy || 1) * v));
+  // Anchor helper — fractions of the total y travel.
+  const yAnchors = (m: number[]) => m.map((v) => (dy || 1) * v);
 
   const baseScale = useTransform(yMV, yAnchors(g.baseScale.yAnchors), g.baseScale.scaleAnchors, {
     clamp: true,
@@ -139,34 +217,44 @@ function GenieClone({
     g.borderRadius.radiusAnchors,
     { clamp: true },
   );
+  // Fade tied to position, not time — fully transparent at the landing spot.
+  const opacityMV = useTransform(
+    yMV,
+    [dy - g.vanish.fadePx, dy],
+    [1, 0],
+    { clamp: true },
+  );
 
   useEffect(() => {
-    const stops: Array<() => void> = [];
+    let caught = false;
+    let done = false;
+    const fireDone = () => {
+      if (done) return;
+      done = true;
+      onDone();
+    };
+    const timers: number[] = [];
+
+    // The "catch": the moment the ticket is (within 1px of) landed — now
+    // invisible, just shy of the tab — the icon bumps; onDone follows shortly.
+    const unsub = yMV.on('change', (v) => {
+      if (caught || v < dy - 1) return;
+      caught = true;
+      onCatch();
+      timers.push(window.setTimeout(fireDone, g.doneDelayMs));
+    });
+
     const ya = animate(yMV, dy, { type: 'spring', ...g.y });
-    stops.push(() => ya.stop());
+    const xa = animate(xMV, dx, { type: 'spring', ...g.x });
+    // Safety net — if the vanish point is somehow never crossed, still finish.
+    ya.then(() => timers.push(window.setTimeout(fireDone, g.doneDelayMs)));
 
-    const xt = window.setTimeout(() => {
-      const a = animate(xMV, dx, { type: 'spring', ...g.x });
-      stops.push(() => a.stop());
-    }, g.x.delayMs);
-    stops.push(() => clearTimeout(xt));
-
-    const ot = window.setTimeout(() => {
-      const a = animate(opacityMV, 0, {
-        duration: g.opacity.durationMs / 1000,
-        ease: 'linear',
-      });
-      stops.push(() => a.stop());
-    }, g.opacity.delayMs);
-    stops.push(() => clearTimeout(ot));
-
-    const ct = window.setTimeout(onCatch, g.totalMs * cfg.iconBumpFireAt);
-    stops.push(() => clearTimeout(ct));
-
-    const dt = window.setTimeout(onDone, g.opacity.delayMs + g.opacity.durationMs);
-    stops.push(() => clearTimeout(dt));
-
-    return () => stops.forEach((s) => s());
+    return () => {
+      unsub();
+      ya.stop();
+      xa.stop();
+      timers.forEach((t) => clearTimeout(t));
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -200,16 +288,50 @@ function GenieClone({
 export function EntryCreatedOverlay({
   onDone,
   onCatch,
+  onCovered,
 }: {
   onDone: () => void;
   onCatch: () => void;
+  /** Circular reveal finished — the green card now fully covers the slip. */
+  onCovered?: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [flight, setFlight] = useState<{ from: Rect; to: Rect } | null>(null);
+  // Celebration sparks — generated once, when the circular reveal completes.
+  const [burst, setBurst] = useState<BurstSpark[] | null>(null);
+
+  // Explosion "pop" — squash & stretch (springs back with overshoot) and a
+  // green glow flash (glow 0→1→0) fired when the reveal completes. `cardShadow`
+  // reads GREEN_GLOW exactly at glow=0, so it's a seamless base + flash.
+  const cardScaleX = useMotionValue(1);
+  const cardScaleY = useMotionValue(1);
+  const glow = useMotionValue(0);
+  const cardShadow = useTransform(
+    glow,
+    (g) => `0 0 ${16 + g * 44}px ${g * 10}px rgba(54,229,169,${0.36 + g * 0.5})`,
+  );
+
+  const handleRevealEnd = () => {
+    onCovered?.();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    setBurst((b) => b ?? makeBurst());
+    // Squash & stretch, then spring-settle with overshoot.
+    cardScaleX.set(cfg.pop.scaleX);
+    cardScaleY.set(cfg.pop.scaleY);
+    animate(cardScaleX, 1, { type: 'spring', ...cfg.pop.spring });
+    animate(cardScaleY, 1, { type: 'spring', ...cfg.pop.spring });
+    // Green glow flash → decay to base.
+    glow.set(1);
+    animate(glow, 0, { duration: cfg.pop.glowDecayMs / 1000, ease: 'easeOut' });
+  };
 
   // Hold the green card in place, then measure slip + tab and start the flight.
+  // The flight must never launch with the slip still mounted behind it, so
+  // onCovered fires here too as a fallback (idempotent) in case the card's
+  // animationend event was missed.
   useEffect(() => {
     const t = window.setTimeout(() => {
+      onCovered?.();
       const from = cardRef.current?.getBoundingClientRect();
       const tab = document.querySelector('[data-tab="entradas"]')?.getBoundingClientRect();
       if (from && tab) {
@@ -227,14 +349,61 @@ export function EntryCreatedOverlay({
       className="pointer-events-none absolute inset-0 z-[60]"
       style={{ fontFamily: "'Red Hat Display', sans-serif" }}
     >
-      {/* Green "slip turned green" card in its resting spot (until it flies). */}
+      {/* Green "slip turned green" card in its resting spot (until it flies) —
+          enters as a circle expanding from the card's center, over the still-
+          mounted slip (App unmounts the slip on onCovered). */}
       {!flight && (
-        <div
+        <motion.div
           ref={cardRef}
-          className="absolute inset-x-4 bottom-[80px] h-[184px] animate-[greenIn_0.2s_ease-out] overflow-hidden rounded-[20px]"
-          style={{ boxShadow: GREEN_GLOW }}
+          className="absolute inset-x-4 bottom-[80px] h-[184px] animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[20px]"
+          style={{ boxShadow: cardShadow, scaleX: cardScaleX, scaleY: cardScaleY }}
+          onAnimationEnd={(e) => {
+            if (e.animationName === 'greenCircleIn') handleRevealEnd();
+          }}
         >
-          <GreenFace />
+          <GreenFace entering />
+        </motion.div>
+      )}
+      {/* Celebration burst — green success sparks exploding outward from the
+          card's perimeter. A sibling of the card (its overflow:hidden would
+          clip them); after it in the DOM so they paint on top. */}
+      {!flight && burst && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-4 bottom-[80px] h-[184px]"
+        >
+          {burst.map((s) => (
+            <motion.span
+              key={s.id}
+              className="absolute rounded-full"
+              style={{
+                left: `${s.leftPct}%`,
+                top: `${s.topPct}%`,
+                width: s.size,
+                height: s.size,
+                translateX: '-50%',
+                translateY: '-50%',
+                background:
+                  'radial-gradient(circle, #ffffff 0%, #36e5a9 45%, rgba(41,194,138,0) 100%)',
+                boxShadow:
+                  '0 0 8px rgba(54,229,169,0.95), 0 0 14px rgba(41,194,138,0.6)',
+              }}
+              initial={{ x: 0, y: 0, opacity: 0, scale: 1 }}
+              animate={{
+                x: s.dx,
+                y: s.dy,
+                opacity: [0, 1, 1, 0],
+                // Shrink as it decelerates — same read as the T4 spark dots.
+                scale: [1, 1, 0.9, 0.35],
+              }}
+              transition={{
+                duration: s.durationMs / 1000,
+                ease: [0.2, 0.7, 0.3, 1], // explosion: fast launch, decelerate
+                opacity: { times: [0, 0.08, 0.6, 1] },
+                scale: { times: [0, 0.1, 0.6, 1] },
+              }}
+            />
+          ))}
         </div>
       )}
       {flight && (

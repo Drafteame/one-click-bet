@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import betsIcon from './assets/bets.svg';
 import chevronIcon from './assets/chevron.svg';
 import gamingIcon from './assets/gaming.svg';
@@ -372,12 +372,60 @@ function TabsAndPills() {
 /* ============================================================ */
 /*  Promo carousel — Champions card with PSG vs Real Madrid     */
 /* ============================================================ */
+/*  Long-press → "Lightning Straight Bet" (instant entry).       */
+/*  Returns props to spread on a pick button: a hold past `delay`  */
+/*  fires onLongPress(id) and suppresses the tap that follows; a    */
+/*  quick tap fires onTap(id) as usual. One press at a time, so a   */
+/*  single timer ref is enough.                                     */
+/* ============================================================ */
+const LONG_PRESS_MS = 450;
+function useLongPress(
+  onLongPress: (id: string) => void,
+  onTap: (id: string) => void,
+) {
+  const timer = useRef<number | null>(null);
+  const fired = useRef(false);
+  const clear = () => {
+    if (timer.current != null) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  };
+  return (id: string) => ({
+    onPointerDown: () => {
+      fired.current = false;
+      clear();
+      timer.current = window.setTimeout(() => {
+        fired.current = true;
+        timer.current = null;
+        onLongPress(id);
+      }, LONG_PRESS_MS);
+    },
+    onPointerUp: clear,
+    onPointerLeave: clear,
+    onPointerCancel: clear,
+    onClick: () => {
+      if (fired.current) {
+        fired.current = false; // long-press already created the entry
+        return;
+      }
+      onTap(id);
+    },
+  });
+}
+
 type PromoCarouselProps = {
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
+  onLightningBet: (id: string) => void;
 };
 
-function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
+function PromoCarousel({
+  selectedIds,
+  onTogglePick,
+  onLightningBet,
+}: PromoCarouselProps) {
+  const bindPick = useLongPress(onLightningBet, onTogglePick);
   // Card matches Figma "newLeagueMarkets" (1624:44632).
   // Missing asset: the decorative "light" glow blob positioned at the
   // top of the card (imgLight in the Figma export). Skipped here —
@@ -481,7 +529,7 @@ function PromoCarousel({ selectedIds, onTogglePick }: PromoCarouselProps) {
               <button
                 key={o.id}
                 type="button"
-                onClick={() => onTogglePick(o.id)}
+                {...bindPick(o.id)}
                 className={`flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
                   selected
                     ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
@@ -542,6 +590,7 @@ type MarketProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
+  onLightningBet: (id: string) => void;
 };
 
 type PlayerMeta = {
@@ -622,8 +671,14 @@ const PLAYER_META: Record<string, PlayerMeta> = {
   },
 };
 
-function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
+function MarketAccordion({
+  picks,
+  selectedIds,
+  onTogglePick,
+  onLightningBet,
+}: MarketProps) {
   const [isOpen, setIsOpen] = useState(true);
+  const bindPick = useLongPress(onLightningBet, onTogglePick);
   // Only show picks that are mapped to a player. Other picks (team
   // wins / draw / combos / goleada) don't fit this layout.
   const playerPicks = picks.filter((p) => PLAYER_META[p.id]);
@@ -674,7 +729,7 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => onTogglePick(p.id)}
+                  {...bindPick(p.id)}
                   // Selected state changes ONLY the odds button at the
                   // bottom (lime-cyan gradient + Bold odds); the outer
                   // card border stays neutral in both states.
@@ -808,11 +863,29 @@ function MarketAccordion({ picks, selectedIds, onTogglePick }: MarketProps) {
 function Navbar({
   entryCount = 0,
   bump = 0,
+  badgeVisible = false,
 }: {
   entryCount?: number;
   bump?: number;
+  badgeVisible?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'bets' | 'entradas' | 'gaming' | 'rewards'>('bets');
+
+  // Entry-count badge lifecycle. `shouldShow` follows App's 10s window;
+  // `badgeMounted` lags it so the badge can fade out (opacity transition)
+  // before it unmounts, instead of popping out of existence. Deterministic
+  // (no AnimatePresence), so there's no exit-race flicker.
+  const shouldShowBadge = badgeVisible && entryCount > 0;
+  const [badgeMounted, setBadgeMounted] = useState(false);
+  useEffect(() => {
+    if (shouldShowBadge) {
+      setBadgeMounted(true);
+      return;
+    }
+    const t = setTimeout(() => setBadgeMounted(false), 250); // after fade-out
+    return () => clearTimeout(t);
+  }, [shouldShowBadge]);
+
   const tabs: Array<{
     id: 'bets' | 'entradas' | 'gaming' | 'rewards';
     label: string;
@@ -854,27 +927,44 @@ function Navbar({
                 />
               )}
               <div className="relative flex h-5 w-full items-center justify-center">
-                <span
-                  key={t.id === 'entradas' ? `icon-${bump}` : 'icon'}
-                  className={`flex items-center justify-center ${
-                    t.id === 'entradas' && bump > 0
-                      ? 'animate-[iconBump_0.4s_ease-out]'
-                      : ''
-                  }`}
-                >
-                  <img
-                    src={t.icon}
-                    alt=""
-                    aria-hidden
-                    className={t.id === 'rewards' ? 'h-[26px] w-[26px]' : 'h-5 w-5'}
-                  />
-                </span>
-                {/* Entry-count badge — pops after an entry is created. */}
-                {t.id === 'entradas' && entryCount > 0 && (
-                  <span className="absolute -right-1.5 -top-1 flex h-4 min-w-4 animate-[badgePop_0.4s_ease-out] items-center justify-center rounded-full bg-[#1fc77d] px-1 text-[10px] font-bold leading-none text-[#0a0a0d]">
-                    {entryCount}
+                {/* Icon-sized wrapper so the badge anchors to the ICON's
+                    corner (not the full-width tab), keeping it close to the
+                    tab. */}
+                <div className="relative flex items-center justify-center">
+                  <span
+                    key={t.id === 'entradas' ? `icon-${bump}` : 'icon'}
+                    className={`flex items-center justify-center ${
+                      t.id === 'entradas' && bump > 0
+                        ? 'animate-[iconBump_0.4s_ease-out]'
+                        : ''
+                    }`}
+                  >
+                    <img
+                      src={t.icon}
+                      alt=""
+                      aria-hidden
+                      className={t.id === 'rewards' ? 'h-[26px] w-[26px]' : 'h-5 w-5'}
+                    />
                   </span>
-                )}
+                  {/* Entry-count badge — dark pill (Figma "Entry counter"
+                      33563:154482): #3d3d3d fill, 2px #191919 ring, bold white
+                      count. Keyed by entryCount so it remounts (and replays the
+                      squash & stretch) on each new entry; cleanly unmounts when
+                      App hides it after 10s. */}
+                  {t.id === 'entradas' && badgeMounted && (
+                    <span
+                      key={entryCount}
+                      className={`absolute -right-2.5 -top-2.5 flex min-w-[18px] items-center justify-center rounded-full border-2 border-[#191919] bg-[#3d3d3d] px-1.5 text-[10px] font-bold leading-[15px] text-[#fbfbfb] transition-opacity duration-200 ease-out ${
+                        shouldShowBadge
+                          ? 'opacity-100 animate-[badgePop_0.5s_ease-out]'
+                          : 'opacity-0'
+                      }`}
+                      style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+                    >
+                      {entryCount}
+                    </span>
+                  )}
+                </div>
               </div>
               <span
                 className={`whitespace-nowrap text-[10px] font-medium leading-[15px] ${
@@ -908,12 +998,14 @@ type HomeScreenChromeProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
+  onLightningBet: (id: string) => void;
 };
 
 export function HomeScreenChrome({
   picks,
   selectedIds,
   onTogglePick,
+  onLightningBet,
 }: HomeScreenChromeProps) {
   return (
     <div className="flex w-full flex-col">
@@ -922,11 +1014,16 @@ export function HomeScreenChrome({
       <LeaguesTab />
       <MatchTabsRow />
       <TabsAndPills />
-      <PromoCarousel selectedIds={selectedIds} onTogglePick={onTogglePick} />
+      <PromoCarousel
+        selectedIds={selectedIds}
+        onTogglePick={onTogglePick}
+        onLightningBet={onLightningBet}
+      />
       <MarketAccordion
         picks={picks}
         selectedIds={selectedIds}
         onTogglePick={onTogglePick}
+        onLightningBet={onLightningBet}
       />
     </div>
   );
