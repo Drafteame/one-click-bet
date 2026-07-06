@@ -54,6 +54,26 @@ Tiers are **additive** — T3 includes everything in T2, etc. Differentiate with
 | `src/OddsEffects.tsx` | `<OddsSmokeEffect>` (T3 odds variant). |
 | `EFFECTS.md` | **Canonical effect catalog** — every animation/microinteraction, grouped by tier. |
 
+## What you see → what I call it
+
+Translation layer for describing changes by the **on-screen thing**, not the code name. You never need the file/component name — name the visible surface + behavior and this maps it.
+
+| On screen | Component / file |
+|---|---|
+| The **collapsed pill** (small bet capsule above the navbar) | collapsed state of `BetSlipSheet` (renders `ButtonPreviewMomios`) |
+| The **expanded slip / purple-glass card** (straight or parlay) | expanded state of `BetSlipSheet` |
+| The **full-screen "Resumen de tu entrada" sheet** (free-bet/Booster promos, accept-odds checkbox, swipe-to-play) | `BetSlipFullSheet` |
+| The green **"¡Entrada creada!" success card** (after swipe-to-confirm) | `EntryCreatedOverlay` (normal `GreenFace` variant) |
+| The small **success ticket/stub** (shown on a lightning long-press) | `EntryCreatedOverlay` (lightning `TicketFace` variant) |
+| The **success card flying into the "Mis entradas" tab** (genie flight) | `GenieClone` in `EntryCreatedOverlay` |
+| The **green spark burst / pop** when the success card appears | `makeBurst` + pop in `EntryCreatedOverlay` |
+| The **home feed / pick cards** | `HomeScreen` (`MOCK_PICKS`) |
+| The **sticky header** (topbar + match tabs/pills that pin) | `HomeScreenChrome` in `HomeScreen.tsx` |
+| The **bottom navbar / entry-count badge / reuse-share-discard buttons** | `Navbar` in `HomeScreen.tsx` |
+| **Long-press a pick → instant bet** (Lightning) | `useLongPress` (`HomeScreen`) + `lightningBet` (`App.tsx`) |
+| The **rolling numbers** in the slip | `SlotNumber` |
+| Any **magic number / timing / threshold** | `buttonProgressionConfig.ts` (or the `cfg` block in the relevant component) |
+
 ## Conventions
 
 - **Effects gated by tier** with `tier === N` (exclusive) or `tier >= N` (inclusive). Watch this distinction — it's the #1 source of bugs when adding a new tier.
