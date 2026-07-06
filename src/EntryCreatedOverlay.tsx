@@ -169,7 +169,7 @@ function TicketFace({ entering = false }: { entering?: boolean }) {
       </svg>
       <div
         className={`absolute inset-0 flex flex-col items-center justify-center gap-3${
-          entering ? ' animate-[greenContentIn_0.4s_ease-out]' : ''
+          entering ? ' animate-[greenContentIn_0.2s_cubic-bezier(0.16,1,0.3,1)]' : ''
         }`}
       >
         <CheckBadge />
