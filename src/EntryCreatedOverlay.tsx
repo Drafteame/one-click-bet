@@ -7,7 +7,7 @@ import {
   useVelocity,
   type MotionValue,
 } from 'framer-motion';
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * EntryCreatedOverlay — swipe-to-confirm success animation.
@@ -104,38 +104,80 @@ const GREEN_BG =
   'radial-gradient(ellipse at center, rgba(41,194,138,0.95) 0%, rgba(29,172,124,0.95) 50%, rgba(5,150,105,0.95) 100%)';
 const GREEN_GLOW = '0 0 16px 0 rgba(54,229,169,0.36)';
 
-/** Ticket shape: two mask layers whose intersection cuts a semicircular notch
- *  into the mid-left and mid-right edges (rounded corners come from
- *  borderRadius). Scales with the element's transform, so the notches shrink
- *  with the ticket during the flight. */
-function ticketMaskStyle(notch: number): CSSProperties {
-  const grad =
-    `radial-gradient(circle ${notch}px at 0% 50%, transparent ${notch}px, #000 ${notch + 0.5}px),` +
-    `radial-gradient(circle ${notch}px at 100% 50%, transparent ${notch}px, #000 ${notch + 0.5}px)`;
-  return {
-    maskImage: grad,
-    WebkitMaskImage: grad,
-    maskComposite: 'intersect',
-    WebkitMaskComposite: 'source-in',
-    maskRepeat: 'no-repeat',
-    WebkitMaskRepeat: 'no-repeat',
-  };
+/** Ticket outline path: rounded rect with a semicircular notch cut into the
+ *  mid-left and mid-right edges. Used as an SVG path for a single crisp fill +
+ *  stroke (the old chained-drop-shadow outline ghosted on mobile). */
+function makeTicketPath(w: number, h: number, r: number, n: number): string {
+  const cy = h / 2;
+  return [
+    `M ${r} 0`,
+    `H ${w - r}`,
+    `A ${r} ${r} 0 0 1 ${w} ${r}`,
+    `V ${cy - n}`,
+    `A ${n} ${n} 0 0 0 ${w} ${cy + n}`, // right notch (concave)
+    `V ${h - r}`,
+    `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
+    `H ${r}`,
+    `A ${r} ${r} 0 0 1 0 ${h - r}`,
+    `V ${cy + n}`,
+    `A ${n} ${n} 0 0 0 0 ${cy - n}`, // left notch (concave)
+    `V ${r}`,
+    `A ${r} ${r} 0 0 1 ${r} 0`,
+    'Z',
+  ].join(' ');
+}
+const TICKET_PATH = makeTicketPath(
+  cfg.ticket.widthPx,
+  cfg.ticket.heightPx,
+  cfg.ticket.radiusPx,
+  cfg.ticket.notchPx,
+);
+
+/** Green glow only (single drop-shadow → no ghosting). The stroke is now drawn
+ *  by the SVG path. Put on the wrapper so it follows the ticket's alpha.
+ *  `glowV` (0→1) intensifies the flash. */
+function ticketGlow(glowV: number): string {
+  return `drop-shadow(0 0 ${14 + glowV * 30}px rgba(54,229,169,${0.4 + glowV * 0.5}))`;
 }
 
-/** Ticket stroke + glow via drop-shadow — put on the UNMASKED wrapper so it
- *  follows the masked child's notched alpha (a box-shadow on the masked element
- *  itself would be clipped away). `glowV` (0→1) intensifies the glow flash. */
-function ticketFilter(glowV: number): string {
-  const s = cfg.ticket.strokeColor;
-  const w = cfg.ticket.strokePx;
-  // Crisp outline (0-blur drop-shadows in 4 directions) so it reads as a real
-  // stroke following the notches, THEN the soft green glow.
+/** The ticket face — one SVG path (green radial fill + crisp stroke, notches
+ *  included) with the check + message overlaid. `entering` plays the content
+ *  pop. Shared by the resting card and the flying clone. */
+function TicketFace({ entering = false }: { entering?: boolean }) {
+  const T = cfg.ticket;
   return (
-    `drop-shadow(${w}px 0 0 ${s}) ` +
-    `drop-shadow(-${w}px 0 0 ${s}) ` +
-    `drop-shadow(0 ${w}px 0 ${s}) ` +
-    `drop-shadow(0 -${w}px 0 ${s}) ` +
-    `drop-shadow(0 0 ${14 + glowV * 30}px rgba(54,229,169,${0.4 + glowV * 0.5}))`
+    <>
+      <svg
+        className="absolute inset-0 h-full w-full"
+        viewBox={`0 0 ${T.widthPx} ${T.heightPx}`}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        <defs>
+          <radialGradient id="ticketFill" cx="50%" cy="50%" r="62%">
+            <stop offset="0%" stopColor="rgba(41,194,138,0.97)" />
+            <stop offset="55%" stopColor="rgba(29,172,124,0.97)" />
+            <stop offset="100%" stopColor="rgba(5,150,105,0.97)" />
+          </radialGradient>
+        </defs>
+        <path
+          d={TICKET_PATH}
+          fill="url(#ticketFill)"
+          stroke={T.strokeColor}
+          strokeWidth={T.strokePx}
+        />
+      </svg>
+      <div
+        className={`absolute inset-0 flex flex-col items-center justify-center gap-3${
+          entering ? ' animate-[greenContentIn_0.4s_ease-out]' : ''
+        }`}
+      >
+        <CheckBadge />
+        <p className="text-[16px] font-bold leading-6 text-white">
+          ¡Entrada creada!
+        </p>
+      </div>
+    </>
   );
 }
 
@@ -339,21 +381,19 @@ function GenieClone({
           x: xMV,
           y: yMV,
           opacity: opacityMV,
-          filter: ticketFilter(0.2),
+          filter: ticketGlow(0.2),
         }}
       >
         <motion.div
-          className="h-full w-full overflow-hidden"
+          className="relative h-full w-full"
           style={{
             scaleX,
             scaleY,
             rotate,
             transformOrigin: '50% 100%',
-            borderRadius: cfg.ticket.radiusPx,
-            ...ticketMaskStyle(cfg.ticket.notchPx),
           }}
         >
-          <GreenFace />
+          <TicketFace />
         </motion.div>
       </motion.div>
     );
@@ -416,7 +456,7 @@ export function EntryCreatedOverlay({
   );
   // Lightning ticket: stroke + glow live on the wrapper as a drop-shadow filter
   // (so they follow the notched shape and aren't clipped by the mask).
-  const ticketFilterMV = useTransform(glow, (g) => ticketFilter(g));
+  const ticketFilterMV = useTransform(glow, (g) => ticketGlow(g));
 
   const handleRevealEnd = () => {
     onCovered?.();
@@ -468,9 +508,8 @@ export function EntryCreatedOverlay({
             ref={cardRef}
             className="absolute"
             style={{
-              // Center via auto-margins (integer-snapped) rather than a
-              // translateX(-50%) — the percentage translate landed on a
-              // subpixel and glitched the left edge.
+              // Center with left:50% + a static negative marginLeft (layout,
+              // not a transform) so the edge paint-snaps crisp.
               bottom: cfg.ticket.bottomPx,
               left: '50%',
               marginLeft: -cfg.ticket.widthPx / 2,
@@ -482,16 +521,12 @@ export function EntryCreatedOverlay({
             }}
           >
             <div
-              className="absolute inset-0 overflow-hidden animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
-              style={{
-                borderRadius: cfg.ticket.radiusPx,
-                ...ticketMaskStyle(cfg.ticket.notchPx),
-              }}
+              className="absolute inset-0 animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
               onAnimationEnd={(e) => {
                 if (e.animationName === 'greenCircleIn') handleRevealEnd();
               }}
             >
-              <GreenFace entering />
+              <TicketFace entering />
             </div>
           </motion.div>
         ) : (
