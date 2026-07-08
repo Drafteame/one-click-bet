@@ -864,10 +864,14 @@ function Navbar({
   entryCount = 0,
   bump = 0,
   badgeVisible = false,
+  compact = false,
 }: {
   entryCount?: number;
   bump?: number;
   badgeVisible?: boolean;
+  /** Scrolled-down state: drop the labels + shrink the bar to a single
+      row of icons (Figma 33885:39455). Morphs smoothly via CSS. */
+  compact?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<'bets' | 'entradas' | 'gaming' | 'rewards'>('bets');
 
@@ -899,8 +903,13 @@ function Navbar({
 
   return (
     <div className="flex w-full items-center gap-2 px-4 pb-4">
-      {/* Tab pill — 4 tabs in a single rounded container */}
-      <div className="flex h-[58px] flex-1 items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-1.5">
+      {/* Tab pill — 4 tabs in a single rounded container. Height collapses
+          from 58px → 48px when `compact` (scrolled-down state). */}
+      <div
+        className={`flex flex-1 items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-1.5 transition-[height] duration-[250ms] ease-out ${
+          compact ? 'h-12' : 'h-[58px]'
+        }`}
+      >
         {tabs.map((t) => {
           const isActive = activeTab === t.id;
           return (
@@ -909,9 +918,9 @@ function Navbar({
               type="button"
               data-tab={t.id === 'entradas' ? 'entradas' : undefined}
               onClick={() => setActiveTab(t.id)}
-              className={`relative flex h-[46px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[56px] px-1 pt-[3px] transition-colors duration-150 active:scale-[0.97] ${
+              className={`relative flex flex-1 cursor-pointer flex-col items-center justify-center rounded-[56px] px-1 transition-all duration-[250ms] ease-out active:scale-[0.97] ${
                 isActive ? 'bg-[rgba(251,251,251,0.12)]' : ''
-              }`}
+              } ${compact ? 'h-9 gap-0 pt-0' : 'h-[46px] gap-0.5 pt-[3px]'}`}
             >
               {/* Icon row. The rewards badge is rendered at 26×26 to
                   match Figma (the other tab icons are 20×20). It overflows
@@ -958,10 +967,12 @@ function Navbar({
                   )}
                 </div>
               </div>
+              {/* Label — collapses (height + opacity) in compact mode so the
+                  bar becomes an icon-only row. */}
               <span
-                className={`whitespace-nowrap text-[10px] font-medium leading-[15px] ${
+                className={`overflow-hidden whitespace-nowrap text-[10px] font-medium leading-[15px] transition-all duration-[250ms] ease-out ${
                   isActive ? 'text-[#fbfbfb]' : 'text-[rgba(251,251,251,0.7)]'
-                }`}
+                } ${compact ? 'max-h-0 opacity-0' : 'max-h-[15px] opacity-100'}`}
                 style={{ fontFamily: 'Red Hat Display, sans-serif' }}
               >
                 {t.label}
@@ -975,7 +986,9 @@ function Navbar({
       <button
         type="button"
         aria-label="Search"
-        className="flex size-[58px] shrink-0 cursor-pointer items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-2.5 transition-colors duration-150 active:scale-[0.97]"
+        className={`flex shrink-0 cursor-pointer items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-2.5 transition-all duration-[250ms] ease-out active:scale-[0.97] ${
+          compact ? 'size-12' : 'size-[58px]'
+        }`}
       >
         <img src={searchIcon} alt="" aria-hidden className="h-6 w-6" />
       </button>

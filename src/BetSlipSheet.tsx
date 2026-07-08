@@ -7,15 +7,13 @@ import {
   useTransform,
   type PanInfo,
 } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
-import chevronRightIcon from './assets/chevron_right.svg';
+import { useEffect, useRef } from 'react';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
-import menuIcon from './assets/menu.svg';
-import promoIcon from './assets/promo.png';
 import shieldIcon from './assets/shield.svg';
 import { buttonProgressionConfig } from './buttonProgressionConfig';
 import { ButtonPreviewMomios } from './ButtonPreviewMomios';
+import { SwipeToConfirm } from './SwipeToConfirm';
 import type { Selection } from './types';
 
 /**
@@ -47,8 +45,12 @@ const fmtOdds = (n: number) => `${n.toFixed(2)}x`;
 
 // Morph geometry.
 const COLLAPSED_H = 72; // ButtonPreviewMomios footprint (56px pill + 8/8 pad)
-// 195px card + 8px bottom inset (the glass card's bottom-2), so the expanded
-// card clears the navbar by the same 8px the collapsed pill does via its pb-2.
+// The glass card's bottom-2 inset — the expanded card clears the navbar by the
+// same 8px the collapsed pill does via its pb-2. Shell height = content + this.
+const BOTTOM_INSET = 8;
+// Fallback expanded shell height used until the content is measured. The real
+// expanded height is now MEASURED from the content (it grows with the second
+// stacked selection), see `expandedH` — so this is only the first-frame guess.
 const EXPANDED_H = 203;
 
 // The persistent glass SURFACE morphs between these two shapes. Both are
@@ -57,7 +59,6 @@ const EXPANDED_H = 203;
 // rounded-[56px] ≈ radius 28) — the morph starts/ends on the pill's shape, so
 // the hand-off is invisible and the surface never disappears.
 const COLLAPSED_GLASS_H = 56;
-const EXPANDED_GLASS_H = EXPANDED_H - 8; // 195 (matches the bottom-2 inset)
 const COLLAPSED_GLASS_RADIUS = 28; // capsule for a 56px-tall pill
 const EXPANDED_GLASS_RADIUS = 20; // the card corners
 
@@ -71,22 +72,27 @@ const OPEN_LIST_VELOCITY = 450;
 // the collapse is expressed as a continuous HEIGHT morph (see collapseP). The
 // gesture is read from the raw pointer offset, so elastic can be 0.
 const DRAG_ELASTIC = 0;
-// Finger distance mapping to a full expand→collapse. Equal to the height delta
-// so the card's TOP edge tracks the finger 1:1 as it shrinks (bottom stays
-// anchored above the navbar) — a morph, not a slide down the screen.
-const COLLAPSE_DRAG_RANGE_PX = EXPANDED_H - COLLAPSED_H;
 // Spring for programmatic / release transitions of the morph progress.
 const COLLAPSE_SPRING = { type: 'spring', stiffness: 320, damping: 34 } as const;
+// Gentler spring for the measured-height GROW/shrink when a selection is
+// added/removed. Softer + slightly slower than COLLAPSE_SPRING (which drives
+// the snappy pill↔card morph) so the card eases open to fit the new row rather
+// than snapping — no overshoot (near-critical) so it never bounces past.
+const ADD_GROW_SPRING = { type: 'spring', stiffness: 210, damping: 30 } as const;
 // Subtle squash while morphing — peaks mid-transition, neutral at both rest
 // states so neither the pill nor the card is ever left deformed.
 const MORPH_DEFORM_X = 1.03;
 const MORPH_DEFORM_Y = 0.98;
-// Selection-add squash pulse — a subtle liquid stretch that springs back with
-// overshoot (low damping) so it wobbles to rest, like the entry bounce. Fires
-// every time a new selection is added to the slip.
-const ADD_PULSE_SCALE_X = 1.04;
-const ADD_PULSE_SCALE_Y = 0.95;
-const ADD_PULSE_SPRING = { stiffness: 340, damping: 13 } as const;
+// Selection-add squash pulse — a liquid squash applied to the WHOLE slip
+// (shellScaleX/shellScaleY, anchored bottom-center) each time a selection is
+// added, so the eye reads "the same slip flexed to absorb a new pick", not a
+// component swap. Tuned subtler than the original (was 1.04/0.95, damping 13):
+// a lighter ~3% deform and a slightly better-damped spring so it gives ONE
+// satisfying overshoot and settles — noticeable, but not bouncy, and it no
+// longer piles up when two picks are added back-to-back.
+const ADD_PULSE_SCALE_X = 1.03;
+const ADD_PULSE_SCALE_Y = 0.97;
+const ADD_PULSE_SPRING = { stiffness: 300, damping: 15 } as const;
 // Squash & stretch pulses. On APPEAR the slip stretches (taller/narrower) then
 // settles; on COLLAPSE it squashes (shorter/wider) then settles. Both spring
 // back with a touch of overshoot for a liquid feel. Kept small — subtle.
@@ -98,17 +104,8 @@ const ENTRY_PULSE_SPRING = { stiffness: 320, damping: 12 } as const;
 const COLLAPSE_PULSE_SCALE_X = 1.03;
 const COLLAPSE_PULSE_SCALE_Y = 0.95;
 const PULSE_SPRING = { stiffness: 300, damping: 16 } as const;
-// Swipe-to-confirm only completes when the thumb is pinned at the track's far
-// end (within this tolerance) — any partial swipe snaps back instead.
-const CONFIRM_END_TOLERANCE_PX = 2;
-// Thumb inset from the track edge (matches the thumb's left-[2px]).
-const THUMB_INSET_PX = 2;
-// Simulated ticket-creation time — the thumb shows a spinner for this long
-// after a completed swipe, then onConfirm fires the success flow.
-const CONFIRM_LOADER_MS = 900;
 
 const GLASS_BG = 'linear-gradient(64.6deg, #14083d 0%, #230c3e 100%)';
-const PURPLE_CTA = 'linear-gradient(70.5deg, #4b20ff 0%, #9730ff 100%)';
 
 type Props = {
   selections: Selection[];
@@ -136,8 +133,12 @@ export function BetSlipSheet({
   onOpenList,
 }: Props) {
   const potentialWin = Math.round(cumulativeOdds * STAKE);
-  const isParlay = selections.length >= 2;
-  const orderedSelections = [...selections].reverse(); // latest first
+  // Summarized slip shows AT MOST 2 selections (latest first). Once a 3rd is
+  // added the slip auto-collapses (App.tsx), so the expanded card only ever
+  // renders 1 or 2 rows. 1 selection keeps its existing single-row layout;
+  // 2 render as a vertical stack (Figma `newSelectionPreviewOSB`).
+  const visibleSelections = [...selections].reverse().slice(0, 2); // latest first
+  const isGrouped = visibleSelections.length >= 2;
 
   // Mount/unmount slide (mirrors BetSlipShell — declarative initial/animate
   // strands at `initial` under React 18 StrictMode, so animate by hand).
@@ -184,14 +185,51 @@ export function BetSlipSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded]);
 
+  // Expanded shell height is MEASURED from the content, so the card grows when
+  // the second stacked selection is added (and shrinks when it's removed). The
+  // content is measured via a ResizeObserver below; `expandedH` holds the
+  // resulting shell height (content + BOTTOM_INSET). First measurement snaps in;
+  // later changes spring, so adding a 2nd selection grows the card smoothly.
+  const expandedH = useMotionValue(EXPANDED_H);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const measuredOnceRef = useRef(false);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const target = el.offsetHeight + BOTTOM_INSET;
+      if (target <= 0) return; // pre-layout
+      if (!measuredOnceRef.current) {
+        measuredOnceRef.current = true;
+        expandedH.set(target);
+      } else if (Math.abs(target - expandedH.get()) > 0.5) {
+        animate(expandedH, target, ADD_GROW_SPRING);
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Bottom-anchored shell height morph — the card's top edge descends toward
   // the navbar as it collapses into the pill (defines layout + clip region).
-  const height = useTransform(collapseP, [0, 1], [EXPANDED_H, COLLAPSED_H]);
+  // Blends the MEASURED expanded height with the collapsed pill footprint by
+  // `collapseP` (0 = expanded → expandedH, 1 = collapsed → COLLAPSED_H).
+  const height = useTransform(
+    [collapseP, expandedH],
+    ([p, eh]: number[]) => eh + (COLLAPSED_H - eh) * p,
+  );
 
   // THE SINGLE MORPHING SURFACE — always opaque, so there's never an empty
   // frame. Its height and corner radius reshape continuously between the card
   // and the pill capsule; at collapsed it overlaps the real pill exactly.
-  const glassHeight = useTransform(collapseP, [0, 1], [EXPANDED_GLASS_H, COLLAPSED_GLASS_H]);
+  const glassHeight = useTransform(
+    [collapseP, expandedH],
+    ([p, eh]: number[]) => {
+      const gExpanded = eh - BOTTOM_INSET;
+      return gExpanded + (COLLAPSED_GLASS_H - gExpanded) * p;
+    },
+  );
   const glassRadius = useTransform(collapseP, [0, 1], [EXPANDED_GLASS_RADIUS, COLLAPSED_GLASS_RADIUS]);
   // Card CONTENT fades out over the first part of the collapse (it can't morph
   // into pill content), leaving the bare surface to finish reshaping.
@@ -271,25 +309,6 @@ export function BetSlipSheet({
   // their own gestures/taps. Swiping the card body still collapses.
   const dragControls = useDragControls();
 
-  // Swipe-thumb x → drives a purple fill that grows across the track. The
-  // drag is constrained by the track element itself, so the confirm gate is
-  // "thumb reached the far end" whatever the rendered track width is.
-  const swipeX = useMotionValue(0);
-  const swipeFill = useTransform(swipeX, (v) => `${50 + v}px`);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLButtonElement>(null);
-  // Completed swipe → thumb pins at the end and shows a spinner while the
-  // (simulated) ticket creation runs, then onConfirm plays the success flow.
-  const [confirming, setConfirming] = useState(false);
-
-  // Max thumb travel: track inner width minus the thumb and its inset.
-  const maxThumbX = () => {
-    const track = trackRef.current;
-    const thumb = thumbRef.current;
-    if (!track || !thumb) return Infinity; // unmeasured — never confirm
-    return track.clientWidth - thumb.offsetWidth - THUMB_INSET_PX;
-  };
-
   const onCollapseDragStart = () => {
     draggingRef.current = true;
     onKeepAlive();
@@ -297,10 +316,11 @@ export function BetSlipSheet({
   // Downward drag drives the collapse morph directly (finger → progress).
   // Upward keeps it expanded (an up-swipe opens the full sheet on release).
   const onCollapseDragMove = (_e: unknown, info: PanInfo) => {
-    const p =
-      info.offset.y > 0
-        ? Math.min(1, info.offset.y / COLLAPSE_DRAG_RANGE_PX)
-        : 0;
+    // Finger distance mapping to a full expand→collapse equals the height delta
+    // so the card's TOP edge tracks the finger 1:1 as it shrinks. Uses the
+    // MEASURED expanded height so the mapping stays 1:1 at any row count.
+    const range = Math.max(1, expandedH.get() - COLLAPSED_H);
+    const p = info.offset.y > 0 ? Math.min(1, info.offset.y / range) : 0;
     collapseP.set(p);
   };
   const handleCollapseDrag = (_e: unknown, info: PanInfo) => {
@@ -320,35 +340,6 @@ export function BetSlipSheet({
     // Not far enough → cancel: spring the morph back open.
     animate(collapseP, 0, COLLAPSE_SPRING);
   };
-
-  const handleThumbDragEnd = () => {
-    const maxX = maxThumbX();
-    if (swipeX.get() >= maxX - CONFIRM_END_TOLERANCE_PX) {
-      setConfirming(true);
-      animate(swipeX, maxX, { type: 'spring', stiffness: 500, damping: 44 });
-    } else {
-      // Partial swipe — snap back (manual, since dragSnapToOrigin would also
-      // yank a completed swipe back to the start).
-      animate(swipeX, 0, { type: 'spring', stiffness: 500, damping: 40 });
-    }
-  };
-
-  useEffect(() => {
-    if (!confirming) return;
-    const t = setTimeout(onConfirm, CONFIRM_LOADER_MS);
-    return () => clearTimeout(t);
-  }, [confirming, onConfirm]);
-
-  // Keep the spinner pinned while the slip is visible behind the green card's
-  // reveal; reset once the slip is put away (finishEntryCreated collapses it),
-  // so a reused instance (AnimatePresence re-entering an exiting slip) is
-  // ready for the next bet.
-  useEffect(() => {
-    if (expanded || !confirming) return;
-    setConfirming(false);
-    swipeX.set(0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expanded, confirming]);
 
   return (
     <motion.div
@@ -426,139 +417,114 @@ export function BetSlipSheet({
           />
         </motion.div>
 
-        {/* ---------- EXPANDED: full slip content (over the surface) ---------- */}
+        {/* ---------- EXPANDED: full slip content (over the surface) ----------
+             BOTTOM-anchored (bottom-2, matching the glass surface) — NOT top-0.
+             The shell is bottom-anchored and grows upward, so pinning the
+             content to the bottom keeps the swipe/Monto controls fixed in place
+             and lets the card grow UPWARD to reveal the newly-added row at the
+             top. (Top-anchoring made the whole content block slide up as the
+             card grew, which read as an abrupt "jump" when a selection landed.)
+             At rest content top == shell top either way, so only the grow/shrink
+             transition differs — and the glass grows in lockstep behind it. */}
         <motion.div
-          className="absolute inset-x-4 top-0 flex flex-col"
+          ref={contentRef}
+          className="absolute inset-x-4 bottom-2 flex flex-col"
           style={{
             opacity: cardContentOpacity,
             pointerEvents: expanded ? 'auto' : 'none',
           }}
           aria-hidden={!expanded}
         >
-          {isParlay ? (
-            <>
-              {/* PARLAY HEADER — count · handle · tabs. */}
-              <div className="flex w-full items-start justify-between px-3 pt-2">
-                <div className="flex min-w-px flex-1 items-center gap-1">
-                  <div className="flex h-5 min-w-[20px] items-center justify-center rounded-[14px] bg-[rgba(251,251,251,0.16)] px-1">
-                    <span className="text-[13px] font-bold leading-4 text-[#f0f2f4]">
-                      {selections.length}
-                    </span>
-                  </div>
-                  <span className="text-[13px] font-bold leading-4 text-[#fbfbfb]">
-                    Bets
-                  </span>
-                </div>
-                <div className="mt-1 h-1 w-8 shrink-0 rounded-full bg-[rgba(251,251,251,0.32)]" />
-                <div className="flex min-w-px flex-1 items-center justify-end gap-4">
-                  <div className="flex items-center gap-1">
-                    <img src={promoIcon} alt="" className="size-4" />
-                    <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                      Promos
-                    </span>
-                  </div>
+          {/* HANDLE — the slip keeps the single-selection structure at every
+              count (the old 2+ "Bets · Promos · Lista" header is gone). The
+              bottom padding is the ONLY gap to the selections below (8px). */}
+          <div className="flex items-center justify-center px-3 pt-3 pb-2">
+            <div className="h-1 w-8 rounded-full bg-[rgba(251,251,251,0.32)]" />
+          </div>
+
+          {isGrouped ? (
+            /* GROUPED SELECTIONS — vertical stack (Figma newSelectionPreviewOSB,
+               33712:267101), latest first, capped at 2 rows. */
+            <div className="flex flex-col px-[10px] pb-3 pt-0">
+              {visibleSelections.map((sel) => (
+                <div key={sel.id} className="flex h-[52px] items-center">
+                  {/* × + trailing vertical divider */}
                   <button
                     type="button"
-                    onClick={onOpenList}
+                    aria-label="Quitar selección"
+                    onClick={() => onRemove(sel.id)}
                     onPointerDownCapture={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 active:opacity-70"
+                    className="flex h-full w-10 shrink-0 items-center justify-center active:scale-95"
                   >
-                    <img src={menuIcon} alt="" className="size-3" />
-                    <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                      Lista
-                    </span>
+                    <img src={closeIcon} alt="" className="size-4" />
                   </button>
-                </div>
-              </div>
-
-              {/* PARLAY SELECTIONS — horizontal, latest first, scrolls. */}
-              <div className="flex w-full items-center overflow-x-auto px-[10px] pb-3 pt-[10px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {orderedSelections.map((sel) => (
-                  <div
-                    key={sel.id}
-                    // Whole selection capped at 202px; long market/selection
-                    // text truncates with "…" inside it, odds stay visible.
-                    className="flex max-w-[202px] shrink-0 items-center gap-1 border-r border-[rgba(251,251,251,0.16)] pr-[10px] [&:not(:first-child)]:pl-[6px]"
-                  >
-                    <button
-                      type="button"
-                      aria-label="Quitar selección"
-                      onClick={() => onRemove(sel.id)}
-                      onPointerDownCapture={(e) => e.stopPropagation()}
-                      className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] active:scale-95"
-                    >
-                      <img src={closeIcon} alt="" className="size-3" />
-                    </button>
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      <div className="flex min-w-0 flex-1 items-center gap-1">
-                        <div className="size-9 shrink-0 backdrop-blur-[2px]">
-                          <img
-                            src={shieldIcon}
-                            alt=""
-                            className="size-full object-contain p-[3px]"
-                          />
-                        </div>
-                        <div className="flex h-[37px] min-w-0 flex-1 flex-col justify-center">
-                          <p className="truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                            {sel.market}
-                          </p>
-                          <p className="truncate text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
-                            {sel.pick}
-                          </p>
-                        </div>
-                      </div>
-                      {/* Odds — always visible (never cropped). */}
-                      <span className="shrink-0 whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                        {fmtOdds(sel.odds)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* STRAIGHT-BET HANDLE. */}
-              <div className="flex items-center justify-center p-3">
-                <div className="h-1 w-8 rounded-full bg-[rgba(251,251,251,0.32)]" />
-              </div>
-              {/* STRAIGHT-BET SELECTION — single stacked row. */}
-              <div className="flex flex-col gap-1 px-[10px] pb-3 pt-[10px]">
-                {selections.map((sel) => (
-                  <div key={sel.id} className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      aria-label="Quitar selección"
-                      onClick={() => onRemove(sel.id)}
-                      onPointerDownCapture={(e) => e.stopPropagation()}
-                      className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] active:scale-95"
-                    >
-                      <img src={closeIcon} alt="" className="size-3" />
-                    </button>
-                    <div className="flex min-w-px flex-1 items-center gap-1">
-                      <div className="size-9 shrink-0 backdrop-blur-[2px]">
+                  <div className="h-10 w-px shrink-0 bg-[rgba(251,251,251,0.16)]" />
+                  {/* shield + market/pick */}
+                  <div className="flex min-w-px flex-1 items-center gap-[6px] overflow-hidden px-[6px] py-1">
+                    <div className="relative size-11 shrink-0">
+                      <div className="absolute right-1 top-1/2 size-9 -translate-y-1/2 overflow-hidden rounded-lg backdrop-blur-[2px]">
                         <img
                           src={shieldIcon}
                           alt=""
                           className="size-full object-contain p-[3px]"
                         />
                       </div>
-                      <div className="flex min-w-px flex-col justify-center">
-                        <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                          {sel.market}
-                        </p>
-                        <p className="truncate text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
-                          {sel.pick}
-                        </p>
-                      </div>
                     </div>
-                    <div className="flex w-[92px] shrink-0 flex-col justify-center text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                      <span className="truncate">Hoy 18:00</span>
+                    <div className="flex min-w-px flex-1 flex-col justify-center">
+                      <p className="max-w-[162px] truncate text-[10px] font-bold uppercase leading-[15px] text-[rgba(251,251,251,0.5)]">
+                        {sel.market}
+                      </p>
+                      <p className="truncate text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
+                        {sel.pick}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </>
+                  {/* odds */}
+                  <div className="flex w-[85px] shrink-0 flex-col items-end justify-center pl-1 pr-3">
+                    <span className="whitespace-nowrap text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.5)]">
+                      {fmtOdds(sel.odds)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* SINGLE SELECTION — unchanged from before (one stacked row). */
+            <div className="flex flex-col gap-1 px-[10px] pb-3 pt-0">
+              {visibleSelections.map((sel) => (
+                <div key={sel.id} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Quitar selección"
+                    onClick={() => onRemove(sel.id)}
+                    onPointerDownCapture={(e) => e.stopPropagation()}
+                    className="flex size-5 shrink-0 items-center justify-center rounded-full p-[2px] active:scale-95"
+                  >
+                    <img src={closeIcon} alt="" className="size-3" />
+                  </button>
+                  <div className="flex min-w-px flex-1 items-center gap-1">
+                    <div className="size-9 shrink-0 backdrop-blur-[2px]">
+                      <img
+                        src={shieldIcon}
+                        alt=""
+                        className="size-full object-contain p-[3px]"
+                      />
+                    </div>
+                    <div className="flex min-w-px flex-col justify-center">
+                      <p className="max-w-[162px] truncate text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                        {sel.market}
+                      </p>
+                      <p className="truncate text-[14px] font-bold leading-[21px] text-[#fbfbfb]">
+                        {sel.pick}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex w-[92px] shrink-0 flex-col justify-center text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
+                    <span className="truncate">Hoy 18:00</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Divider */}
@@ -595,53 +561,15 @@ export function BetSlipSheet({
             </div>
           </div>
 
-          {/* Swipe to confirm */}
+          {/* Swipe to confirm — shared component (remounts on collapse via key
+              so its swipe/loader state resets). */}
           <div className="flex w-full flex-col px-[10px] pb-[10px] pt-2">
-            <div
-              ref={trackRef}
-              className="relative flex h-10 w-full items-center overflow-hidden rounded-full bg-[rgba(240,242,244,0.12)] py-[2px] pl-[2px] pr-6"
-            >
-              {/* Purple fill — grows with the thumb as the user swipes. */}
-              <motion.div
-                aria-hidden
-                className="pointer-events-none absolute left-[2px] top-[2px] h-9 rounded-full"
-                style={{ width: swipeFill, backgroundImage: PURPLE_CTA }}
-              />
-              <motion.button
-                ref={thumbRef}
-                type="button"
-                aria-label={
-                  confirming
-                    ? 'Creando entrada'
-                    : `Desliza para jugar por $${STAKE}`
-                }
-                className="absolute left-[2px] top-[2px] z-10 flex h-9 w-12 items-center justify-center rounded-full"
-                style={{ x: swipeX, backgroundImage: PURPLE_CTA }}
-                drag={confirming ? false : 'x'}
-                dragConstraints={trackRef}
-                dragElastic={0.12}
-                dragMomentum={false}
-                onDragStart={onKeepAlive}
-                onDragEnd={handleThumbDragEnd}
-                whileTap={confirming ? undefined : { scale: 0.97 }}
-              >
-                {confirming ? (
-                  <span
-                    aria-hidden
-                    className="size-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
-                  />
-                ) : (
-                  <img
-                    src={chevronRightIcon}
-                    alt=""
-                    className="pointer-events-none size-5"
-                  />
-                )}
-              </motion.button>
-              <p className="w-full text-center text-[13px] font-medium leading-4 text-[rgba(251,251,251,0.7)]">
-                Desliza para jugar por: ${STAKE}
-              </p>
-            </div>
+            <SwipeToConfirm
+              key={expanded ? 'expanded' : 'collapsed'}
+              stake={STAKE}
+              onConfirm={onConfirm}
+              onSwipeStart={onKeepAlive}
+            />
           </div>
         </motion.div>
       </motion.div>

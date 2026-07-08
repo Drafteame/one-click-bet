@@ -8,20 +8,25 @@ import {
   type MotionValue,
 } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import checkIcon from './assets/success-check.png';
 
 /**
- * EntryCreatedOverlay — swipe-to-confirm success animation.
+ * EntryCreatedOverlay — the success confirmation animation.
  *
- * Ported from the "genie" prototype (github.com/Jate099/entry-success-animation),
- * adapted to our slip + navbar:
- *   1. A green "¡Entrada creada!" card emerges where the slip was — a circular
- *      clip-path reveal from the card's center (keyframes `greenCircleIn` /
- *      `greenContentIn` in index.css), check + text scaling in with it — and
- *      holds.
- *   2. It performs a genie flight straight into the "Mis entradas" tab —
- *      velocity/position-derived squash & stretch, a base shrink envelope,
- *      rotation from x-velocity, and a borderRadius morph, driven by two
- *      springs launched together (no anticipation). No keyframes.
+ * ONE shape for every success flow (swipe-to-confirm on the expanded slip,
+ * swipe-to-play on the "Resumen de tu entrada" full sheet, AND the lightning
+ * long-press): a green ticket/stub (Figma 33822:171080 — 233×108, rounded
+ * corners + a semicircular notch on the mid-left/right edges, radial-green
+ * fill, gradient rim, green glow). The old full-width green card is gone.
+ *
+ *   1. The ticket emerges where the slip was — a circular clip-path reveal
+ *      from its center (keyframes `greenCircleIn` / `greenContentIn` in
+ *      index.css), check + text scaling in with it — and holds.
+ *   2. On reveal-complete it fires a green spark burst + a squash/stretch pop
+ *      + a glow flash, then performs a genie flight straight into the "Mis
+ *      entradas" tab — velocity/position-derived squash & stretch, a base
+ *      shrink envelope, rotation from x-velocity, driven by two springs
+ *      launched together (no anticipation). No keyframes.
  *   3. The ticket fades out over its last few px of travel so it is fully
  *      gone `vanish.gapPx` above the tab — never overlapping it. onCatch()
  *      fires at that vanish moment (tab icon bumps to "catch" it); onDone()
@@ -31,10 +36,20 @@ import { useEffect, useRef, useState } from 'react';
  */
 
 const cfg = {
-  confirmedHoldMs: 900,
+  // How long the ticket holds in place (readable) before the genie flight —
+  // long enough to comfortably read "¡ENTRADA CREADA!".
+  confirmedHoldMs: 1700,
+  // Ticket geometry (Figma 33822:171080). The shape itself (rounded corners +
+  // mid-edge notches) is the exact Figma vector `TICKET_FILL_PATH`, authored in
+  // a 16..249 / 16..124 space, so the SVG uses viewBox `TICKET_VIEWBOX`.
+  ticket: {
+    widthPx: 233,
+    heightPx: 108,
+    bottomPx: 86, // sits 12px above the 74px-tall navbar
+  },
   // One-shot celebration burst when the circular reveal completes — the
   // T4 fire-spark dots from ButtonPreviewMomios, recolored to the success
-  // green, exploding radially outward from the card's perimeter.
+  // green, exploding radially outward from the ticket's perimeter.
   burst: {
     count: 26,
     distanceMinPx: 28, // outward travel
@@ -45,7 +60,7 @@ const cfg = {
     durationMaxMs: 700,
     angleJitterRad: 0.3, // deviation from the pure radial direction
   },
-  // Explosion "pop" on the card when the reveal completes (fires with the
+  // Explosion "pop" on the ticket when the reveal completes (fires with the
   // burst): a subtle squash & stretch that springs back with overshoot, plus
   // a green glow flash that decays. Reads as something detonating inside.
   pop: {
@@ -53,19 +68,6 @@ const cfg = {
     scaleY: 0.965,
     spring: { stiffness: 300, damping: 17 },
     glowDecayMs: 620, // glow flashes to peak, then eases back to base
-  },
-  // Lightning-bet ONLY: the success component becomes a smaller ticket/stub
-  // (Figma 33605:90122) — rounded corners + a semicircular notch cut into the
-  // mid-left/right edges (notch via a CSS mask). All animations, the message,
-  // burst, pop, glow and the flight are unchanged; only the shape/size differ.
-  ticket: {
-    widthPx: 220,
-    heightPx: 140,
-    radiusPx: 16,
-    notchPx: 12,
-    bottomPx: 86, // sits 12px above the 74px-tall navbar
-    strokeColor: 'rgba(190,255,228,0.5)', // light-green rim (Figma stroke), 50%
-    strokePx: 1.5, // outline width
   },
   genie: {
     // Fast, snappy flight — movement + shrink reach the tab in ~215ms.
@@ -87,10 +89,11 @@ const cfg = {
       vRange: [-150, 0, 150] as [number, number, number],
       degRange: [3, 0, -3] as [number, number, number],
     },
-    // Corner radius stays constant — the scale transform already shrinks the
-    // rendered corners proportionally, so the ticket keeps its rounded look
-    // (morphing radius toward 0 made the shrinking card look square).
-    borderRadiusPx: 20,
+    // Leftward lean that grows as the ticket flies toward the tab (exit
+    // personality). 0 at launch — matches the upright resting ticket, so the
+    // hand-off is seamless — reaching `flightTiltDeg` by the time it arrives.
+    flightTiltDeg: -8, // negative = leans left
+
     // Vanish tied to OVERALL progress toward the tab (both axes), not just y —
     // the flight is a short diagonal toward the "Mis entradas" tab, so a y-only
     // fade blinked it out before it arrived. Stay fully opaque until the last
@@ -100,120 +103,80 @@ const cfg = {
   },
 };
 
-const GREEN_BG =
-  'radial-gradient(ellipse at center, rgba(41,194,138,0.95) 0%, rgba(29,172,124,0.95) 50%, rgba(5,150,105,0.95) 100%)';
-const GREEN_GLOW = '0 0 16px 0 rgba(54,229,169,0.36)';
+// Ticket outline — the exact Figma vector (node 33822:171081 "Subtract"):
+// rounded corners with Figma corner-smoothing + a semicircular notch cut into
+// the mid-left and mid-right edges. Authored in a 16..249 (w 233) / 16..124
+// (h 108) box, so the SVG renders it through TICKET_VIEWBOX. A centered stroke
+// is clipped by the svg viewport at the outer edges → reads as an inside
+// stroke, matching Figma.
+const TICKET_FILL_PATH =
+  'M213.8 16C226.12 16 232.281 15.9999 236.987 18.3975C241.127 20.5067 244.493 23.8731 246.603 28.0127C249 32.7187 249 38.8795 249 51.2002V56.6855C248.034 56.4745 247.03 56.3633 246 56.3633C238.268 56.3633 232 62.6313 232 70.3633C232 78.0953 238.268 84.3633 246 84.3633C247.03 84.3633 248.033 84.2511 249 84.04V88.7998C249 101.12 249 107.281 246.603 111.987C244.493 116.127 241.127 119.493 236.987 121.603C232.281 124 226.12 124 213.8 124H51.2002C38.8795 124 32.7187 124 28.0127 121.603C23.8731 119.493 20.5067 116.127 18.3975 111.987C15.9999 107.281 16 101.12 16 88.7998V84.3633C23.732 84.3633 30 78.0953 30 70.3633C30 62.6313 23.732 56.3633 16 56.3633V51.2002C16 38.8795 15.9999 32.7187 18.3975 28.0127C20.5067 23.8731 23.8731 20.5067 28.0127 18.3975C32.7187 15.9999 38.8795 16 51.2002 16H213.8Z';
+const TICKET_VIEWBOX = '16 16 233 108';
 
-/** Ticket outline path: rounded rect with a semicircular notch cut into the
- *  mid-left and mid-right edges. Used as an SVG path for a single crisp fill +
- *  stroke (the old chained-drop-shadow outline ghosted on mobile). */
-function makeTicketPath(w: number, h: number, r: number, n: number): string {
-  const cy = h / 2;
-  return [
-    `M ${r} 0`,
-    `H ${w - r}`,
-    `A ${r} ${r} 0 0 1 ${w} ${r}`,
-    `V ${cy - n}`,
-    `A ${n} ${n} 0 0 0 ${w} ${cy + n}`, // right notch (concave)
-    `V ${h - r}`,
-    `A ${r} ${r} 0 0 1 ${w - r} ${h}`,
-    `H ${r}`,
-    `A ${r} ${r} 0 0 1 0 ${h - r}`,
-    `V ${cy + n}`,
-    `A ${n} ${n} 0 0 0 0 ${cy - n}`, // left notch (concave)
-    `V ${r}`,
-    `A ${r} ${r} 0 0 1 ${r} 0`,
-    'Z',
-  ].join(' ');
-}
-const TICKET_PATH = makeTicketPath(
-  cfg.ticket.widthPx,
-  cfg.ticket.heightPx,
-  cfg.ticket.radiusPx,
-  cfg.ticket.notchPx,
-);
-
-/** Green glow only (single drop-shadow → no ghosting). The stroke is now drawn
+/** Green glow only (single drop-shadow → no ghosting). The rim stroke is drawn
  *  by the SVG path. Put on the wrapper so it follows the ticket's alpha.
- *  `glowV` (0→1) intensifies the flash. */
+ *  `glowV` (0→1) intensifies the flash. Base matches the Figma drop-shadow
+ *  (#36E5A9 @ 36%, blur 8). */
 function ticketGlow(glowV: number): string {
-  return `drop-shadow(0 0 ${14 + glowV * 30}px rgba(54,229,169,${0.4 + glowV * 0.5}))`;
+  return `drop-shadow(0 0 ${16 + glowV * 30}px rgba(54,229,169,${0.36 + glowV * 0.5}))`;
 }
 
-/** The ticket face — one SVG path (green radial fill + crisp stroke, notches
- *  included) with the check + message overlaid. `entering` plays the content
- *  pop. Shared by the resting card and the flying clone. */
+/** The ticket face — one SVG path (radial-green fill + gradient rim stroke,
+ *  notches included) with the check + message overlaid. `entering` plays the
+ *  content pop. Shared by the resting ticket and the flying clone. */
 function TicketFace({ entering = false }: { entering?: boolean }) {
-  const T = cfg.ticket;
   return (
     <>
       <svg
         className="absolute inset-0 h-full w-full"
-        viewBox={`0 0 ${T.widthPx} ${T.heightPx}`}
+        viewBox={TICKET_VIEWBOX}
         preserveAspectRatio="none"
         aria-hidden
       >
         <defs>
-          <radialGradient id="ticketFill" cx="50%" cy="50%" r="62%">
-            <stop offset="0%" stopColor="rgba(41,194,138,0.97)" />
-            <stop offset="55%" stopColor="rgba(29,172,124,0.97)" />
-            <stop offset="100%" stopColor="rgba(5,150,105,0.97)" />
+          <radialGradient
+            id="ticketFill"
+            cx="0"
+            cy="0"
+            r="1"
+            gradientUnits="userSpaceOnUse"
+            gradientTransform="translate(132.5 62.0909) rotate(90) scale(72.7548 67.0288)"
+          >
+            <stop stopColor="#29C28A" />
+            <stop offset="0.5" stopColor="#1DAC7C" />
+            <stop offset="1" stopColor="#059669" />
           </radialGradient>
+          <linearGradient
+            id="ticketStroke"
+            x1="24"
+            y1="7.99925"
+            x2="242.898"
+            y2="133.265"
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop stopColor="#34D399" stopOpacity="0.56" />
+            <stop offset="1" stopColor="#1B6D4F" />
+          </linearGradient>
         </defs>
         <path
-          d={TICKET_PATH}
+          d={TICKET_FILL_PATH}
           fill="url(#ticketFill)"
-          stroke={T.strokeColor}
-          strokeWidth={T.strokePx}
+          fillOpacity="0.95"
+          stroke="url(#ticketStroke)"
+          strokeWidth="1.5"
         />
       </svg>
       <div
-        className={`absolute inset-0 flex flex-col items-center justify-center gap-3${
+        className={`absolute inset-0 flex flex-col items-center justify-center gap-1${
           entering ? ' animate-[greenContentIn_0.2s_cubic-bezier(0.16,1,0.3,1)]' : ''
         }`}
       >
-        <CheckBadge />
-        <p className="text-[16px] font-bold leading-6 text-white">
-          ¡Entrada creada!
+        <img src={checkIcon} alt="" width={36} height={36} aria-hidden />
+        <p className="text-[14px] font-black italic leading-[21px] text-[#fbfbfb]">
+          ¡ENTRADA CREADA!
         </p>
       </div>
     </>
-  );
-}
-
-/** 48×48 circular check icon. */
-function CheckBadge() {
-  return (
-    <svg viewBox="0 0 48 48" width="48" height="48" fill="none" aria-hidden>
-      <circle cx="24" cy="24" r="22" stroke="white" strokeWidth="2" />
-      <path
-        d="M15 24.5l6 6 12-13"
-        stroke="white"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/** The green "¡Entrada creada!" face — fills its rounded parent. `entering`
- * plays the content pop (check + text scale in with the circular reveal). */
-function GreenFace({ entering = false }: { entering?: boolean }) {
-  return (
-    <div
-      className="absolute inset-0"
-      style={{ borderRadius: 'inherit', backgroundImage: GREEN_BG, boxShadow: GREEN_GLOW }}
-    >
-      <div
-        className={`flex h-full w-full flex-col items-center justify-center gap-3${
-          entering ? ' animate-[greenContentIn_0.2s_cubic-bezier(0.16,1,0.3,1)]' : ''
-        }`}
-      >
-        <CheckBadge />
-        <p className="text-[16px] font-bold leading-6 text-white">¡Entrada creada!</p>
-      </div>
-    </div>
   );
 }
 
@@ -221,7 +184,7 @@ type Rect = { left: number; top: number; width: number; height: number };
 
 type BurstSpark = {
   id: number;
-  leftPct: number; // spawn point on the card perimeter, % of card size
+  leftPct: number; // spawn point on the ticket perimeter, % of ticket size
   topPct: number;
   dx: number; // outward travel in px
   dy: number;
@@ -229,12 +192,12 @@ type BurstSpark = {
   durationMs: number;
 };
 
-/** Sparks on the card perimeter, aimed radially outward (+ jitter). */
+/** Sparks on the ticket perimeter, aimed radially outward (+ jitter). */
 function makeBurst(): BurstSpark[] {
   const b = cfg.burst;
-  // Nominal card aspect (≈350×184) — corrects the radial angle for the
-  // percentage coordinate space so corners still fire diagonally.
-  const aspect = 1.9;
+  // Ticket aspect (233×108) — corrects the radial angle for the percentage
+  // coordinate space so corners still fire diagonally.
+  const aspect = cfg.ticket.widthPx / cfg.ticket.heightPx;
   return Array.from({ length: b.count }, (_, id) => {
     // Horizontal sides are ~2× longer, so they get 2/3 of the spawns.
     const horizontal = Math.random() < 2 / 3;
@@ -264,18 +227,16 @@ function makeBurst(): BurstSpark[] {
 function GenieClone({
   from,
   to,
-  lightning,
   onCatch,
   onDone,
 }: {
   from: Rect;
   to: Rect;
-  lightning: boolean;
   onCatch: () => void;
   onDone: () => void;
 }) {
   const g = cfg.genie;
-  // Slip bottom-center → gapPx above the tab's top edge. The y spring LANDS
+  // Ticket bottom-center → gapPx above the tab's top edge. The y spring LANDS
   // at the vanish point (not the tab center) so the whole flight is visible:
   // the ticket decelerates into the spot just above the tab and dissolves
   // there. Targeting deeper would spend most of the spring's fast early
@@ -320,7 +281,17 @@ function GenieClone({
     [baseScale, smoothDeformX] as MotionValue<number>[],
     (l: number[]) => l[0] * l[1],
   );
-  const rotate = useTransform(smoothXVel, g.rotation.vRange, g.rotation.degRange);
+  // Flight rotation: a leftward lean that grows with flight progress (0 at
+  // launch, so it matches the upright resting ticket) plus a subtle
+  // velocity-driven wobble for life.
+  const flightTilt = useTransform(flightProgress, [0, 1], [0, g.flightTiltDeg], {
+    clamp: true,
+  });
+  const velRotate = useTransform(smoothXVel, g.rotation.vRange, g.rotation.degRange);
+  const rotate = useTransform(
+    [flightTilt, velRotate] as MotionValue<number>[],
+    (l: number[]) => l[0] + l[1],
+  );
   // Fade only over the last `fadeFraction` of the path — stays fully visible
   // through the trajectory, then dissolves as it settles onto the tab.
   const opacityMV = useTransform(
@@ -363,42 +334,9 @@ function GenieClone({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (lightning) {
-    // Ticket clone: outer wrapper carries position + fade + the stroke/glow
-    // drop-shadow (follows the masked child, isn't clipped); inner carries the
-    // scale/rotate/mask so the notches shrink with the ticket.
-    return (
-      <motion.div
-        style={{
-          position: 'fixed',
-          left: from.left,
-          top: from.top,
-          width: from.width,
-          height: from.height,
-          transformOrigin: '50% 100%',
-          zIndex: 60,
-          pointerEvents: 'none',
-          x: xMV,
-          y: yMV,
-          opacity: opacityMV,
-          filter: ticketGlow(0.2),
-        }}
-      >
-        <motion.div
-          className="relative h-full w-full"
-          style={{
-            scaleX,
-            scaleY,
-            rotate,
-            transformOrigin: '50% 100%',
-          }}
-        >
-          <TicketFace />
-        </motion.div>
-      </motion.div>
-    );
-  }
-
+  // Outer wrapper carries position + fade + the glow drop-shadow (follows the
+  // ticket, isn't clipped by the SVG viewport); inner carries the scale/rotate
+  // so the notches shrink with the ticket.
   return (
     <motion.div
       style={{
@@ -412,16 +350,16 @@ function GenieClone({
         pointerEvents: 'none',
         x: xMV,
         y: yMV,
-        scaleX,
-        scaleY,
-        rotate,
         opacity: opacityMV,
-        borderRadius: g.borderRadiusPx,
+        filter: ticketGlow(0.2),
       }}
     >
-      <div className="relative h-full w-full overflow-hidden" style={{ borderRadius: 'inherit' }}>
-        <GreenFace />
-      </div>
+      <motion.div
+        className="relative h-full w-full"
+        style={{ scaleX, scaleY, rotate, transformOrigin: '50% 100%' }}
+      >
+        <TicketFace />
+      </motion.div>
     </motion.div>
   );
 }
@@ -430,14 +368,11 @@ export function EntryCreatedOverlay({
   onDone,
   onCatch,
   onCovered,
-  lightning = false,
 }: {
   onDone: () => void;
   onCatch: () => void;
-  /** Circular reveal finished — the green card now fully covers the slip. */
+  /** Circular reveal finished — the green ticket now fully covers the slip. */
   onCovered?: () => void;
-  /** Lightning bet → render the smaller ticket/stub shape (same animations). */
-  lightning?: boolean;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [flight, setFlight] = useState<{ from: Rect; to: Rect } | null>(null);
@@ -445,17 +380,12 @@ export function EntryCreatedOverlay({
   const [burst, setBurst] = useState<BurstSpark[] | null>(null);
 
   // Explosion "pop" — squash & stretch (springs back with overshoot) and a
-  // green glow flash (glow 0→1→0) fired when the reveal completes. `cardShadow`
-  // reads GREEN_GLOW exactly at glow=0, so it's a seamless base + flash.
+  // green glow flash (glow 0→1→0) fired when the reveal completes.
   const cardScaleX = useMotionValue(1);
   const cardScaleY = useMotionValue(1);
   const glow = useMotionValue(0);
-  const cardShadow = useTransform(
-    glow,
-    (g) => `0 0 ${16 + g * 44}px ${g * 10}px rgba(54,229,169,${0.36 + g * 0.5})`,
-  );
-  // Lightning ticket: stroke + glow live on the wrapper as a drop-shadow filter
-  // (so they follow the notched shape and aren't clipped by the mask).
+  // Stroke + glow live on the wrapper as a drop-shadow filter (so they follow
+  // the notched shape and aren't clipped by the SVG viewport).
   const ticketFilterMV = useTransform(glow, (g) => ticketGlow(g));
 
   const handleRevealEnd = () => {
@@ -472,9 +402,9 @@ export function EntryCreatedOverlay({
     animate(glow, 0, { duration: cfg.pop.glowDecayMs / 1000, ease: 'easeOut' });
   };
 
-  // Hold the green card in place, then measure slip + tab and start the flight.
-  // The flight must never launch with the slip still mounted behind it, so
-  // onCovered fires here too as a fallback (idempotent) in case the card's
+  // Hold the green ticket in place, then measure slip + tab and start the
+  // flight. The flight must never launch with the slip still mounted behind it,
+  // so onCovered fires here too as a fallback (idempotent) in case the ticket's
   // animationend event was missed.
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -491,74 +421,58 @@ export function EntryCreatedOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const T = cfg.ticket;
+
   return (
     <div
       className="pointer-events-none absolute inset-0 z-[60]"
       style={{ fontFamily: "'Red Hat Display', sans-serif" }}
     >
-      {/* Green "slip turned green" card in its resting spot (until it flies) —
-          enters as a circle expanding from the card's center, over the still-
-          mounted slip (App unmounts the slip on onCovered). */}
-      {!flight &&
-        (lightning ? (
-          // Lightning: ticket/stub. Wrapper carries scale + the stroke/glow
-          // drop-shadow (follows the notches); the masked child carries the
-          // shape, the reveal, and the content.
-          <motion.div
-            ref={cardRef}
-            className="absolute"
-            style={{
-              // Center with left:50% + a static negative marginLeft (layout,
-              // not a transform) so the edge paint-snaps crisp.
-              bottom: cfg.ticket.bottomPx,
-              left: '50%',
-              marginLeft: -cfg.ticket.widthPx / 2,
-              width: cfg.ticket.widthPx,
-              height: cfg.ticket.heightPx,
-              scaleX: cardScaleX,
-              scaleY: cardScaleY,
-              filter: ticketFilterMV,
-            }}
-          >
-            <div
-              className="absolute inset-0 animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
-              onAnimationEnd={(e) => {
-                if (e.animationName === 'greenCircleIn') handleRevealEnd();
-              }}
-            >
-              <TicketFace entering />
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            ref={cardRef}
-            className="absolute inset-x-4 bottom-[80px] h-[184px] animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden rounded-[20px]"
-            style={{ boxShadow: cardShadow, scaleX: cardScaleX, scaleY: cardScaleY }}
+      {/* Green success ticket in its resting spot (until it flies) — enters as a
+          circle expanding from its center, over the still-mounted slip (App
+          unmounts the slip on onCovered). Wrapper carries scale + the glow
+          drop-shadow; the child carries the reveal, the shape, and the content. */}
+      {!flight && (
+        <motion.div
+          ref={cardRef}
+          className="absolute"
+          style={{
+            // Center with left:50% + a static negative marginLeft (layout,
+            // not a transform) so the edge paint-snaps crisp.
+            bottom: T.bottomPx,
+            left: '50%',
+            marginLeft: -T.widthPx / 2,
+            width: T.widthPx,
+            height: T.heightPx,
+            scaleX: cardScaleX,
+            scaleY: cardScaleY,
+            filter: ticketFilterMV,
+          }}
+        >
+          <div
+            className="absolute inset-0 animate-[greenCircleIn_0.2s_cubic-bezier(0.16,1,0.3,1)]"
             onAnimationEnd={(e) => {
               if (e.animationName === 'greenCircleIn') handleRevealEnd();
             }}
           >
-            <GreenFace entering />
-          </motion.div>
-        ))}
+            <TicketFace entering />
+          </div>
+        </motion.div>
+      )}
       {/* Celebration burst — green success sparks exploding outward from the
-          card's perimeter. A sibling of the card (its overflow:hidden would
-          clip them); after it in the DOM so they paint on top. */}
+          ticket's perimeter. A sibling of the ticket; after it in the DOM so
+          they paint on top. */}
       {!flight && burst && (
         <div
           aria-hidden
           className="pointer-events-none absolute"
-          style={
-            lightning
-              ? {
-                  bottom: cfg.ticket.bottomPx,
-                  left: '50%',
-                  marginLeft: -cfg.ticket.widthPx / 2,
-                  width: cfg.ticket.widthPx,
-                  height: cfg.ticket.heightPx,
-                }
-              : { bottom: 80, left: 16, right: 16, height: 184 }
-          }
+          style={{
+            bottom: T.bottomPx,
+            left: '50%',
+            marginLeft: -T.widthPx / 2,
+            width: T.widthPx,
+            height: T.heightPx,
+          }}
         >
           {burst.map((s) => (
             <motion.span
@@ -598,7 +512,6 @@ export function EntryCreatedOverlay({
         <GenieClone
           from={flight.from}
           to={flight.to}
-          lightning={lightning}
           onCatch={onCatch}
           onDone={onDone}
         />

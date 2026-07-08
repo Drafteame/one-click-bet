@@ -112,15 +112,16 @@ export function App() {
   // Swipe-to-confirm success sequence: green "Entrada creada" card + ticket
   // fly into Mis entradas, then the "¿Reusar?" prompt + count badge.
   const [success, setSuccess] = useState(false);
-  // True once the green card's circular reveal fully covers the slip — the
-  // slip stays mounted (visible behind the expanding circle) until then.
-  const [slipCovered, setSlipCovered] = useState(false);
   // Lightning bet in progress — the pressed pick is added (so its button shows
   // the selected state) but the slip is suppressed; the entry is created a
   // beat later. See lightningBet().
   const [lightning, setLightning] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
+  // Navbar compresses to an icon-only row once the offer is scrolled down.
+  // Hysteresis (compact >40px, expand <8px) keeps it from flickering at the
+  // threshold.
+  const [navCompact, setNavCompact] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   // Entry-count badge over "Mis entradas": appears on each new entry, holds
   // 10s, then hides. Re-shown (timer reset) every time the count changes.
@@ -155,8 +156,10 @@ export function App() {
   const prevCountRef = useRef(0);
   useEffect(() => {
     const count = selections.length;
-    // Expand whenever the selection count grows (add / debug tier jump).
-    if (count > prevCountRef.current) setExpanded(true);
+    // On growth: the summarized slip only applies to 1–2 selections. Once a 3rd
+    // is added the summarized slip auto-collapses to the pill — the user then
+    // taps the pill to open the "Resumen" floating card (see onExpand below).
+    if (count > prevCountRef.current) setExpanded(count <= 2);
     // No selections → nothing to show; reset for the next session.
     if (count === 0) setExpanded(false);
     prevCountRef.current = count;
@@ -242,7 +245,6 @@ export function App() {
   // green overlay via `success`). The overlay's onDone finishes the sequence.
   const confirmBet = useCallback(() => {
     setListOpen(false);
-    setSlipCovered(false);
     setSuccess(true);
   }, []);
 
@@ -257,7 +259,6 @@ export function App() {
     playSelectionHaptic();
     setListOpen(false);
     setExpanded(false);
-    setSlipCovered(false);
     setLightning(true);
     setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
     // Hold the selected state briefly, then create the entry.
@@ -267,7 +268,6 @@ export function App() {
   // Fired when the green ticket has flown into Mis entradas.
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
-    setSlipCovered(false);
     setLightning(false);
     setSelections([]);
     setExpanded(false);
@@ -436,7 +436,13 @@ export function App() {
                 (HomeScreenChrome) so it stays with the pinned header. */}
 
             {/* Scrollable content area */}
-            <div className="no-scrollbar absolute inset-0 z-10 overflow-y-auto pb-[160px]">
+            <div
+              className="no-scrollbar absolute inset-0 z-10 overflow-y-auto pb-[160px]"
+              onScroll={(e) => {
+                const st = e.currentTarget.scrollTop;
+                setNavCompact((c) => (c ? st > 8 : st > 40));
+              }}
+            >
               <HomeScreenChrome
                 picks={MOCK_PICKS}
                 selectedIds={baseSelectedIds}
@@ -581,13 +587,17 @@ export function App() {
                       element ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && !lightning && (!success || !slipCovered) && (
+                      {selections.length > 0 && !lightning && !success && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
                           cumulativeOdds={cumulativeOdds}
                           expanded={expanded}
-                          onExpand={() => setExpanded(true)}
+                          onExpand={() =>
+                            selections.length > 2
+                              ? setListOpen(true)
+                              : setExpanded(true)
+                          }
                           onCollapse={() => setExpanded(false)}
                           onRemove={removeSelection}
                           onConfirm={confirmBet}
@@ -650,6 +660,7 @@ export function App() {
                   entryCount={entryCount}
                   bump={entryBump}
                   badgeVisible={badgeVisible}
+                  compact={navCompact}
                 />
               </div>
             </div>
@@ -682,8 +693,6 @@ export function App() {
                 badge + "¿Reusar?" prompt. */}
             {success && (
               <EntryCreatedOverlay
-                lightning={lightning}
-                onCovered={() => setSlipCovered(true)}
                 onCatch={() => setEntryBump((n) => n + 1)}
                 onDone={finishEntryCreated}
               />
