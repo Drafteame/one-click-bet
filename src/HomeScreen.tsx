@@ -902,12 +902,18 @@ function Navbar({
   ];
 
   return (
-    <div className="flex w-full items-center gap-2 px-4 pb-4">
-      {/* Tab pill — 4 tabs in a single rounded container. Height collapses
-          from 58px → 48px when `compact` (scrolled-down state). */}
+    <div
+      className={`mx-auto flex items-center justify-center gap-2 pb-4 transition-[width,padding] duration-[250ms] ease-out ${
+        compact ? 'w-[248px] px-0' : 'w-full px-4'
+      }`}
+    >
+      {/* Tab pill — 4 tabs in a single rounded container. Compact (scrolled
+          down, Figma 33885:39456): height 58→40px, padding 6→4px. Stays
+          flex-1, so within the 248px centered bar (− 8px gap − 40px search)
+          it lands at exactly 200px wide, icon-only. */}
       <div
-        className={`flex flex-1 items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-1.5 transition-[height] duration-[250ms] ease-out ${
-          compact ? 'h-12' : 'h-[58px]'
+        className={`flex flex-1 items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] transition-[height,padding] duration-[250ms] ease-out ${
+          compact ? 'h-10 p-1' : 'h-[58px] p-1.5'
         }`}
       >
         {tabs.map((t) => {
@@ -918,9 +924,9 @@ function Navbar({
               type="button"
               data-tab={t.id === 'entradas' ? 'entradas' : undefined}
               onClick={() => setActiveTab(t.id)}
-              className={`relative flex flex-1 cursor-pointer flex-col items-center justify-center rounded-[56px] px-1 transition-all duration-[250ms] ease-out active:scale-[0.97] ${
+              className={`relative flex h-full min-w-px flex-[1_0_0] cursor-pointer flex-col items-center justify-center rounded-[56px] px-1 transition-all duration-[250ms] ease-out active:scale-[0.97] ${
                 isActive ? 'bg-[rgba(251,251,251,0.12)]' : ''
-              } ${compact ? 'h-9 gap-0 pt-0' : 'h-[46px] gap-0.5 pt-[3px]'}`}
+              } ${compact ? 'gap-0 pt-0' : 'gap-0.5 pt-[3px]'}`}
             >
               {/* Icon row. The rewards badge is rendered at 26×26 to
                   match Figma (the other tab icons are 20×20). It overflows
@@ -987,10 +993,15 @@ function Navbar({
         type="button"
         aria-label="Search"
         className={`flex shrink-0 cursor-pointer items-center justify-center rounded-[56px] border border-[rgba(251,251,251,0.16)] bg-[#191919] p-2.5 transition-all duration-[250ms] ease-out active:scale-[0.97] ${
-          compact ? 'size-12' : 'size-[58px]'
+          compact ? 'size-10' : 'size-[58px]'
         }`}
       >
-        <img src={searchIcon} alt="" aria-hidden className="h-6 w-6" />
+        <img
+          src={searchIcon}
+          alt=""
+          aria-hidden
+          className={`transition-all duration-[250ms] ease-out ${compact ? 'h-5 w-5' : 'h-6 w-6'}`}
+        />
       </button>
     </div>
   );
@@ -1004,6 +1015,9 @@ type HomeScreenChromeProps = {
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
   onLightningBet: (id: string) => void;
+  /** Scroll-direction signal (shared with the navbar): true while scrolling
+      DOWN → collapse the leagues row; false on scroll-up / near-top → reveal. */
+  headerCollapsed?: boolean;
 };
 
 export function HomeScreenChrome({
@@ -1011,11 +1025,12 @@ export function HomeScreenChrome({
   selectedIds,
   onTogglePick,
   onLightningBet,
+  headerCollapsed = false,
 }: HomeScreenChromeProps) {
   // Two-tier sticky header: the topbar (status + logo/balance) pins at the
-  // very top; the match tabs + pill markets pin just below it (so we measure
-  // the topbar's height). The league tabs sit between them in normal flow, so
-  // they simply scroll away UNDER the pinned topbar — i.e. hide on scroll.
+  // very top; the leagues row + match tabs + pill markets pin just below it
+  // (so we measure the topbar's height). The leagues row lives at the top of
+  // that pinned stack and collapses on scroll-down / reappears on scroll-up.
   const topbarRef = useRef<HTMLDivElement>(null);
   const [topbarH, setTopbarH] = useState(88);
   useEffect(() => {
@@ -1046,11 +1061,17 @@ export function HomeScreenChrome({
         <Header />
       </div>
 
-      {/* LEAGUE TABS — normal flow; scroll away under the pinned topbar. */}
-      <LeaguesTab />
-
-      {/* MATCH TABS + PILL MARKETS — pin just below the topbar. */}
+      {/* PINNED HEADER STACK — leagues row + match tabs + pill markets, all
+          pinned just below the topbar. The leagues row collapses (height +
+          opacity) while scrolling down and springs back on scroll-up. */}
       <div className="sticky z-20 bg-black" style={{ top: topbarH }}>
+        <div
+          className={`overflow-hidden transition-all duration-[250ms] ease-out ${
+            headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-[96px] opacity-100'
+          }`}
+        >
+          <LeaguesTab />
+        </div>
         <MatchTabsRow />
         <TabsAndPills />
       </div>

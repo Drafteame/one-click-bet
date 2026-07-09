@@ -118,10 +118,17 @@ export function App() {
   const [lightning, setLightning] = useState(false);
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
-  // Navbar compresses to an icon-only row once the offer is scrolled down.
-  // Hysteresis (compact >40px, expand <8px) keeps it from flickering at the
-  // threshold.
+  // Navbar compresses to an icon-only row while scrolling DOWN through the
+  // offer, and springs back to full size on any scroll UP (or near the top).
+  // The same signal collapses the leagues row (in HomeScreenChrome).
+  // `lastScrollTopRef` holds the previous scrollTop so we can read direction.
+  // `navLockRef` holds a timestamp until which direction flips are ignored:
+  // collapsing the leagues row shrinks the scroll content, which fires reflow
+  // scroll events in the OPPOSITE direction — without the lock those flip the
+  // state straight back and the bars twitch. The lock spans the 250ms morph.
   const [navCompact, setNavCompact] = useState(false);
+  const lastScrollTopRef = useRef(0);
+  const navLockRef = useRef(0);
   const [promptOpen, setPromptOpen] = useState(false);
   // Entry-count badge over "Mis entradas": appears on each new entry, holds
   // 10s, then hides. Re-shown (timer reset) every time the count changes.
@@ -440,7 +447,21 @@ export function App() {
               className="no-scrollbar absolute inset-0 z-10 overflow-y-auto pb-[160px]"
               onScroll={(e) => {
                 const st = e.currentTarget.scrollTop;
-                setNavCompact((c) => (c ? st > 8 : st > 40));
+                const delta = st - lastScrollTopRef.current;
+                lastScrollTopRef.current = st;
+                // Ignore scroll events during the post-toggle lock window so
+                // the collapse-driven reflow can't flip the state back.
+                if (Date.now() < navLockRef.current) return;
+                let next: boolean | null = null;
+                if (st <= 8) next = false; // full near the top
+                else if (delta > 8) next = true; // scrolling down
+                else if (delta < -8) next = false; // scrolling up
+                if (next === null) return;
+                const target = next;
+                setNavCompact((c) => {
+                  if (c !== target) navLockRef.current = Date.now() + 320;
+                  return target;
+                });
               }}
             >
               <HomeScreenChrome
@@ -448,6 +469,7 @@ export function App() {
                 selectedIds={baseSelectedIds}
                 onTogglePick={togglePick}
                 onLightningBet={lightningBet}
+                headerCollapsed={navCompact}
               />
               {/* Debug controls inline (only visible with ?debug=true) */}
               {debug && (
