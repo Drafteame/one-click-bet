@@ -4,9 +4,10 @@ import {
   useDragControls,
   useMotionValue,
   usePresence,
+  useTransform,
   type PanInfo,
 } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import boosterIllus from './assets/booster.png';
 import chevronRightIcon from './assets/chevron_right.svg';
 import clockIcon from './assets/clock.svg';
@@ -45,6 +46,25 @@ const fmtOdds = (n: number) => `${n.toFixed(2)}x`;
 
 const CLOSE_OFFSET_PX = 120;
 const CLOSE_VELOCITY = 550;
+// Open/close morph. Instead of sliding in from off-screen, the card GROWS out
+// of the bet-slip footprint (a bottom-up clip-path reveal) while its content +
+// backdrop crossfade — mirroring the collapsed-pill ↔ summarized-card morph in
+// BetSlipSheet, so summarized slip → floating pill → this card all read as ONE
+// surface changing shape. `openP` 0 = slip-sized capsule, 1 = full card.
+const OPEN_SPRING = { type: 'spring', stiffness: 340, damping: 36 } as const;
+// Squash-&-stretch pulse on close — mirrors BetSlipSheet's collapse pulse
+// (COLLAPSE_PULSE_*) so the card visibly squashes into the pill as it shrinks.
+const CLOSE_PULSE_SCALE_X = 1.03;
+const CLOSE_PULSE_SCALE_Y = 0.95;
+const PULSE_SPRING = { type: 'spring', stiffness: 300, damping: 16 } as const;
+// Reveal starts at the collapsed-pill capsule height (matches BetSlipSheet's
+// COLLAPSED_GLASS_H) so the card appears to grow straight out of the pill.
+const START_H = 56;
+// The card sits at the navbar line, but the bet-slip pill sits ~this many px
+// HIGHER (above the navbar). As the card shrinks to the capsule it also rises
+// by this much so it lands ON the pill (not the navbar). Ramps in only over the
+// small end of the morph so the full card stays put at the navbar line.
+const PILL_RISE_PX = 62;
 // Top inset of the floating card's max height — the app header (sticky topbar,
 // ~88px on the 390×844 mockup) must stay visible, so the card can never grow
 // past this line. Only bounds the MAX height; small slips stay bottom-anchored.
@@ -56,7 +76,15 @@ const BOTTOM_GAP_PX = 16;
 // header is never dimmed, then ramps to full scrim just below it.
 const HEADER_UNDIM_PX = 88;
 
+// Full-card fill/border (dark). As the card shrinks toward the pill it
+// cross-fades to the PILL look below so the capsule reads as the SAME purple
+// bet-slip pill — NOT the dark navbar behind it.
 const SHEET_BG = 'linear-gradient(to bottom, #191919 0%, #0f0f0f 100%)';
+const CARD_BORDER = 'rgba(251,251,251,0.12)';
+// Purple pill fill/border — matches BetSlipSheet's GLASS_BG + #4b20ff border
+// (the collapsed pill), so the fully-shrunk capsule is pixel-close to the pill.
+const PILL_BG = 'linear-gradient(64.6deg, #14083d 0%, #230c3e 100%)';
+const PILL_BORDER = '#4b20ff';
 
 type Props = {
   selections: Selection[];
@@ -81,15 +109,47 @@ export function BetSlipFullSheet({
   const potentialWin = Math.round(cumulativeOdds * STAKE);
   const orderedSelections = [...selections].reverse(); // latest first
 
-  // Slide up on mount / down on unmount (imperative — mirrors BetSlipShell).
+  // SHAPE MORPH — the card grows out of the slip footprint on open and shrinks
+  // back INTO it on close (never slides like a bottom sheet). `openP` (1 = full
+  // card, 0 = pill-sized capsule) drives a clip-path reveal + content/backdrop
+  // crossfade both ways; the close is a spring (settles into the pill), and the
+  // swipe-down gesture drives `openP` directly (the card shrinks with the
+  // finger — mirroring BetSlipSheet's summarized↔pill collapse), NOT a y-slide.
   const [isPresent, safeToRemove] = usePresence();
-  const y = useMotionValue(900);
+  const openP = useMotionValue(0);
+
+  // Resting card height (content height, capped at the frame) — measured so the
+  // clip reveal knows how far to open; re-measured as selections change. Read
+  // synchronously before paint so the first frame starts at the right size.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const fullH = useMotionValue(560);
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => {
+      const h = el.offsetHeight;
+      if (h > 0) fullH.set(h);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (isPresent) {
-      const a = animate(y, 0, { type: 'spring', stiffness: 360, damping: 38 });
+      const a = animate(openP, 1, OPEN_SPRING);
       return () => a.stop();
     }
-    const a = animate(y, 900, { duration: 0.28, ease: [0.7, 0, 0.84, 0] });
+    // Reverse the morph on the SAME spring so the card settles down into the
+    // pill (never a fast slide-away), then unmount. A subtle squash pulse
+    // (same as the summarized slip's collapse) plays as it shrinks in.
+    scaleX.set(CLOSE_PULSE_SCALE_X);
+    scaleY.set(CLOSE_PULSE_SCALE_Y);
+    const px = animate(scaleX, 1, PULSE_SPRING);
+    const py = animate(scaleY, 1, PULSE_SPRING);
+    const a = animate(openP, 0, OPEN_SPRING);
     let done = false;
     a.then(() => {
       if (done) return;
@@ -99,13 +159,50 @@ export function BetSlipFullSheet({
     return () => {
       done = true;
       a.stop();
+      px.stop();
+      py.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresent]);
 
+  // Bottom-up clip reveal (top inset shrinks to 0 as it opens) + crossfades.
+  const clipPath = useTransform([openP, fullH], ([p, h]: number[]) => {
+    const top = Math.max(0, (h - START_H) * (1 - p));
+    return `inset(${top}px 0px 0px 0px round 28px)`;
+  });
+  const contentOpacity = useTransform(openP, [0.2, 0.8], [0, 1]);
+  const backdropOpacity = useTransform(openP, [0, 1], [0, 1]);
+  // Fill/border color morph — purple pill (small) ↔ dark card (full). Biased to
+  // the small end so the capsule is purple by the time it's pill-sized.
+  const cardDarkOpacity = useTransform(openP, [0.15, 0.55], [0, 1]);
+  const borderColor = useTransform(openP, [0.15, 0.55], [PILL_BORDER, CARD_BORDER]);
+  // Position morph — lift the card up to the pill's line as it shrinks (only
+  // over the small end, so the full card stays anchored at the navbar line).
+  const morphY = useTransform(openP, [0, 0.5], [-PILL_RISE_PX, 0]);
+  // Cross-fade the whole card against the real pill behind it at the very ends
+  // of the morph. On close this reveals the pill's CONTENT as the card fades
+  // (fixes the "empty pill" gap where the bare capsule covered the pill); on
+  // open the card fades in from the pill. Fast so it reads as a clean handoff.
+  const cardOpacity = useTransform(openP, [0, 0.12], [0, 1]);
+  // Squash-&-stretch pulse (scale), applied on the wrapper on close.
+  const scaleX = useMotionValue(1);
+  const scaleY = useMotionValue(1);
+
+  // Swipe-down drives the shrink-morph directly (openP follows the finger 1:1),
+  // so the card shrinks in place toward the pill — it does NOT translate like a
+  // bottom sheet. Mirrors BetSlipSheet's gesture-driven collapse.
+  const onCloseDragMove = (_e: unknown, info: PanInfo) => {
+    const range = Math.max(1, fullH.get() - START_H);
+    const p = info.offset.y > 0 ? Math.max(0, 1 - info.offset.y / range) : 1;
+    openP.set(p);
+  };
   const handleSheetDragEnd = (_e: unknown, info: PanInfo) => {
+    // Past the threshold → commit the close (the unmount spring finishes the
+    // shrink into the pill); otherwise spring the morph back open.
     if (info.offset.y > CLOSE_OFFSET_PX || info.velocity.y > CLOSE_VELOCITY) {
       onClose();
+    } else {
+      animate(openP, 1, OPEN_SPRING);
     }
   };
   // Close-drag is started manually so it never fires from the scrollable
@@ -123,11 +220,9 @@ export function BetSlipFullSheet({
       <motion.div
         className="absolute inset-0"
         style={{
+          opacity: backdropOpacity,
           background: `linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0) ${HEADER_UNDIM_PX}px, rgba(0,0,0,0.7) ${HEADER_UNDIM_PX + 20}px, rgba(0,0,0,0.7) 100%)`,
         }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
         onClick={onClose}
         aria-hidden
       />
@@ -143,16 +238,39 @@ export function BetSlipFullSheet({
           paddingBottom: `calc(env(safe-area-inset-bottom) + ${BOTTOM_GAP_PX}px)`,
         }}
       >
-      {/* FLOATING CARD — content-height, capped at the frame (max-h-full);
-          slides via `y`; drag down to close. */}
+      {/* POSITION-MORPH WRAPPER — translates the card up to the pill's line as
+          it shrinks (`morphY`), so the capsule lands ON the pill, not the navbar.
+          Also carries the close squash pulse (`scaleX`/`scaleY`, anchored bottom)
+          and the pill↔card cross-fade (`cardOpacity`, which reveals the real
+          pill's content on close so it never looks empty). Kept separate from
+          the draggable card so the drag (which drives openP) never fights it. */}
       <motion.div
-        className="flex max-h-full w-full flex-col overflow-hidden rounded-[28px] border border-[rgba(251,251,251,0.12)]"
-        style={{ y, backgroundImage: SHEET_BG }}
+        className="flex max-h-full w-full flex-col"
+        style={{
+          y: morphY,
+          scaleX,
+          scaleY,
+          opacity: cardOpacity,
+          transformOrigin: 'bottom center',
+        }}
+      >
+      {/* FLOATING CARD — content-height, capped at the frame (max-h-full). The
+          glass box GROWS out of / shrinks into the slip footprint via `clipPath`
+          (bottom-up reveal). It never TRANSLATES: swipe-down drives the shrink
+          via `onCloseDragMove` (so the card shrinks in place with the finger,
+          not a bottom-sheet slide). Its FILL + BORDER cross-fade between the dark
+          card look (full) and the purple pill look (capsule) so it clearly reads
+          as the same pill — not the dark navbar behind it. */}
+      <motion.div
+        ref={cardRef}
+        className="relative max-h-full w-full overflow-hidden rounded-[28px] border"
+        style={{ clipPath, borderColor }}
         drag="y"
         dragListener={false}
         dragControls={dragControls}
         dragConstraints={{ top: 0, bottom: 0 }}
-        dragElastic={{ top: 0, bottom: 0.5 }}
+        dragElastic={0}
+        onDrag={onCloseDragMove}
         onDragEnd={handleSheetDragEnd}
         onPointerDown={(e) => {
           // Close-drag only from sheet chrome — not the scroll list, thumb,
@@ -161,6 +279,24 @@ export function BetSlipFullSheet({
           if (el.closest('button') || el.closest('[data-scroll]')) return;
           dragControls.start(e);
         }}
+      >
+      {/* FILL — purple pill base (always on) with the dark card fill crossfading
+          over it by `cardDarkOpacity`: full card = dark, capsule = purple. */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: PILL_BG }}
+        aria-hidden
+      />
+      <motion.div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: SHEET_BG, opacity: cardDarkOpacity }}
+        aria-hidden
+      />
+      {/* CONTENT — crossfades in as the card grows (kept separate from the card
+          fill so the capsule itself stays solid during the reveal). */}
+      <motion.div
+        className="relative flex max-h-full w-full flex-col"
+        style={{ opacity: contentOpacity }}
       >
         {/* HANDLE — same grabber as the summarized slip; signals swipe-down to
             close. Part of the drag-to-close chrome (not a button/scroll area). */}
@@ -214,7 +350,7 @@ export function BetSlipFullSheet({
             sheet close-drag so it scrolls normally). */}
         <div
           data-scroll
-          className="relative min-h-px flex-1 overflow-y-auto"
+          className="no-scrollbar relative min-h-px flex-1 overflow-y-auto"
         >
           {orderedSelections.map((sel) => (
             <div key={sel.id} className="flex w-full items-stretch">
@@ -404,6 +540,8 @@ export function BetSlipFullSheet({
             <SwipeToConfirm stake={STAKE} onConfirm={onConfirm} heightPx={44} />
           </div>
         </div>
+      </motion.div>
+      </motion.div>
       </motion.div>
       </div>
     </div>
