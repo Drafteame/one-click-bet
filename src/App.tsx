@@ -307,6 +307,15 @@ export function App() {
     return s;
   }, [selections]);
 
+  // Whether the bet slip (collapsed pill OR expanded summarized card) is on
+  // screen. Drives BOTH the slip mount and the size of the dark gradient
+  // behind the navbar: the gradient only needs to extend up far enough to
+  // separate the slip from the content when the slip is present. When it's
+  // absent, the reserved slot collapses so the gradient shrinks to just the
+  // navbar band.
+  const betSlipVisible =
+    selections.length > 0 && !lightning && !success;
+
   /* ============================================================ */
   /*  Render                                                      */
   /* ============================================================ */
@@ -593,12 +602,20 @@ export function App() {
                   transition: 'background 700ms ease-out',
                 }}
               >
-                {/* Reserved-height slot — keeps navbar pinned regardless
-                    of whether the slip is mounted. */}
+                {/* Reserved-height slot. The slip is anchored to its BOTTOM
+                    (against the navbar), so this height only controls how far
+                    the dark gradient extends ABOVE the slip. It reserves the
+                    full height while the slip (or the post-success prompt) is
+                    on screen — giving the gradient enough reach to separate
+                    the slip from the content — and collapses to 0 otherwise so
+                    the gradient shrinks to just the navbar band. */}
                 <div
-                  className="relative"
+                  className="relative transition-[height] duration-300 ease-out"
                   style={{
-                    height: buttonProgressionConfig.slotReservedHeightPx,
+                    height:
+                      betSlipVisible || promptMounted
+                        ? buttonProgressionConfig.slotReservedHeightPx
+                        : 0,
                   }}
                 >
                   {/* BET SLIP — a single morphing sheet (collapsed pill ↔
@@ -609,7 +626,7 @@ export function App() {
                       element ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
-                      {selections.length > 0 && !lightning && !success && (
+                      {betSlipVisible && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
