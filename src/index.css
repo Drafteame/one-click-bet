@@ -449,6 +449,23 @@ body {
 
 .qb-hold {
   position: relative;
+  /* Progressive "charging" glow — intensifies smoothly with --qb-progress,
+     reusing the exact selected-state palette (lime #d2ff72 / cyan #56deea)
+     so it reads as an extension of that color, not a new accent. Applied
+     to the REAL element (not a pseudo-element) so it isn't clipped by the
+     fill's own scaleX box and isn't squashed as the fill grows. Two soft
+     layers (lime front, cyan behind) at modest blur/alpha ceilings — no
+     spread, kept low-alpha and desaturated-adjacent (not neon) — so it
+     stays a gentle ambient glow rather than a saturated halo. Box-shadow on
+     a small element is cheap on mobile GPUs; no separate transition is
+     needed since --qb-progress is already written every frame (or
+     interpolated during the reverse/cancel transition), so this simply
+     recomputes alongside it for free. */
+  box-shadow:
+    0 0 calc(var(--qb-progress, 0) * 10px) calc(var(--qb-progress, 0) * 1px)
+      rgba(210, 255, 114, calc(var(--qb-progress, 0) * 0.32)),
+    0 0 calc(var(--qb-progress, 0) * 18px) calc(var(--qb-progress, 0) * 2px)
+      rgba(86, 222, 234, calc(var(--qb-progress, 0) * 0.18));
 }
 
 /* Cancellation reverse (early release / pointer leave / cancel) is applied
@@ -479,16 +496,58 @@ body {
    ellipse on the leading edge mid-animation. Instead this stays a plain
    rectangle and relies on the button's own `overflow-hidden` + border-
    radius (already present on every .qb-hold target) to clip it to the
-   correct rounded shape — so the corners stay circular throughout. */
+   correct rounded shape — so the corners stay circular throughout.
+
+   Two extra touches layered on TOP of the base gradient, both driven by
+   the same --qb-progress value so they need no separate JS/timing:
+     - A diagonal shimmer/reflection band (the repeating-linear-gradient +
+       animated background-position below). Painted INSIDE this same box,
+       so it's automatically bounded to the currently-filled width by the
+       box's own scaleX — no separate clipping needed. Runs as a
+       continuous compositor-only animation; at --qb-progress:0 the box has
+       zero width so it's invisible with no separate start/stop wiring.
+     - A very slight extra `scale()` composed into the SAME transform,
+       barely growing the fill as progress climbs (max +1.5%). Deliberately
+       NOT applied to the real button element — PromoCarousel's odds
+       buttons already use `active:scale-[0.96]` on `:active`, which is
+       true for the button's entire held duration and would completely
+       override any scale applied there. Scaling this pseudo-element
+       instead sidesteps that conflict everywhere .qb-hold is used.
+   Saturation nudges up slightly near completion via `filter` — cheap (no
+   blur), just a color-matrix op, negligible cost at this element size. */
 .qb-hold::before {
   z-index: 4;
-  background: linear-gradient(
-    to bottom,
-    rgba(210, 255, 114, 0.16),
-    rgba(86, 222, 234, 0.16)
-  );
-  transform: scaleX(var(--qb-progress, 0));
+  background:
+    repeating-linear-gradient(
+      115deg,
+      transparent 0%,
+      transparent 40%,
+      rgba(255, 255, 255, 0.22) 48%,
+      rgba(255, 255, 255, 0.22) 52%,
+      transparent 60%,
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(210, 255, 114, 0.16),
+      rgba(86, 222, 234, 0.16)
+    );
+  background-size: 260% 100%, 100% 100%;
+  background-position: 200% 0, 0 0;
+  animation: qb-shimmer 2.4s linear infinite;
+  filter: saturate(calc(1 + var(--qb-progress, 0) * 0.35));
+  transform: scaleX(var(--qb-progress, 0))
+    scale(calc(1 + var(--qb-progress, 0) * 0.015));
   transform-origin: left center;
+}
+
+@keyframes qb-shimmer {
+  from {
+    background-position: 200% 0, 0 0;
+  }
+  to {
+    background-position: -60% 0, 0 0;
+  }
 }
 
 /* Stroke ring — a conic-gradient wedge masked down to a thin border via
