@@ -69,6 +69,35 @@ export const buttonProgressionConfig = {
   slotReservedHeightPx: 72,
 
   /* --------------------------------------------------------------- */
+  /*  QUICK BET — hold-to-confirm (long-press) progress               */
+  /*  Single source of truth for the long-press duration: the same    */
+  /*  value drives BOTH the visual fill/stroke progress on the pick     */
+  /*  button (see .qb-hold in index.css) AND the moment the entry is    */
+  /*  actually confirmed (useLongPress in HomeScreen.tsx) — one clock,  */
+  /*  so the visual and the confirmation can never drift apart.         */
+  /*                                                                    */
+  /*  reverseMs is the OTHER shared timing constant: how long the        */
+  /*  fill takes to animate back to 0 when a hold is cancelled (early      */
+  /*  release / pointer leave / cancel) — built directly into an inline     */
+  /*  `transition` in useLongPress's reset() (HomeScreen.tsx), so there's     */
+  /*  one shared value rather than a hardcoded duplicate in CSS.               */
+  /*                                                                         */
+  /*  strokeCompleteMs — EXPERIMENTAL (background-only progress treatment,    */
+  /*  branch qb-background-only-experiment): during the hold, only the fill   */
+  /*  (--qb-progress) communicates progress; the stroke stays static. On       */
+  /*  successful completion, the stroke plays a single fast accent sweep        */
+  /*  (--qb-stroke-progress, a SEPARATE custom property so it never tracks       */
+  /*  the 3s hold) using this duration, then clears. Previous version (fill+     */
+  /*  stroke moving together throughout the hold) is preserved at git tag        */
+  /*  pre-bg-only-qb-experiment.                                                  */
+  /* --------------------------------------------------------------- */
+  longPress: {
+    durationMs: 3000,
+    reverseMs: 300,
+    strokeCompleteMs: 220,
+  },
+
+  /* --------------------------------------------------------------- */
   /*  EXPLORATION — Sparkles + fire sparks                           */
   /* --------------------------------------------------------------- */
   // Edge-flash sparkles now appear at T1+, with density rising per tier.

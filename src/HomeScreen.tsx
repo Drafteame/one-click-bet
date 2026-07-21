@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import betsIcon from './assets/bets.svg';
 import chevronIcon from './assets/chevron.svg';
 import gamingIcon from './assets/gaming.svg';
@@ -13,6 +14,7 @@ import searchIcon from './assets/search.svg';
 import shieldIcon from './assets/shield.svg';
 import statsIcon from './assets/stats.svg';
 import userIcon from './assets/user.svg';
+import { buttonProgressionConfig } from './buttonProgressionConfig';
 import type { Selection } from './types';
 
 /* ============================================================ */
@@ -373,51 +375,280 @@ function TabsAndPills() {
 /*  Promo carousel — Champions card with PSG vs Real Madrid     */
 /* ============================================================ */
 /*  Long-press → "Lightning Straight Bet" (instant entry).       */
-/*  Returns props to spread on a pick button: a hold past `delay`  */
-/*  fires onLongPress(id) and suppresses the tap that follows; a    */
-/*  quick tap fires onTap(id) as usual. One press at a time, so a   */
-/*  single timer ref is enough.                                     */
+/*  Returns per-id bind props for a pick button: holding past       */
+/*  LONG_PRESS_MS fires onLongPress(id) and suppresses the tap that  */
+/*  follows; releasing early — or the pointer leaving the button, or  */
+/*  the browser cancelling the pointer because a scroll gesture was    */
+/*  recognized — fires onTap(id) instead, as a normal add/remove       */
+/*  toggle. One press in flight at a time (matches the single-timer     */
+/*  design this replaces): starting a new press always cancels          */
+/*  whatever was previously in flight first.                             */
+/*                                                                        */
+/*  Progress is written directly onto the pressed button's own DOM        */
+/*  node as the --qb-progress CSS custom property (0..1) inside a single   */
+/*  requestAnimationFrame loop — NOT React state — so the button's         */
+/*  .qb-hold fill/stroke (src/index.css) update at 60fps with zero          */
+/*  React re-renders. The SAME elapsed-time check that drives the visual     */
+/*  also fires onLongPress, so the fill/stroke and the Quick Bet              */
+/*  confirmation are mathematically synchronized — one clock, not a           */
+/*  setTimeout racing an independent animation.                                */
 /* ============================================================ */
-const LONG_PRESS_MS = 450;
+const LONG_PRESS_MS = buttonProgressionConfig.longPress.durationMs;
+
+// How long a CANCELLED hold takes to animate back to 0 (early release /
+// pointer leave / cancel) — used directly below to build the inline
+// `transition` set in reset(), so there's one shared constant driving it,
+// not a number duplicated in CSS.
+const REVERSE_MS = buttonProgressionConfig.longPress.reverseMs;
+
+// Delay before a COMPLETED hold's overlay is cleared back to 0. The overlay
+// at progress=1 already renders the exact selected-state colors (see
+// .qb-hold in index.css), so the real "selected" styling that onLongPress
+// triggers (a React state update) lands visually identical — but React
+// needs a moment to commit + paint it. Clearing the overlay immediately
+// (synchronously, before that paint) would flash the button back to its
+// UNSELECTED look for a frame first. This delay is a large safety margin
+// over one paint cycle while staying well under LIGHTNING_SELECT_MS
+// (320ms), so there's never a visible seam either way.
+const COMPLETE_CLEAR_DELAY_MS = 150;
+
+// EXPERIMENTAL (background-only progress treatment, branch
+// qb-background-only-experiment): how long the completion-accent stroke
+// sweep takes. The stroke stays static (0) throughout the hold — this is
+// the ONLY time it ever animates, a single fast sweep fired once the hold
+// reaches 100%. Deliberately much faster than REVERSE_MS/LONG_PRESS_MS since
+// it's a completion accent, not a second loading indicator. Cleared shortly
+// after it finishes (see the small safety margin where it's used below).
+// Previous version (stroke tracking --qb-progress throughout the hold) is
+// preserved at git tag pre-bg-only-qb-experiment.
+const STROKE_COMPLETE_MS = buttonProgressionConfig.longPress.strokeCompleteMs;
+
 function useLongPress(
-  onLongPress: (id: string) => void,
+  // Returns whether the bet was actually accepted (see App.tsx's
+  // lightningBet) — used to decide whether the completion-stroke accent
+  // plays (accepted) or the fill reverses same as a cancellation (rejected),
+  // so the visual can never show "completed" when nothing was selected.
+  onLongPress: (id: string) => boolean,
   onTap: (id: string) => void,
 ) {
-  const timer = useRef<number | null>(null);
-  const fired = useRef(false);
-  const clear = () => {
-    if (timer.current != null) {
-      clearTimeout(timer.current);
-      timer.current = null;
+  const activeEl = useRef<HTMLElement | null>(null);
+  const activeId = useRef<string | null>(null);
+  const rafId = useRef<number | null>(null);
+  const startedAt = useRef(0);
+  // Suppresses the click that follows a completed long-press (the browser
+  // fires `click` right after `pointerup` even though onLongPress already ran).
+  const completed = useRef(false);
+  // Suppresses the click after a CANCELLED hold (early release). If the user
+  // held long enough to show progress, then released before 100%, the hold was
+  // cancelled — don't toggle the selection. But if they tapped super quickly
+  // without engaging meaningful progress, let it toggle normally. We track
+  // this by checking if progress ever got above a tiny threshold (0.5%) — if
+  // so, it's an engaged hold, and release means cancel, not tap.
+  const cancelledHold = useRef(false);
+
+  const writeProgress = (el: HTMLElement | null, p: number) => {
+    el?.style.setProperty('--qb-progress', String(p));
+  };
+
+  // EXPERIMENTAL (qb-background-only-experiment): --qb-stroke-progress is a
+  // SEPARATE property from --qb-progress so the stroke never tracks the
+  // hold — it's only ever written by the completion-accent sweep below.
+  const writeStrokeProgress = (el: HTMLElement | null, p: number) => {
+    el?.style.setProperty('--qb-stroke-progress', String(p));
+  };
+
+  const stopLoop = () => {
+    if (rafId.current != null) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = null;
     }
   };
-  return (id: string) => ({
-    onPointerDown: () => {
-      fired.current = false;
-      clear();
-      timer.current = window.setTimeout(() => {
-        fired.current = true;
-        timer.current = null;
-        onLongPress(id);
-      }, LONG_PRESS_MS);
+
+  // Cancels whatever press is currently in flight, if any, WITHOUT firing
+  // onLongPress — no entry is ever created here. Animates the fill/stroke
+  // smoothly back to 0 (same direction as the fill, just running in
+  // reverse) rather than snapping instantly, via an INLINE `transition`
+  // (not a CSS class) — so cancellation reads as an intentional, polished
+  // reversal instead of an abrupt stop.
+  //
+  // Inline style, not a class: an early release would normally fall through
+  // to onClick → onTap, toggling the selection. But if this hold was ENGAGED
+  // (progress showed), we suppress that toggle by setting cancelledHold so
+  // onClick can distinguish between "cancelled hold" (suppress toggle) and
+  // "quick tap that didn't engage" (allow toggle). We check if the current
+  // progress is > 5% — if so, the hold was engaged (user held > ~150ms);
+  // on release, it should cancel entirely, not toggle the selection. Below
+  // 5% (~150ms), it's treated as a quick tap and allowed to toggle normally.
+  //
+  // `completed` is explicitly cleared here too (not just before a fresh
+  // press) so a cancelled hold can never be mistaken for a completed one by
+  // the onClick guard below. Safe to call when nothing is pressing (no-op).
+  const reset = () => {
+    stopLoop();
+    completed.current = false;
+    const el = activeEl.current;
+    if (el != null) {
+      // Check if this was an engaged hold (not just a quick tap) by measuring
+      // elapsed time, not progress — progress values might be stale or not yet
+      // updated by the rAF loop. If user held > 150ms, it's a meaningful hold
+      // that got cancelled (not a quick tap). On release, don't toggle selection.
+      const elapsedMs = performance.now() - startedAt.current;
+      if (elapsedMs > 150) {
+        // This hold was engaged (> 150ms) — cancelling it should NOT toggle
+        cancelledHold.current = true;
+      }
+
+      el.style.transition = `--qb-progress ${REVERSE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+      // Force a reflow so the transition is committed BEFORE the value
+      // change below — otherwise the browser can collapse both into a
+      // single style recalc and skip the transition entirely.
+      void el.offsetWidth;
+      writeProgress(el, 0);
+    }
+    activeEl.current = null;
+    activeId.current = null;
+  };
+
+  const tick = () => {
+    const elapsed = performance.now() - startedAt.current;
+    const p = Math.min(1, elapsed / LONG_PRESS_MS);
+    writeProgress(activeEl.current, p);
+    if (p >= 1) {
+      const id = activeId.current;
+      const el = activeEl.current;
+      stopLoop();
+      activeEl.current = null;
+      activeId.current = null;
+
+      // Call the functional confirmation FIRST and branch the visual on its
+      // real result — the stroke accent must never play (and the button
+      // must never look "completed") unless the bet was actually accepted.
+      // This is what keeps the visual from lying when a completed hold gets
+      // rejected (e.g. some future guard/edge case in lightningBet).
+      const accepted = id != null ? onLongPress(id) : false;
+      completed.current = accepted;
+      if (!accepted) {
+        cancelledHold.current = true; // treat exactly like a cancelled hold
+      }
+
+      if (el != null) {
+        if (accepted) {
+          window.setTimeout(() => writeProgress(el, 0), COMPLETE_CLEAR_DELAY_MS);
+
+          // EXPERIMENTAL (qb-background-only-experiment): fire the
+          // completion-accent stroke sweep — the ONLY time the stroke
+          // animates. Fast + ease-out, reusing the same curve as the
+          // cancellation reverse for visual consistency. Keep the fill
+          // visible (untouched here) while this plays on top of it.
+          el.style.transition = `--qb-stroke-progress ${STROKE_COMPLETE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+          void el.offsetWidth; // commit the transition before the value change
+          writeStrokeProgress(el, 1);
+          // Clear back to 0 once the sweep finishes (+ a small safety
+          // margin) — by then the real selected-state border (identical
+          // color/width) is already showing underneath, so this reveals it
+          // with no visible seam, same technique as the fill's own clear.
+          window.setTimeout(
+            () => {
+              el.style.transition = '';
+              writeStrokeProgress(el, 0);
+            },
+            STROKE_COMPLETE_MS + 60,
+          );
+        } else {
+          // Rejected — no stroke accent, no entry. Reverse the fill exactly
+          // like a cancellation so the UI never shows a false "completed"
+          // look for a hold that produced no selection.
+          el.style.transition = `--qb-progress ${REVERSE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+          void el.offsetWidth;
+          writeProgress(el, 0);
+        }
+      }
+      return;
+    }
+    rafId.current = requestAnimationFrame(tick);
+  };
+
+  // Exposed so a parent can cancel an in-flight press when the selection it
+  // belongs to becomes unavailable (e.g. MarketAccordion collapsing while a
+  // card is held). `reset` is pure ref-manipulation with no external
+  // dependencies, so freezing this closure is safe.
+  const cancelActivePress = useCallback(() => {
+    if (rafId.current != null) reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Unmount safety — stop the loop if the owning component unmounts mid-press.
+  useEffect(() => stopLoop, []);
+
+  // NOT memoized (matches the pattern this replaces): recreated every render
+  // so it always closes over the CURRENT onLongPress/onTap — needed because
+  // App.tsx's lightningBet now depends on state (see the duplicate-entry
+  // guard) and gets a new identity when that state changes.
+  const bind = (id: string) => ({
+    onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      completed.current = false;
+      cancelledHold.current = false; // Fresh press — not cancelled yet
+      reset(); // cancel anything else in flight before starting fresh
+      // The interactive target (e.currentTarget — e.g. the whole player
+      // card) and the visual progress target can differ: a descendant
+      // marked data-qb-progress-target (e.g. MarketAccordion's odds pill)
+      // takes the fill/stroke instead, so only that smaller element
+      // visually animates while the larger card stays the press target.
+      // Falls back to the interactive element itself when no such
+      // descendant exists (e.g. PromoCarousel's odds buttons).
+      const visualTarget =
+        (e.currentTarget.querySelector(
+          '[data-qb-progress-target]',
+        ) as HTMLElement | null) ?? e.currentTarget;
+      // Starting fresh must be instantly responsive even if THIS exact
+      // element is still mid-reverse from a just-cancelled hold (e.g. the
+      // user releases, then immediately presses again) — clear the inline
+      // transition and hard-set progress to 0 with no animation, so the
+      // rAF loop's per-frame writes below aren't smoothed/lagged by a
+      // leftover transition, and the new hold visibly starts climbing from
+      // 0 right away rather than waiting on the reverse to finish.
+      visualTarget.style.transition = '';
+      writeProgress(visualTarget, 0);
+      // EXPERIMENTAL (qb-background-only-experiment): also hard-reset the
+      // stroke accent in case a just-completed hold's sweep-then-clear
+      // timeout hasn't fired yet (e.g. immediately re-pressing right after
+      // a completion) — the stroke must start every fresh hold static.
+      writeStrokeProgress(visualTarget, 0);
+      activeEl.current = visualTarget;
+      activeId.current = id;
+      startedAt.current = performance.now();
+      rafId.current = requestAnimationFrame(tick);
     },
-    onPointerUp: clear,
-    onPointerLeave: clear,
-    onPointerCancel: clear,
+    onPointerUp: () => {
+      if (activeId.current === id) reset();
+    },
+    onPointerLeave: () => {
+      if (activeId.current === id) reset();
+    },
+    onPointerCancel: () => {
+      if (activeId.current === id) reset();
+    },
     onClick: () => {
-      if (fired.current) {
-        fired.current = false; // long-press already created the entry
+      if (completed.current) {
+        completed.current = false; // long-press already created the entry
         return;
       }
+      if (cancelledHold.current) {
+        cancelledHold.current = false; // cancelled hold — don't toggle
+        return;
+      }
+      // Only reach here on a quick tap (too fast to engage progress)
       onTap(id);
     },
   });
+
+  return { bind, cancelActivePress };
 }
 
 type PromoCarouselProps = {
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
 };
 
 function PromoCarousel({
@@ -425,7 +656,7 @@ function PromoCarousel({
   onTogglePick,
   onLightningBet,
 }: PromoCarouselProps) {
-  const bindPick = useLongPress(onLightningBet, onTogglePick);
+  const { bind: bindPick } = useLongPress(onLightningBet, onTogglePick);
   // Card matches Figma "newLeagueMarkets" (1624:44632).
   // Missing asset: the decorative "light" glow blob positioned at the
   // top of the card (imgLight in the Figma export). Skipped here —
@@ -530,7 +761,7 @@ function PromoCarousel({
                 key={o.id}
                 type="button"
                 {...bindPick(o.id)}
-                className={`flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
+                className={`qb-hold flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
                   selected
                     ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
                     : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] hover:bg-[rgba(251,251,251,0.14)]'
@@ -590,7 +821,7 @@ type MarketProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
 };
 
 type PlayerMeta = {
@@ -678,10 +909,20 @@ function MarketAccordion({
   onLightningBet,
 }: MarketProps) {
   const [isOpen, setIsOpen] = useState(true);
-  const bindPick = useLongPress(onLightningBet, onTogglePick);
+  const { bind: bindPick, cancelActivePress } = useLongPress(
+    onLightningBet,
+    onTogglePick,
+  );
   // Only show picks that are mapped to a player. Other picks (team
   // wins / draw / combos / goleada) don't fit this layout.
   const playerPicks = picks.filter((p) => PLAYER_META[p.id]);
+
+  // Collapsing the accordion unmounts the player cards below — the
+  // selection being held becomes unavailable, so cancel any in-flight
+  // Quick Bet hold instead of leaving its timer/rAF loop dangling.
+  useEffect(() => {
+    if (!isOpen) cancelActivePress();
+  }, [isOpen, cancelActivePress]);
 
   return (
     <div className="w-full border-b border-[rgba(251,251,251,0.12)] bg-black px-3 pb-3">
@@ -732,7 +973,10 @@ function MarketAccordion({
                   {...bindPick(p.id)}
                   // Selected state changes ONLY the odds button at the
                   // bottom (lime-cyan gradient + Bold odds); the outer
-                  // card border stays neutral in both states.
+                  // card border stays neutral in both states. The Quick Bet
+                  // hold-progress visual is scoped to that same odds button
+                  // (data-qb-progress-target below) — the card itself stays
+                  // the press TARGET (unchanged) but does not animate.
                   className="relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.12)] bg-black p-2.5 transition-all duration-200 active:scale-[0.98]"
                 >
                   {/* TODO: decorative "light" glow at top of card —
@@ -813,9 +1057,13 @@ function MarketAccordion({
                   </div>
 
                   {/* Odds button at the bottom — same default/selected
-                      visual language as the PromoCarousel buttons. */}
+                      visual language as the PromoCarousel buttons. This is
+                      the Quick Bet hold-progress TARGET (data-qb-progress-
+                      target): the fill/stroke render only here, not across
+                      the whole card, even though the card is what's held. */}
                   <div
-                    className={`flex h-11 w-full items-center justify-center overflow-hidden rounded-xl border px-3 py-1 ${
+                    data-qb-progress-target="true"
+                    className={`qb-hold flex h-11 w-full items-center justify-center overflow-hidden rounded-xl border px-3 py-1 ${
                       selected
                         ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
                         : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)]'
@@ -1014,7 +1262,7 @@ type HomeScreenChromeProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
   /** Scroll-direction signal (shared with the navbar): true while scrolling
       DOWN → collapse the leagues row; false on scroll-up / near-top → reveal. */
   headerCollapsed?: boolean;

@@ -10,11 +10,22 @@ import reusarIcon from './assets/reusar.svg';
 import { BetSlipFullSheet } from './BetSlipFullSheet';
 import { BetSlipSheet } from './BetSlipSheet';
 import { EntryCreatedOverlay } from './EntryCreatedOverlay';
+import { OnboardingSheet } from './OnboardingSheet';
+import { useQuickBetAmount } from './quickBetSettings';
 import type { Selection, Tier } from './types';
 
 // Lightning bet: how long the pressed pick shows its selected state before the
 // entry-creation animation starts.
 const LIGHTNING_SELECT_MS = 320;
+
+// QUICK BET ONBOARDING — shown once per browser session (sessionStorage, so
+// it clears on tab/browser close but survives a same-tab reload). Bumping the
+// suffix (v1) invalidates every previously-stored session if the sheet's
+// content changes enough to warrant re-showing it.
+const ONBOARDING_STORAGE_KEY = 'qb:onboarding-shown:v1';
+// Delay before the sheet auto-opens on first load — lets the entry
+// animations (slip mount, etc.) settle first so it doesn't fight them.
+const ONBOARDING_AUTO_OPEN_DELAY_MS = 600;
 
 /* ============================================================ */
 /*  Debug overlay helpers                                        */
@@ -44,6 +55,17 @@ function useDebug() {
   return useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('debug') === 'true';
+  }, []);
+}
+
+// DEV OVERRIDE — `?forceOnboarding=true` bypasses the sessionStorage check so
+// the onboarding sheet always auto-opens on load, regardless of prior
+// dismissal in this session. Doesn't touch storage itself; a normal dismissal
+// while the override is active still writes ONBOARDING_STORAGE_KEY as usual.
+function useForceOnboarding() {
+  return useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('forceOnboarding') === 'true';
   }, []);
 }
 
@@ -86,12 +108,20 @@ function selectionsForTier(target: Tier): Selection[] {
 
 export function App() {
   const debug = useDebug();
+  const forceOnboarding = useForceOnboarding();
   // MASTER SWITCH — see cfg.animationsEnabled. OR-ing it here suppresses the
   // T4 Siri vignette rotation (and, via the opacity gate below, the vignette
   // itself) alongside the OS-level reduced-motion preference.
   const reducedMotion =
     useReducedMotion() || !buttonProgressionConfig.animationsEnabled;
   const [selections, setSelections] = useState<Selection[]>([]);
+  // QUICK BET ONBOARDING — auto-opens once per session (see the effect below);
+  // `?forceOnboarding=true` or the debug-overlay button can reopen it anytime.
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // Quick Bet default stake — lifted here (not local to OnboardingSheet) so
+  // it survives the sheet's own mount/unmount and is restored on reopen.
+  // Persisted in localStorage by the hook itself; see quickBetSettings.ts.
+  const [quickBetAmount, setQuickBetAmount] = useQuickBetAmount();
   const [speedScale, setSpeedScale] = useState(1);
   const [live, setLive] = useState<ButtonLiveState | null>(null);
   // PASS 3 — Tier 3 odds effect selector (default flames; toggled in debug).
@@ -116,6 +146,46 @@ export function App() {
   // the selected state) but the slip is suppressed; the entry is created a
   // beat later. See lightningBet().
   const [lightning, setLightning] = useState(false);
+
+  // QUICK BET ONBOARDING — auto-open once per browser session. Mount-only
+  // (empty deps): reads sessionStorage + the dev override once, then waits
+  // ONBOARDING_AUTO_OPEN_DELAY_MS before opening so it doesn't fight the
+  // slip's own entry animation. Re-checks the incompatible-state flags
+  // (listOpen/success/lightning) at fire time, not just at mount, since a
+  // debug jump-to-tier or lightning bet could in principle land inside that
+  // short delay window — if so, it skips silently rather than popping the
+  // sheet over another in-flight overlay (no retry: this is a first-load
+  // courtesy, not a persistent nag).
+  useEffect(() => {
+    let alreadyShown = false;
+    try {
+      alreadyShown = sessionStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+    } catch {
+      // Storage unavailable (e.g. private-mode edge cases) — treat as unseen.
+    }
+    if (alreadyShown && !forceOnboarding) return;
+    const t = window.setTimeout(() => {
+      if (listOpen || success || lightning) return;
+      setOnboardingOpen(true);
+    }, ONBOARDING_AUTO_OPEN_DELAY_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Dismissal (× button, backdrop tap, swipe-down, or the primary CTA) —
+  // persists "seen" for the rest of this browser session so it doesn't
+  // reappear on a same-tab reload or route change, then unmounts the sheet
+  // (AnimatePresence plays the close animation first).
+  const closeOnboarding = useCallback(() => {
+    try {
+      sessionStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+    } catch {
+      // Storage unavailable — the sheet just won't persist across reloads
+      // this session; still closes correctly for the current view.
+    }
+    setOnboardingOpen(false);
+  }, []);
+
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
   // Navbar compresses to an icon-only row while scrolling DOWN through the
@@ -255,24 +325,10 @@ export function App() {
     setSuccess(true);
   }, []);
 
-  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
-  // First applies the SELECTED state to the pressed pick (add it, so its button
-  // lights up) while suppressing the slip via `lightning`; a beat later plays
-  // only the green success animation. `finishEntryCreated` then runs the usual
-  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
-  const lightningBet = useCallback((id: string) => {
-    const pick = MOCK_PICKS.find((p) => p.id === id);
-    if (!pick) return;
-    playSelectionHaptic();
-    setListOpen(false);
-    setExpanded(false);
-    setLightning(true);
-    setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
-    // Hold the selected state briefly, then create the entry.
-    window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
-  }, []);
-
-  // Fired when the green ticket has flown into Mis entradas.
+  // Fired when the green ticket has flown into Mis entradas — settles the
+  // entry (badge bump, count, "¿Reusar?" prompt) and returns to idle.
+  // Defined before lightningBet, which can also call this directly (see
+  // below) to settle a previous entry early.
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
     setLightning(false);
@@ -281,6 +337,47 @@ export function App() {
     setEntryCount((c) => c + 1);
     setPromptOpen(true);
   }, []);
+
+  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
+  // First applies the SELECTED state to the pressed pick (add it, so its button
+  // lights up) while suppressing the slip via `lightning`; a beat later plays
+  // only the green success animation. `finishEntryCreated` then runs the usual
+  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
+  //
+  // Returns whether the bet was actually accepted. useLongPress's completion
+  // path (HomeScreen.tsx) uses this to decide whether to play the fast
+  // completion-stroke accent (accepted) or reverse the fill same as a
+  // cancellation (rejected) — the visual never claims success this function
+  // didn't actually deliver.
+  const lightningBet = useCallback(
+    (id: string): boolean => {
+      const pick = MOCK_PICKS.find((p) => p.id === id);
+      if (!pick) return false;
+      // A previous Quick Bet can still be mid-flight (selected-state hold or
+      // success animation still playing) when THIS one completes — e.g. two
+      // Quick Bets held back-to-back. Rather than silently dropping the new
+      // one (which left the pressed button's fill/stroke completing with no
+      // resulting selection — the bug this guard used to cause), settle the
+      // previous entry immediately so every completed 3-second hold reliably
+      // produces exactly one entry. This cuts the previous entry's success
+      // animation short, but its count/badge still land correctly — an
+      // acceptable trade-off given the user has already moved on to a new
+      // hold. EntryCreatedOverlay reads no selection-specific data, so
+      // interrupting it here is visually safe.
+      if (success || lightning) {
+        finishEntryCreated();
+      }
+      playSelectionHaptic();
+      setListOpen(false);
+      setExpanded(false);
+      setLightning(true);
+      setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
+      // Hold the selected state briefly, then create the entry.
+      window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
+      return true;
+    },
+    [success, lightning, finishEntryCreated],
+  );
 
   /* ---------- tier-crossing haptic ---------- */
   // Watch `tier` for changes. On any transition between adjacent tiers
@@ -518,6 +615,15 @@ export function App() {
                   >
                     T3 odds effect: {tier3OddsEffect === 'flames' ? '🔥 flames' : '💨 smoke'}
                   </button>
+                  {/* DEV OVERRIDE — reopens the Quick Bet onboarding sheet on
+                      demand, bypassing the sessionStorage "already seen"
+                      check (same effect as loading with ?forceOnboarding=true). */}
+                  <button
+                    onClick={() => setOnboardingOpen(true)}
+                    className="mt-1.5 w-full rounded-md bg-white/10 px-2 py-1.5 text-[11px] font-bold text-white"
+                  >
+                    Show onboarding sheet
+                  </button>
                 </div>
               )}
 
@@ -736,6 +842,24 @@ export function App() {
                 onDone={finishEntryCreated}
               />
             )}
+
+            {/* Quick Bet onboarding — first-visit info sheet for the
+                long-press gesture (see the auto-open effect above). Mounted
+                at the same level as BetSlipFullSheet/EntryCreatedOverlay so
+                it shares the phone-frame's clipping bounds and z-stack;
+                never coexists with them (the auto-open effect checks
+                listOpen/success/lightning before opening), so there's no
+                stacking conflict to resolve here. */}
+            <AnimatePresence>
+              {onboardingOpen && (
+                <OnboardingSheet
+                  key="onboarding-sheet"
+                  onClose={closeOnboarding}
+                  quickBetAmount={quickBetAmount}
+                  onQuickBetAmountChange={setQuickBetAmount}
+                />
+              )}
+            </AnimatePresence>
 
             {/* Debug overlay (tier badge + live ambient phases) */}
             {debug && (

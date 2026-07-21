@@ -123,8 +123,11 @@ function ticketGlow(glowV: number): string {
 
 /** The ticket face — one SVG path (radial-green fill + gradient rim stroke,
  *  notches included) with the check + message overlaid. `entering` plays the
- *  content pop. Shared by the resting ticket and the flying clone. */
-function TicketFace({ entering = false }: { entering?: boolean }) {
+ *  content pop. Shared by the resting ticket and the flying clone, and
+ *  exported for OnboardingSheet.tsx's instructional demo loop (Task 7) —
+ *  the demo drives its own reveal/pop/glow via CSS instead of `entering`,
+ *  since it needs to repeat every cycle, not just once on mount. */
+export function TicketFace({ entering = false }: { entering?: boolean }) {
   return (
     <>
       <svg
