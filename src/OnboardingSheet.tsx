@@ -7,7 +7,7 @@ import {
   useTransform,
   type PanInfo,
 } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import checkboxCheckIcon from './assets/checkbox-check.svg';
 import closeIcon from './assets/close.svg';
 import editIcon from './assets/edit.svg';
@@ -112,19 +112,39 @@ type Props = {
   onQuickBetAmountChange: (value: string) => void;
 };
 
-/** Tracks `window.visualViewport.height` so the sheet can shrink to the
- *  space actually visible above the on-screen keyboard — `100dvh`/`vh`
- *  don't reflect the OSK on most mobile browsers, only browser-chrome
- *  changes, so they can't be used for this on their own. Falls back to
- *  `null` (caller uses 100% of its container) when the API is unsupported. */
-function useVisualViewportHeight(): number | null {
-  const [height, setHeight] = useState<number | null>(
-    () => window.visualViewport?.height ?? null,
+/** Tracks the on-screen keyboard's footprint via `window.visualViewport` —
+ *  `100dvh`/`vh` don't reflect the OSK on most mobile browsers (only
+ *  browser-chrome changes), so they can't be used for this on their own.
+ *  Returns both:
+ *    - `height`: the space actually visible above the keyboard.
+ *    - `offsetTop`: how far that visible area has panned down from the
+ *      layout viewport's own top. Non-zero on iOS Safari, which auto-
+ *      scrolls the page to keep the focused input above the keyboard.
+ *  BOTH are required together — using height alone silently assumes
+ *  offsetTop is always 0, which under-covers the sheet by exactly the pan
+ *  distance the moment that assumption breaks (this was the root cause of
+ *  the sheet appearing "cut off" with Home content exposed below it: the
+ *  prior height-only calc stayed internally consistent but never accounted
+ *  for the page having panned, so the sheet's computed bottom edge landed
+ *  above the keyboard's real top edge by the pan amount).
+ *  Falls back to `null` (caller uses its container's own bounds) when the
+ *  API is unsupported. */
+function useVisualViewport(): { height: number; offsetTop: number } | null {
+  const [viewport, setViewport] = useState<
+    { height: number; offsetTop: number } | null
+  >(() =>
+    window.visualViewport
+      ? {
+          height: window.visualViewport.height,
+          offsetTop: window.visualViewport.offsetTop,
+        }
+      : null,
   );
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const onResize = () => setHeight(vv.height);
+    const onResize = () =>
+      setViewport({ height: vv.height, offsetTop: vv.offsetTop });
     vv.addEventListener('resize', onResize);
     vv.addEventListener('scroll', onResize); // iOS sometimes fires this instead
     onResize();
@@ -133,7 +153,7 @@ function useVisualViewportHeight(): number | null {
       vv.removeEventListener('scroll', onResize);
     };
   }, []);
-  return height;
+  return viewport;
 }
 
 export function OnboardingSheet({
@@ -144,7 +164,38 @@ export function OnboardingSheet({
   const [isPresent, safeToRemove] = usePresence();
   const y = useMotionValue(OFFSCREEN_Y);
   const opacity = useMotionValue(0);
-  const vvh = useVisualViewportHeight();
+  const viewport = useVisualViewport();
+
+  // FRAME HEIGHT — the sheet's own containing block (the `absolute inset-0`
+  // wrapper below, which exactly matches the phone-frame's current size in
+  // both mobile edge-to-edge and desktop mockup modes). Tracked live (not
+  // read once) because it itself can change — e.g. iOS Safari's URL bar
+  // collapsing/expanding reflows `100dvh`. Needed to convert the keyboard's
+  // viewport-relative footprint (`viewport.height`/`offsetTop`, both in real
+  // window coordinates) into a bottom-gap relative to THIS container, since
+  // on desktop the container is a centered 390×844 mockup, not the window.
+  const outerRef = useRef<HTMLDivElement>(null);
+  const [frameHeight, setFrameHeight] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = outerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setFrameHeight(el.clientHeight));
+    ro.observe(el);
+    setFrameHeight(el.clientHeight);
+    return () => ro.disconnect();
+  }, []);
+
+  // BOTTOM GAP — distance from the frame's own bottom edge to the true
+  // visible bottom edge (the keyboard's top, or the window bottom when no
+  // keyboard is open). Anchoring the sheet with `bottom: bottomGapPx`
+  // (instead of a computed `height`) means its bottom edge always tracks
+  // the real visible viewport regardless of `offsetTop` drift, while `top`
+  // stays a simple frame-relative percentage — no more mixing a live px
+  // measurement with a static-container percentage in one `calc()`.
+  const bottomGapPx =
+    viewport != null && frameHeight != null
+      ? Math.max(0, frameHeight - (viewport.offsetTop + viewport.height))
+      : 0;
 
   // Backdrop dims slightly further as the sheet is dragged down (optional
   // per spec, kept subtle) — composed from the enter/exit fade (`opacity`)
@@ -374,6 +425,7 @@ export function OnboardingSheet({
 
   return (
     <div
+      ref={outerRef}
       className="absolute inset-0 z-50"
       style={{ fontFamily: "'Red Hat Display', sans-serif" }}
     >
@@ -396,25 +448,29 @@ export function OnboardingSheet({
       {/* Sheet — stops TOP_GAP_PERCENT below the top edge (a responsive
           fraction of the frame's height, not a fixed px gap) instead of
           spanning the full viewport, leaving a visible, obviously-tappable
-          strip of backdrop above it. `height` is min(the-gap-adjusted
-          container height, the-gap-adjusted visible-viewport height) so it
-          still shrinks correctly above an open keyboard (Task 6.2's
-          behavior, just measured from the new shorter baseline). Still no
-          drag handle. `touch-action:none` remains required for the
-          footer/gap-area drag path below (dragListener=false, so nothing
-          else applies it). */}
+          strip of backdrop above it. Anchored with `top` + `bottom` (not an
+          explicit `height`) so the browser derives the height itself: `top`
+          stays a plain frame-relative percentage, and `bottom` is
+          `bottomGapPx` — a live px gap (see the comment above its
+          calculation) that keeps the sheet's bottom edge glued to the real
+          visible viewport's bottom (the keyboard's top edge, or the window
+          bottom when no keyboard is open), correctly accounting for
+          `visualViewport.offsetTop` drift instead of assuming it's always 0.
+          `transition` animates `bottom` so the keyboard closing restores the
+          sheet's height smoothly rather than snapping. Still no drag
+          handle. `touch-action:none` remains required for the footer/
+          gap-area drag path below (dragListener=false, so nothing else
+          applies it). */}
       <motion.div
         className="absolute inset-x-0 flex flex-col overflow-hidden rounded-t-[24px] border-t border-[rgba(251,251,251,0.08)]"
         style={{
           top: `${TOP_GAP_PERCENT}%`,
+          bottom: bottomGapPx,
           y,
-          height:
-            vvh != null
-              ? `min(${100 - TOP_GAP_PERCENT}%, calc(${vvh}px - ${TOP_GAP_PERCENT}%))`
-              : `${100 - TOP_GAP_PERCENT}%`,
           backgroundImage: SHEET_BG,
           touchAction: 'none',
           paddingTop: 'env(safe-area-inset-top)',
+          transition: 'bottom 200ms ease',
         }}
         drag="y"
         dragControls={dragControls}
@@ -689,12 +745,10 @@ export function OnboardingSheet({
             type="button"
             onClick={handlePrimaryCta}
             onPointerDownCapture={(e) => e.stopPropagation()}
-            aria-disabled={!isValid}
             className="flex h-12 flex-1 items-center justify-center active:scale-[0.98]"
             style={{
               backgroundImage: PRIMARY_CTA_BG,
               borderRadius: BTN_RADIUS,
-              opacity: isValid ? 1 : 0.5,
             }}
           >
             <span className="text-[16px] font-bold leading-6 text-white">
