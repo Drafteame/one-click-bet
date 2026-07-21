@@ -15,6 +15,38 @@ The current baseline is a high-fidelity interactive prototype of a **Draftea spo
 **Forked from:** `Drafteame/draftea-momios-prototype` (private)
 **Local path:** `~/development/one-click-bet`
 
+---
+
+## Response Style
+
+**Every response must start with: `[CLAUDE-MD LOADED]`**
+
+Token efficiency is the highest priority.
+
+### Communication
+
+- Be extremely concise.
+- Prefer implementation over explanation.
+- Do not repeat the request.
+- Do not summarize actions.
+- Do not explain obvious code.
+- Keep updates under one sentence.
+- Answer only what was asked.
+- Use bullets only when necessary.
+- Do not provide alternatives unless requested.
+- Default to fewer than 150 words.
+
+### Coding
+
+- Make the change.
+- Report only blockers.
+- State assumptions only if they affect correctness.
+- After completing work, report only:
+  - files changed
+  - manual verification required
+
+---
+
 ## Stack
 
 - **Vite 5** + **React 18** + **TypeScript (strict)** + **Tailwind 3** + **Framer Motion 11**
