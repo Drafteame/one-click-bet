@@ -424,7 +424,11 @@ const COMPLETE_CLEAR_DELAY_MS = 150;
 const STROKE_COMPLETE_MS = buttonProgressionConfig.longPress.strokeCompleteMs;
 
 function useLongPress(
-  onLongPress: (id: string) => void,
+  // Returns whether the bet was actually accepted (see App.tsx's
+  // lightningBet) — used to decide whether the completion-stroke accent
+  // plays (accepted) or the fill reverses same as a cancellation (rejected),
+  // so the visual can never show "completed" when nothing was selected.
+  onLongPress: (id: string) => boolean,
   onTap: (id: string) => void,
 ) {
   const activeEl = useRef<HTMLElement | null>(null);
@@ -512,34 +516,53 @@ function useLongPress(
     if (p >= 1) {
       const id = activeId.current;
       const el = activeEl.current;
-      completed.current = true;
       stopLoop();
       activeEl.current = null;
       activeId.current = null;
-      if (el != null) {
-        window.setTimeout(() => writeProgress(el, 0), COMPLETE_CLEAR_DELAY_MS);
 
-        // EXPERIMENTAL (qb-background-only-experiment): fire the
-        // completion-accent stroke sweep — the ONLY time the stroke
-        // animates. Fast + ease-out, reusing the same curve as the
-        // cancellation reverse for visual consistency. Keep the fill
-        // visible (untouched here) while this plays on top of it.
-        el.style.transition = `--qb-stroke-progress ${STROKE_COMPLETE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
-        void el.offsetWidth; // commit the transition before the value change
-        writeStrokeProgress(el, 1);
-        // Clear back to 0 once the sweep finishes (+ a small safety
-        // margin) — by then the real selected-state border (identical
-        // color/width) is already showing underneath, so this reveals it
-        // with no visible seam, same technique as the fill's own clear.
-        window.setTimeout(
-          () => {
-            el.style.transition = '';
-            writeStrokeProgress(el, 0);
-          },
-          STROKE_COMPLETE_MS + 60,
-        );
+      // Call the functional confirmation FIRST and branch the visual on its
+      // real result — the stroke accent must never play (and the button
+      // must never look "completed") unless the bet was actually accepted.
+      // This is what keeps the visual from lying when a completed hold gets
+      // rejected (e.g. some future guard/edge case in lightningBet).
+      const accepted = id != null ? onLongPress(id) : false;
+      completed.current = accepted;
+      if (!accepted) {
+        cancelledHold.current = true; // treat exactly like a cancelled hold
       }
-      if (id != null) onLongPress(id);
+
+      if (el != null) {
+        if (accepted) {
+          window.setTimeout(() => writeProgress(el, 0), COMPLETE_CLEAR_DELAY_MS);
+
+          // EXPERIMENTAL (qb-background-only-experiment): fire the
+          // completion-accent stroke sweep — the ONLY time the stroke
+          // animates. Fast + ease-out, reusing the same curve as the
+          // cancellation reverse for visual consistency. Keep the fill
+          // visible (untouched here) while this plays on top of it.
+          el.style.transition = `--qb-stroke-progress ${STROKE_COMPLETE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+          void el.offsetWidth; // commit the transition before the value change
+          writeStrokeProgress(el, 1);
+          // Clear back to 0 once the sweep finishes (+ a small safety
+          // margin) — by then the real selected-state border (identical
+          // color/width) is already showing underneath, so this reveals it
+          // with no visible seam, same technique as the fill's own clear.
+          window.setTimeout(
+            () => {
+              el.style.transition = '';
+              writeStrokeProgress(el, 0);
+            },
+            STROKE_COMPLETE_MS + 60,
+          );
+        } else {
+          // Rejected — no stroke accent, no entry. Reverse the fill exactly
+          // like a cancellation so the UI never shows a false "completed"
+          // look for a hold that produced no selection.
+          el.style.transition = `--qb-progress ${REVERSE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+          void el.offsetWidth;
+          writeProgress(el, 0);
+        }
+      }
       return;
     }
     rafId.current = requestAnimationFrame(tick);
@@ -625,7 +648,7 @@ function useLongPress(
 type PromoCarouselProps = {
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
 };
 
 function PromoCarousel({
@@ -798,7 +821,7 @@ type MarketProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
 };
 
 type PlayerMeta = {
@@ -1239,7 +1262,7 @@ type HomeScreenChromeProps = {
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
-  onLightningBet: (id: string) => void;
+  onLightningBet: (id: string) => boolean;
   /** Scroll-direction signal (shared with the navbar): true while scrolling
       DOWN → collapse the leagues row; false on scroll-up / near-top → reveal. */
   headerCollapsed?: boolean;

@@ -255,29 +255,10 @@ export function App() {
     setSuccess(true);
   }, []);
 
-  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
-  // First applies the SELECTED state to the pressed pick (add it, so its button
-  // lights up) while suppressing the slip via `lightning`; a beat later plays
-  // only the green success animation. `finishEntryCreated` then runs the usual
-  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
-  const lightningBet = useCallback((id: string) => {
-    // Guard against duplicate entries: don't start a new Quick Bet while a
-    // previous one is still mid-flight (selected-state hold or success
-    // animation) — a completed hold on another pick during that window
-    // would otherwise stack a second entry on top of it.
-    if (success || lightning) return;
-    const pick = MOCK_PICKS.find((p) => p.id === id);
-    if (!pick) return;
-    playSelectionHaptic();
-    setListOpen(false);
-    setExpanded(false);
-    setLightning(true);
-    setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
-    // Hold the selected state briefly, then create the entry.
-    window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
-  }, [success, lightning]);
-
-  // Fired when the green ticket has flown into Mis entradas.
+  // Fired when the green ticket has flown into Mis entradas — settles the
+  // entry (badge bump, count, "¿Reusar?" prompt) and returns to idle.
+  // Defined before lightningBet, which can also call this directly (see
+  // below) to settle a previous entry early.
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
     setLightning(false);
@@ -286,6 +267,47 @@ export function App() {
     setEntryCount((c) => c + 1);
     setPromptOpen(true);
   }, []);
+
+  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
+  // First applies the SELECTED state to the pressed pick (add it, so its button
+  // lights up) while suppressing the slip via `lightning`; a beat later plays
+  // only the green success animation. `finishEntryCreated` then runs the usual
+  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
+  //
+  // Returns whether the bet was actually accepted. useLongPress's completion
+  // path (HomeScreen.tsx) uses this to decide whether to play the fast
+  // completion-stroke accent (accepted) or reverse the fill same as a
+  // cancellation (rejected) — the visual never claims success this function
+  // didn't actually deliver.
+  const lightningBet = useCallback(
+    (id: string): boolean => {
+      const pick = MOCK_PICKS.find((p) => p.id === id);
+      if (!pick) return false;
+      // A previous Quick Bet can still be mid-flight (selected-state hold or
+      // success animation still playing) when THIS one completes — e.g. two
+      // Quick Bets held back-to-back. Rather than silently dropping the new
+      // one (which left the pressed button's fill/stroke completing with no
+      // resulting selection — the bug this guard used to cause), settle the
+      // previous entry immediately so every completed 3-second hold reliably
+      // produces exactly one entry. This cuts the previous entry's success
+      // animation short, but its count/badge still land correctly — an
+      // acceptable trade-off given the user has already moved on to a new
+      // hold. EntryCreatedOverlay reads no selection-specific data, so
+      // interrupting it here is visually safe.
+      if (success || lightning) {
+        finishEntryCreated();
+      }
+      playSelectionHaptic();
+      setListOpen(false);
+      setExpanded(false);
+      setLightning(true);
+      setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
+      // Hold the selected state briefly, then create the entry.
+      window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
+      return true;
+    },
+    [success, lightning, finishEntryCreated],
+  );
 
   /* ---------- tier-crossing haptic ---------- */
   // Watch `tier` for changes. On any transition between adjacent tiers
