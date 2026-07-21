@@ -449,23 +449,48 @@ body {
 
 .qb-hold {
   position: relative;
-  /* Progressive "charging" glow — intensifies smoothly with --qb-progress,
-     reusing the exact selected-state palette (lime #d2ff72 / cyan #56deea)
-     so it reads as an extension of that color, not a new accent. Applied
-     to the REAL element (not a pseudo-element) so it isn't clipped by the
-     fill's own scaleX box and isn't squashed as the fill grows. Two soft
-     layers (lime front, cyan behind) at modest blur/alpha ceilings — no
-     spread, kept low-alpha and desaturated-adjacent (not neon) — so it
-     stays a gentle ambient glow rather than a saturated halo. Box-shadow on
-     a small element is cheap on mobile GPUs; no separate transition is
-     needed since --qb-progress is already written every frame (or
-     interpolated during the reverse/cancel transition), so this simply
-     recomputes alongside it for free. */
+  /* Progressive "charging" glow — reuses the exact selected-state palette
+     (lime #d2ff72 / cyan #56deea) so it reads as an extension of that
+     color, not a new accent. Applied to the REAL element (not a pseudo-
+     element) so it isn't clipped by the fill's own scaleX box and isn't
+     squashed as the fill grows — box-shadow on a small element is cheap on
+     mobile GPUs, and no separate transition is needed since --qb-progress
+     is already written every frame (or interpolated during the reverse/
+     cancel transition), so this simply recomputes alongside it for free.
+
+     Intensity uses --qb-progress SQUARED (progress*progress), not linear —
+     at low progress (little filled) the glow stays almost off, then builds
+     noticeably as the fill grows, so it reads as "hugging" how much is
+     actually filled rather than a flat halo that's equally present around
+     the whole button regardless of fill amount. Kept soft/diffused (wide
+     blur, small spread, moderate alpha ceiling, no saturated neon color)
+     — it should be clearly noticeable by mid-hold, not blend into nothing,
+     while never becoming a bright ring around the button's full perimeter. */
   box-shadow:
-    0 0 calc(var(--qb-progress, 0) * 10px) calc(var(--qb-progress, 0) * 1px)
-      rgba(210, 255, 114, calc(var(--qb-progress, 0) * 0.32)),
-    0 0 calc(var(--qb-progress, 0) * 18px) calc(var(--qb-progress, 0) * 2px)
-      rgba(86, 222, 234, calc(var(--qb-progress, 0) * 0.18));
+    0 0 calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 14px)
+      calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 2px)
+      rgba(210, 255, 114, calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 0.45)),
+    0 0 calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 24px)
+      calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 3px)
+      rgba(86, 222, 234, calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 0.28));
+}
+
+/* PromoCarousel's odds buttons additionally carry Tailwind's
+   `transition-all duration-200` (for their own hover:bg / active:scale
+   polish — unrelated to Quick Bet). "all" unintentionally also catches the
+   box-shadow glow above: since --qb-progress is rewritten every ~16ms by
+   the rAF loop, a transitioned box-shadow would perpetually chase a target
+   that keeps moving and never visually catch up to the true instantaneous
+   value. Scoped to the COMPOUND class `.qb-hold.transition-all` (only
+   PromoCarousel's buttons carry both classes — MarketAccordion's pill has
+   no transition class at all and is untouched by this rule) so the fix
+   applies only where the conflict actually exists, without introducing a
+   transition anywhere that didn't already have one. Higher specificity
+   than either single class, so no !important needed. */
+.qb-hold.transition-all {
+  transition-property: background-color, border-color, color, opacity,
+    transform, box-shadow;
+  transition-duration: 200ms, 200ms, 200ms, 200ms, 200ms, 0s;
 }
 
 /* Cancellation reverse (early release / pointer leave / cancel) is applied
@@ -498,14 +523,26 @@ body {
    radius (already present on every .qb-hold target) to clip it to the
    correct rounded shape — so the corners stay circular throughout.
 
-   Two extra touches layered on TOP of the base gradient, both driven by
+   Three extra touches layered on TOP of the base gradient, all driven by
    the same --qb-progress value so they need no separate JS/timing:
      - A diagonal shimmer/reflection band (the repeating-linear-gradient +
-       animated background-position below). Painted INSIDE this same box,
-       so it's automatically bounded to the currently-filled width by the
-       box's own scaleX — no separate clipping needed. Runs as a
-       continuous compositor-only animation; at --qb-progress:0 the box has
-       zero width so it's invisible with no separate start/stop wiring.
+       animated background-position below), tinted with the brand accent
+       #d2ff72 at moderate opacity (~0.3) — a soft light reflection, not a
+       solid stripe. The gradient stops fade in/out gradually (feathered)
+       rather than holding a flat plateau, and the highlight band itself is
+       narrow, so it reads as a fleeting reflection rather than the main
+       focus. Painted INSIDE this same box, so it's automatically bounded
+       to the currently-filled width by the box's own scaleX — no separate
+       clipping needed. Runs as a continuous compositor-only animation; at
+       --qb-progress:0 the box has zero width so it's invisible with no
+       separate start/stop wiring.
+     - An INSET glow biased toward the trailing (right) edge — the actual
+       boundary between filled and unfilled, since this box IS the fill.
+       Reads as the fill's own edge "hugging" a soft light rather than a
+       halo around the whole button (that's the OUTER glow above, on
+       .qb-hold), reinforcing that the glow belongs to the filled portion
+       specifically. Contained within this box, so unaffected by the
+       parent's overflow-hidden.
      - A very slight extra `scale()` composed into the SAME transform,
        barely growing the fill as progress climbs (max +1.5%). Deliberately
        NOT applied to the real button element — PromoCarousel's odds
@@ -521,10 +558,9 @@ body {
     repeating-linear-gradient(
       115deg,
       transparent 0%,
-      transparent 40%,
-      rgba(255, 255, 255, 0.22) 48%,
-      rgba(255, 255, 255, 0.22) 52%,
-      transparent 60%,
+      transparent 44%,
+      rgba(210, 255, 114, 0.3) 50%,
+      transparent 56%,
       transparent 100%
     ),
     linear-gradient(
@@ -535,6 +571,8 @@ body {
   background-size: 260% 100%, 100% 100%;
   background-position: 200% 0, 0 0;
   animation: qb-shimmer 2.4s linear infinite;
+  box-shadow: inset -10px 0 14px -6px
+    rgba(210, 255, 114, calc(var(--qb-progress, 0) * 0.5));
   filter: saturate(calc(1 + var(--qb-progress, 0) * 0.35));
   transform: scaleX(var(--qb-progress, 0))
     scale(calc(1 + var(--qb-progress, 0) * 0.015));
