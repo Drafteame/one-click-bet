@@ -412,6 +412,17 @@ const REVERSE_MS = buttonProgressionConfig.longPress.reverseMs;
 // (320ms), so there's never a visible seam either way.
 const COMPLETE_CLEAR_DELAY_MS = 150;
 
+// EXPERIMENTAL (background-only progress treatment, branch
+// qb-background-only-experiment): how long the completion-accent stroke
+// sweep takes. The stroke stays static (0) throughout the hold — this is
+// the ONLY time it ever animates, a single fast sweep fired once the hold
+// reaches 100%. Deliberately much faster than REVERSE_MS/LONG_PRESS_MS since
+// it's a completion accent, not a second loading indicator. Cleared shortly
+// after it finishes (see the small safety margin where it's used below).
+// Previous version (stroke tracking --qb-progress throughout the hold) is
+// preserved at git tag pre-bg-only-qb-experiment.
+const STROKE_COMPLETE_MS = buttonProgressionConfig.longPress.strokeCompleteMs;
+
 function useLongPress(
   onLongPress: (id: string) => void,
   onTap: (id: string) => void,
@@ -433,6 +444,13 @@ function useLongPress(
 
   const writeProgress = (el: HTMLElement | null, p: number) => {
     el?.style.setProperty('--qb-progress', String(p));
+  };
+
+  // EXPERIMENTAL (qb-background-only-experiment): --qb-stroke-progress is a
+  // SEPARATE property from --qb-progress so the stroke never tracks the
+  // hold — it's only ever written by the completion-accent sweep below.
+  const writeStrokeProgress = (el: HTMLElement | null, p: number) => {
+    el?.style.setProperty('--qb-stroke-progress', String(p));
   };
 
   const stopLoop = () => {
@@ -500,6 +518,26 @@ function useLongPress(
       activeId.current = null;
       if (el != null) {
         window.setTimeout(() => writeProgress(el, 0), COMPLETE_CLEAR_DELAY_MS);
+
+        // EXPERIMENTAL (qb-background-only-experiment): fire the
+        // completion-accent stroke sweep — the ONLY time the stroke
+        // animates. Fast + ease-out, reusing the same curve as the
+        // cancellation reverse for visual consistency. Keep the fill
+        // visible (untouched here) while this plays on top of it.
+        el.style.transition = `--qb-stroke-progress ${STROKE_COMPLETE_MS}ms cubic-bezier(0.16, 1, 0.3, 1)`;
+        void el.offsetWidth; // commit the transition before the value change
+        writeStrokeProgress(el, 1);
+        // Clear back to 0 once the sweep finishes (+ a small safety
+        // margin) — by then the real selected-state border (identical
+        // color/width) is already showing underneath, so this reveals it
+        // with no visible seam, same technique as the fill's own clear.
+        window.setTimeout(
+          () => {
+            el.style.transition = '';
+            writeStrokeProgress(el, 0);
+          },
+          STROKE_COMPLETE_MS + 60,
+        );
       }
       if (id != null) onLongPress(id);
       return;
@@ -548,6 +586,11 @@ function useLongPress(
       // 0 right away rather than waiting on the reverse to finish.
       visualTarget.style.transition = '';
       writeProgress(visualTarget, 0);
+      // EXPERIMENTAL (qb-background-only-experiment): also hard-reset the
+      // stroke accent in case a just-completed hold's sweep-then-clear
+      // timeout hasn't fired yet (e.g. immediately re-pressing right after
+      // a completion) — the stroke must start every fresh hold static.
+      writeStrokeProgress(visualTarget, 0);
       activeEl.current = visualTarget;
       activeId.current = id;
       startedAt.current = performance.now();

@@ -392,37 +392,58 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
-/*  QUICK BET — hold-to-confirm background fill + stroke ring        */
-/*  Both pseudo-elements read the SAME --qb-progress custom property */
-/*  (0..1), written directly onto the pressed element's own DOM node  */
-/*  by useLongPress's requestAnimationFrame loop (HomeScreen.tsx) —   */
-/*  no React state involved, so this updates at 60fps with zero      */
-/*  React re-renders. The fill/stroke and the Quick Bet confirmation  */
-/*  itself share one clock (the same elapsed-time check drives both), */
-/*  so they always finish in the same frame.                          */
-/*                                                                     */
-/*  Colors are the EXACT selected-state tokens (see the `selected`     */
-/*  ternary on the odds buttons in HomeScreen.tsx: border-[#d2ff72] +   */
-/*  bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234, */
-/*  0.16)]) — the loading state IS the selected state being             */
-/*  progressively revealed, so there's no purple-to-green swap at       */
-/*  completion. Keep these two literals in sync with that ternary if     */
-/*  the selected-state colors ever change.                               */
-/*                                                                     */
-/*  Absolutely positioned + inset:0 + pointer-events:none, so this    */
-/*  never affects the button's own dimensions or layout.               */
-/*                                                                     */
-/*  Treated as functional gesture feedback (not ambient decoration) —  */
-/*  intentionally NOT suppressed under prefers-reduced-motion, same    */
-/*  treatment this repo already gives SlotNumber's rolls / the entry/  */
-/*  exit mount transition.                                            */
+/*  QUICK BET — hold-to-confirm background fill + completion-accent   */
+/*  stroke ring.                                                       */
+/*                                                                      */
+/*  EXPERIMENTAL background-only progress treatment                     */
+/*  (branch qb-background-only-experiment). During the hold, ONLY the    */
+/*  fill (::before, driven by --qb-progress) communicates progress —      */
+/*  the stroke (::after) stays static (0) the whole time, deliberately     */
+/*  decoupled onto its OWN custom property, --qb-stroke-progress, so it     */
+/*  can never track the hold. --qb-stroke-progress is only ever written      */
+/*  by useLongPress on SUCCESSFUL completion (a fast ~220ms accent sweep,     */
+/*  see strokeCompleteMs in buttonProgressionConfig.ts), never during the      */
+/*  hold and never on cancellation.                                            */
+/*                                                                                */
+/*  The PREVIOUS version — fill and stroke both driven by --qb-progress and      */
+/*  animating together throughout the hold — is preserved at git tag              */
+/*  pre-bg-only-qb-experiment. See the bottom of this file's Quick Bet section      */
+/*  (or CLAUDE.md) for exact revert steps.                                          */
+/*                                                                                     */
+/*  --qb-progress is written directly onto the pressed element's own DOM node          */
+/*  by useLongPress's requestAnimationFrame loop (HomeScreen.tsx) — no React            */
+/*  state involved, so this updates at 60fps with zero React re-renders. The              */
+/*  fill and the Quick Bet confirmation itself share one clock (the same                   */
+/*  elapsed-time check drives both), so they always finish in the same frame.               */
+/*                                                                                            */
+/*  Colors are the EXACT selected-state tokens (see the `selected` ternary on                */
+/*  the odds buttons in HomeScreen.tsx: border-[#d2ff72] + bg-gradient-to-b                    */
+/*  from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]) — the loading                     */
+/*  state IS the selected state being progressively revealed, so there's no                      */
+/*  purple-to-green swap at completion. Keep these two literals in sync with                      */
+/*  that ternary if the selected-state colors ever change.                                         */
+/*                                                                                                    */
+/*  Absolutely positioned + inset:0 + pointer-events:none, so this never                              */
+/*  affects the button's own dimensions or layout.                                                     */
+/*                                                                                                        */
+/*  Treated as functional gesture feedback (not ambient decoration) —                                    */
+/*  intentionally NOT suppressed under prefers-reduced-motion, same                                       */
+/*  treatment this repo already gives SlotNumber's rolls / the entry/exit                                  */
+/*  mount transition.                                                                                        */
 /* ---------------------------------------------------------------- */
 @property --qb-progress {
   syntax: '<number>';
   initial-value: 0;
   /* MUST inherit: the value is written onto the button itself, but the
-     fill/stroke live on its ::before/::after — which, for inheritance
-     purposes, are its children and only see the value if it inherits. */
+     fill lives on its ::before — which, for inheritance purposes, is its
+     child and only sees the value if it inherits. */
+  inherits: true;
+}
+
+@property --qb-stroke-progress {
+  syntax: '<number>';
+  initial-value: 0;
+  /* Same inheritance requirement as --qb-progress above, for ::after. */
   inherits: true;
 }
 
@@ -478,15 +499,19 @@ body {
    DOES need `border-radius: inherit` — the ring's own inner+outer edges
    are what need rounding, not just its outer clip. #d2ff72 matches the
    selected-state border color; 1px matches that border's actual width, so
-   the ring hands off to the real border with no visible thickness jump. */
+   the ring hands off to the real border with no visible thickness jump.
+
+   Reads --qb-stroke-progress, NOT --qb-progress — deliberately decoupled
+   (see the Quick Bet comment block above) so this stays static during the
+   hold and only sweeps on useLongPress's fast completion-accent transition. */
 .qb-hold::after {
   z-index: 5;
   border-radius: inherit;
   padding: 1px;
   background: conic-gradient(
     from -90deg,
-    #d2ff72 calc(var(--qb-progress, 0) * 360deg),
-    transparent calc(var(--qb-progress, 0) * 360deg)
+    #d2ff72 calc(var(--qb-stroke-progress, 0) * 360deg),
+    transparent calc(var(--qb-stroke-progress, 0) * 360deg)
   );
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
