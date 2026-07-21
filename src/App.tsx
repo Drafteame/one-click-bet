@@ -133,11 +133,12 @@ export function App() {
   // subsequent 0 → 1 transitions skip the bounce.
   const hasBouncedOnceRef = useRef(false);
 
-  // Bet-slip view state. On any NEW selection the sheet expands; swiping it
-  // down (or 4s of inactivity) morphs it back to the collapsed pill; tapping
-  // the collapsed pill re-expands.
-  const [expanded, setExpanded] = useState(false);
-  // Full-screen "Resumen de tu entrada" sheet (opened from the Lista tab).
+  // Bet-slip view state. The summarized purple-glass expand (BetSlipSheet's
+  // `expanded` state) is retired — the slip only ever shows as the collapsed
+  // pill; tapping it opens the "Resumen" floating card (BetSlipFullSheet)
+  // directly, at any selection count. See the `checkpoint-pre-pill-only-slip`
+  // branch for the prior behavior.
+  // Full-screen "Resumen de tu entrada" sheet (opened by tapping the pill).
   const [listOpen, setListOpen] = useState(false);
   // Swipe-to-confirm success sequence: green "Entrada creada" card + ticket
   // fly into Mis entradas, then the "¿Reusar?" prompt + count badge.
@@ -228,30 +229,6 @@ export function App() {
     const t = setTimeout(() => setPromptMounted(false), 250); // after fade-out
     return () => clearTimeout(t);
   }, [promptShown]);
-  // Bumped on swipe-to-confirm interaction to defer the auto-collapse timer.
-  const [keepAliveNonce, setKeepAliveNonce] = useState(0);
-  const prevCountRef = useRef(0);
-  useEffect(() => {
-    const count = selections.length;
-    // On growth: the summarized slip only applies to 1–2 selections. Once a 3rd
-    // is added the summarized slip auto-collapses to the pill — the user then
-    // taps the pill to open the "Resumen" floating card (see onExpand below).
-    if (count > prevCountRef.current) setExpanded(count <= 2);
-    // No selections → nothing to show; reset for the next session.
-    if (count === 0) setExpanded(false);
-    prevCountRef.current = count;
-  }, [selections.length]);
-
-  // AUTO-COLLAPSE — once expanded, if the user only browses/scrolls (no new
-  // selection, no swipe-to-confirm interaction) for 10s, morph back to the
-  // collapsed pill. Resets when a selection is added/removed (selections
-  // length changes) or the swipe thumb is touched (keepAliveNonce bumps).
-  useEffect(() => {
-    if (!expanded) return;
-    const t = setTimeout(() => setExpanded(false), 10000);
-    return () => clearTimeout(t);
-  }, [expanded, selections.length, keepAliveNonce]);
-
   const selectedIds = useMemo(
     () => new Set(selections.map((s) => s.id)),
     [selections],
@@ -309,13 +286,13 @@ export function App() {
     setSelections(selectionsForTier(target));
   }, []);
 
-  // Remove a single selection from the semi-expanded slip (× on its row).
+  // Remove a single selection from the "Resumen" floating card (× on its row).
   const removeSelection = useCallback((id: string) => {
     playSelectionHaptic();
     setSelections((s) => s.filter((sel) => sel.id !== id));
   }, []);
 
-  // Place the bet from the semi-expanded slip (swipe-to-confirm). Prototype
+  // Place the bet from the "Resumen" floating card (swipe-to-confirm). Prototype
   // behavior: clear the slip, as a placed bet would. Wire to real
   // bet-placement here when a backend exists.
   // Swipe-to-confirm → play the success animation (slip hidden behind the
@@ -333,7 +310,6 @@ export function App() {
     setSuccess(false);
     setLightning(false);
     setSelections([]);
-    setExpanded(false);
     setEntryCount((c) => c + 1);
     setPromptOpen(true);
   }, []);
@@ -369,7 +345,6 @@ export function App() {
       }
       playSelectionHaptic();
       setListOpen(false);
-      setExpanded(false);
       setLightning(true);
       setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
       // Hold the selected state briefly, then create the entry.
@@ -404,8 +379,8 @@ export function App() {
     return s;
   }, [selections]);
 
-  // Whether the bet slip (collapsed pill OR expanded summarized card) is on
-  // screen. Drives BOTH the slip mount and the size of the dark gradient
+  // Whether the bet slip (collapsed pill) is on screen. Drives BOTH the slip
+  // mount and the size of the dark gradient
   // behind the navbar: the gradient only needs to extend up far enough to
   // separate the slip from the content when the slip is present. When it's
   // absent, the reserved slot collapses so the gradient shrinks to just the
@@ -727,11 +702,16 @@ export function App() {
                         : 0,
                   }}
                 >
-                  {/* BET SLIP — a single morphing sheet (collapsed pill ↔
-                      expanded card). Anchored to the slot's bottom baseline;
-                      overflows upward when expanded. The 8px gap above the
-                      navbar comes from the pill's own pb-2 (collapsed) and the
-                      glass card's bottom-2 inset (expanded). Only one bet-slip
+                  {/* BET SLIP — pill-only now (the summarized purple-glass
+                      expand is retired, see `checkpoint-pre-pill-only-slip`).
+                      `expanded` is always false, so BetSlipSheet never morphs
+                      into the glass card; tapping/swiping the pill always
+                      opens the "Resumen" floating card (BetSlipFullSheet)
+                      via onExpand/onOpenList instead. onCollapse/onKeepAlive
+                      are unreachable no-ops — BetSlipSheet only fires them
+                      from gestures on its expanded content. Anchored to the
+                      slot's bottom baseline; the 8px gap above the navbar
+                      comes from the pill's own pb-2. Only one bet-slip
                       element ever exists, so nothing shows behind it. */}
                   <div className="absolute inset-x-0 bottom-0 z-10">
                     <AnimatePresence>
@@ -740,16 +720,12 @@ export function App() {
                           key="bet-slip-sheet"
                           selections={selections}
                           cumulativeOdds={cumulativeOdds}
-                          expanded={expanded}
-                          onExpand={() =>
-                            selections.length > 2
-                              ? setListOpen(true)
-                              : setExpanded(true)
-                          }
-                          onCollapse={() => setExpanded(false)}
+                          expanded={false}
+                          onExpand={() => setListOpen(true)}
+                          onCollapse={() => {}}
                           onRemove={removeSelection}
                           onConfirm={confirmBet}
-                          onKeepAlive={() => setKeepAliveNonce((n) => n + 1)}
+                          onKeepAlive={() => {}}
                           onOpenList={() => setListOpen(true)}
                         />
                       )}
@@ -813,9 +789,9 @@ export function App() {
               </div>
             </div>
 
-            {/* Full-screen "Resumen de tu entrada" sheet — opens from the
-                parlay Lista tab; swipe down or × closes it and collapses the
-                bet slip. */}
+            {/* Full-screen "Resumen de tu entrada" sheet — opens by tapping
+                the collapsed pill at any selection count; swipe down or ×
+                closes it. */}
             <AnimatePresence>
               {listOpen && selections.length > 0 && (
                 <BetSlipFullSheet
@@ -827,10 +803,7 @@ export function App() {
                     setSelections([]);
                     setListOpen(false);
                   }}
-                  onClose={() => {
-                    setListOpen(false);
-                    setExpanded(false);
-                  }}
+                  onClose={() => setListOpen(false)}
                   onConfirm={confirmBet}
                 />
               )}
