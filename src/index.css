@@ -390,3 +390,107 @@ body {
   45% { transform: scale(1.18); }
   100% { transform: scale(1); }
 }
+
+/* ---------------------------------------------------------------- */
+/*  QUICK BET — hold-to-confirm background fill + stroke ring        */
+/*  Both pseudo-elements read the SAME --qb-progress custom property */
+/*  (0..1), written directly onto the pressed element's own DOM node  */
+/*  by useLongPress's requestAnimationFrame loop (HomeScreen.tsx) —   */
+/*  no React state involved, so this updates at 60fps with zero      */
+/*  React re-renders. The fill/stroke and the Quick Bet confirmation  */
+/*  itself share one clock (the same elapsed-time check drives both), */
+/*  so they always finish in the same frame.                          */
+/*                                                                     */
+/*  Colors are the EXACT selected-state tokens (see the `selected`     */
+/*  ternary on the odds buttons in HomeScreen.tsx: border-[#d2ff72] +   */
+/*  bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234, */
+/*  0.16)]) — the loading state IS the selected state being             */
+/*  progressively revealed, so there's no purple-to-green swap at       */
+/*  completion. Keep these two literals in sync with that ternary if     */
+/*  the selected-state colors ever change.                               */
+/*                                                                     */
+/*  Absolutely positioned + inset:0 + pointer-events:none, so this    */
+/*  never affects the button's own dimensions or layout.               */
+/*                                                                     */
+/*  Treated as functional gesture feedback (not ambient decoration) —  */
+/*  intentionally NOT suppressed under prefers-reduced-motion, same    */
+/*  treatment this repo already gives SlotNumber's rolls / the entry/  */
+/*  exit mount transition.                                            */
+/* ---------------------------------------------------------------- */
+@property --qb-progress {
+  syntax: '<number>';
+  initial-value: 0;
+  /* MUST inherit: the value is written onto the button itself, but the
+     fill/stroke live on its ::before/::after — which, for inheritance
+     purposes, are its children and only see the value if it inherits. */
+  inherits: true;
+}
+
+.qb-hold {
+  position: relative;
+}
+
+/* Cancellation reverse (early release / pointer leave / cancel) is applied
+   via an INLINE `transition` set directly in useLongPress's `reset()`
+   (HomeScreen.tsx), not a CSS class here. A class would get wiped mid-
+   animation whenever the release also falls through to a normal toggle,
+   since that re-renders this element with a brand-new `className` string
+   (React only manages className on these buttons, never `style`, so the
+   inline transition survives that re-render while a class would not).
+   Because --qb-progress is a registered <number> custom property
+   (@property above), the browser can smoothly interpolate it like any
+   other animatable value once transitioned — driving BOTH the fill
+   (::before's scaleX) and the stroke (::after's conic-gradient angle)
+   together, since they both read the same interpolating variable. */
+
+.qb-hold::before,
+.qb-hold::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Background fill — left-to-right via transform:scaleX (not width/clip),
+   so it stays on the compositor thread. transform-origin:left anchors the
+   growth to the left edge. Deliberately NOT `border-radius: inherit`: a
+   scaleX'd box with its OWN rounded corners would squash them into an
+   ellipse on the leading edge mid-animation. Instead this stays a plain
+   rectangle and relies on the button's own `overflow-hidden` + border-
+   radius (already present on every .qb-hold target) to clip it to the
+   correct rounded shape — so the corners stay circular throughout. */
+.qb-hold::before {
+  z-index: 4;
+  background: linear-gradient(
+    to bottom,
+    rgba(210, 255, 114, 0.16),
+    rgba(86, 222, 234, 0.16)
+  );
+  transform: scaleX(var(--qb-progress, 0));
+  transform-origin: left center;
+}
+
+/* Stroke ring — a conic-gradient wedge masked down to a thin border via
+   the standard padding + mask-composite:exclude "ring" trick, so it
+   automatically conforms to the button's own border-radius with zero
+   size measurement (no ResizeObserver — sidesteps the shellSize-is-0-on-
+   first-render gotcha noted elsewhere in this repo). Unlike the fill, this
+   DOES need `border-radius: inherit` — the ring's own inner+outer edges
+   are what need rounding, not just its outer clip. #d2ff72 matches the
+   selected-state border color; 1px matches that border's actual width, so
+   the ring hands off to the real border with no visible thickness jump. */
+.qb-hold::after {
+  z-index: 5;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from -90deg,
+    #d2ff72 calc(var(--qb-progress, 0) * 360deg),
+    transparent calc(var(--qb-progress, 0) * 360deg)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}

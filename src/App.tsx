@@ -261,6 +261,11 @@ export function App() {
   // only the green success animation. `finishEntryCreated` then runs the usual
   // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
   const lightningBet = useCallback((id: string) => {
+    // Guard against duplicate entries: don't start a new Quick Bet while a
+    // previous one is still mid-flight (selected-state hold or success
+    // animation) — a completed hold on another pick during that window
+    // would otherwise stack a second entry on top of it.
+    if (success || lightning) return;
     const pick = MOCK_PICKS.find((p) => p.id === id);
     if (!pick) return;
     playSelectionHaptic();
@@ -270,7 +275,7 @@ export function App() {
     setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
     // Hold the selected state briefly, then create the entry.
     window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
-  }, []);
+  }, [success, lightning]);
 
   // Fired when the green ticket has flown into Mis entradas.
   const finishEntryCreated = useCallback(() => {
