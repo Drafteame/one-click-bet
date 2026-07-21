@@ -493,6 +493,207 @@ body {
   transition-duration: 200ms, 200ms, 200ms, 200ms, 200ms, 0s;
 }
 
+/* ---------------------------------------------------------------- */
+/*  ONBOARDING SHEET — Quick Bet instructional animation (Task 7)    */
+/*  Educational, fully self-contained loop of the complete hold →    */
+/*  progressive fill → completion → selected state → ticket            */
+/*  confirmation sequence (OnboardingSheet.tsx's QuickBetDemoLoop).      */
+/*  Reuses the REAL .qb-hold fill/stroke mechanics (--qb-progress /       */
+/*  --qb-stroke-progress, both @property'd above), the real selected-      */
+/*  state tokens (border #d2ff72, lime→cyan gradient), and the real          */
+/*  ticket shape/checkmark/colors (`TicketFace`, exported from                */
+/*  EntryCreatedOverlay.tsx) — driven end-to-end by ONE CSS keyframe            */
+/*  timeline instead of useLongPress's per-frame writes or                       */
+/*  EntryCreatedOverlay's mount-triggered Framer sequence, since nothing          */
+/*  here is a real press: no event handlers, no entry, no shared state             */
+/*  with the actual Quick Bet feature, and it must loop forever rather              */
+/*  than fire once.                                                                   */
+/*                                                                                      */
+/*  The ticket's reveal/pop/glow below MIRROR (not literally reuse)                     */
+/*  EntryCreatedOverlay's `greenCircleIn`/pop/glow-flash — same clip-path                */
+/*  radii, easing, and durations, just re-expressed as absolute %                         */
+/*  offsets into this loop's single timeline instead of that component's                   */
+/*  own mount-triggered one-shot animations (which can't be re-triggered                    */
+/*  every cycle without JS). The celebration spark burst + genie flight                      */
+/*  into the "Mis entradas" tab are deliberately NOT reproduced — there is                    */
+/*  no tab to fly to in this isolated preview, and the task calls for a                        */
+/*  self-contained loop, not a trip through the rest of the app.                                */
+/*                                                                                                 */
+/*  Segment timing — one 5720ms cycle, every keyframe below shares it                             */
+/*  so all layers land on the same beat:                                                           */
+/*     0.00%  –  8.74%  idle selection, no pointer (500ms)                                          */
+/*     8.74%  – 13.99%  pointer fades/settles in above the selection (300ms)                         */
+/*    13.99%  – 16.61%  pointer presses down — scales in, opacity climbs (150ms)                      */
+/*    16.61%  – 42.83%  HOLD: --qb-progress ramps 0→1 over a DEMO-ONLY 1500ms —                        */
+/*                       intentionally SHORTER than the real hold                                       */
+/*                       (buttonProgressionConfig.longPress.durationMs, 3000ms):                         */
+/*                       watching the full-width pill fill for a real 3s on                               */
+/*                       every loop read as sluggish, so this halves it purely                             */
+/*                       for legibility in a repeating preview — re-derive                                  */
+/*                       these % if this constant changes, it does NOT need to                               */
+/*                       track the real one. Pointer stays pressed with a                                     */
+/*                       subtle opacity pulse throughout.                                                      */
+/*    42.83%  – 46.68%  completion: stroke-progress sweeps 0→1 (220ms,                                          */
+/*                       strokeCompleteMs), fill clears, selected face snaps in                                  */
+/*    46.68%  – 51.05%  pointer releases — fades out, only once loading is done (250ms)                          */
+/*    51.05%  – 54.55%  pill fades out / ticket circular-reveal (200ms, mirrors                                   */
+/*                       greenCircleIn's real 0.2s)                                                                */
+/*    54.55%  – 66.08%  ticket pop (squash/stretch + overshoot) + glow flash                                       */
+/*    66.08%  – 86.01%  ticket confirmation holds, readable (~1500ms, close to                                      */
+/*                       EntryCreatedOverlay's cfg.confirmedHoldMs of 1700ms)                                        */
+/*    86.01%  – 93.01%  ticket fades back toward idle (400ms)                                                        */
+/*    93.01%  – 100%    brief pause before the next loop (400ms) — avoids an                                          */
+/*                       abrupt cut on restart                                                                         */
+/* ---------------------------------------------------------------- */
+@keyframes qbDemoProgress {
+  0%, 16.61% { --qb-progress: 0; }
+  42.83% { --qb-progress: 1; }
+  45.45%, 100% { --qb-progress: 0; }
+}
+
+@keyframes qbDemoStroke {
+  0%, 42.83% { --qb-stroke-progress: 0; }
+  46.68% { --qb-stroke-progress: 1; }
+  47.73%, 100% { --qb-stroke-progress: 0; }
+}
+
+@keyframes qbDemoSelectedFace {
+  0%, 42.83% { opacity: 0; }
+  43.1%, 51.05% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Pointer — a circular touch indicator (Chrome-devtools-style mobile
+   touch-emulation dot, NOT a mouse cursor), always centered over the
+   pill via absolute positioning in the markup. Opacity/scale only, so it
+   never shifts position: appears loose, tightens on "contact", holds
+   with a soft pulse for the full hold, then lifts off once loading (fill
+   AND the completion stroke) has fully finished. */
+@keyframes qbDemoPointer {
+  0%, 8.74% { opacity: 0; transform: scale(1.3); }
+  13.99% { opacity: 0.55; transform: scale(1.05); }
+  16.61% { opacity: 0.85; transform: scale(0.88); }
+  25.35% { opacity: 0.78; transform: scale(0.88); }
+  34.09% { opacity: 0.85; transform: scale(0.88); }
+  46.68% { opacity: 0.85; transform: scale(0.88); }
+  51.05%, 100% { opacity: 0; transform: scale(1.3); }
+}
+
+/* Pill + pointer group — fades out together as the handoff to the ticket
+   begins (short overlap with the ticket's own reveal below, so the two
+   events read as connected rather than a hard cut). */
+@keyframes qbDemoPillGroupOut {
+  0%, 51.05% { opacity: 1; }
+  54.55%, 100% { opacity: 0; }
+}
+
+/* Ticket group visibility — off for the whole pill/hold sequence, on for
+   the reveal → hold → fade-out window. */
+@keyframes qbDemoTicketWrap {
+  0%, 51.05% { opacity: 0; }
+  51.4%, 86.01% { opacity: 1; }
+  93.01%, 100% { opacity: 0; }
+}
+
+/* Circular reveal — same technique/radii as EntryCreatedOverlay's
+   `greenCircleIn` (12px seed → 75% of the box), timed into this loop's
+   51.05%–54.55% window (200ms, matching the real 0.2s). */
+@keyframes qbDemoTicketReveal {
+  0%, 51.05% { clip-path: circle(12px at 50% 50%); }
+  54.55%, 100% { clip-path: circle(75% at 50% 50%); }
+}
+
+/* Squash/stretch pop + spring-like overshoot on reveal-complete — mirrors
+   EntryCreatedOverlay's `cfg.pop` (scaleX 1.035 / scaleY 0.965, springing
+   back with a slight overshoot the other way before settling). */
+@keyframes qbDemoTicketPop {
+  0%, 54.55% { transform: scale(1, 1); }
+  55.24% { transform: scale(1.035, 0.965); }
+  58.39% { transform: scale(0.99, 1.01); }
+  59.79%, 100% { transform: scale(1, 1); }
+}
+
+/* Green glow flash on reveal-complete — mirrors EntryCreatedOverlay's
+   `ticketGlow`/`cfg.pop.glowDecayMs` (flashes to peak, eases back to the
+   ticket's resting drop-shadow over ~620ms). Drives a registered custom
+   property so the drop-shadow's blur/alpha can both scale off one value. */
+@keyframes qbDemoTicketGlow {
+  0%, 54.55% { --qb-ticket-glow: 0; }
+  55.24% { --qb-ticket-glow: 1; }
+  66.08%, 100% { --qb-ticket-glow: 0; }
+}
+
+@property --qb-ticket-glow {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: true;
+}
+
+.qb-demo-pill {
+  animation:
+    qbDemoProgress 5720ms linear infinite,
+    qbDemoStroke 5720ms linear infinite;
+}
+
+.qb-demo-selected {
+  animation: qbDemoSelectedFace 5720ms linear infinite;
+}
+
+.qb-demo-pointer {
+  animation: qbDemoPointer 5720ms linear infinite;
+}
+
+.qb-demo-pillgroup {
+  animation: qbDemoPillGroupOut 5720ms linear infinite;
+}
+
+.qb-demo-ticket-wrap {
+  animation: qbDemoTicketWrap 5720ms linear infinite;
+}
+
+.qb-demo-ticket-reveal {
+  animation: qbDemoTicketReveal 5720ms linear infinite;
+}
+
+.qb-demo-ticket-pop {
+  animation:
+    qbDemoTicketPop 5720ms linear infinite,
+    qbDemoTicketGlow 5720ms linear infinite;
+  filter: drop-shadow(
+    0 0 calc(16px + var(--qb-ticket-glow, 0) * 30px)
+      rgba(54, 229, 169, calc(0.36 + var(--qb-ticket-glow, 0) * 0.5))
+  );
+}
+
+/* Reduced motion: freeze on the single most informative frame — the
+   completed ticket confirmation, on its own (pill + pointer hidden) —
+   instead of looping, same "static representative frame" treatment this
+   file already gives the fire-shimmer/glow-swirl ambient effects above. */
+@media (prefers-reduced-motion: reduce) {
+  .qb-demo-pill,
+  .qb-demo-selected,
+  .qb-demo-pointer,
+  .qb-demo-ticket-reveal,
+  .qb-demo-ticket-pop {
+    animation: none;
+  }
+  .qb-demo-pillgroup {
+    animation: none;
+    opacity: 0;
+  }
+  .qb-demo-ticket-wrap {
+    animation: none;
+    opacity: 1;
+  }
+  .qb-demo-ticket-reveal {
+    clip-path: circle(75% at 50% 50%);
+  }
+  .qb-demo-ticket-pop {
+    transform: scale(1, 1);
+    filter: drop-shadow(0 0 16px rgba(54, 229, 169, 0.36));
+  }
+}
+
 /* Cancellation reverse (early release / pointer leave / cancel) is applied
    via an INLINE `transition` set directly in useLongPress's `reset()`
    (HomeScreen.tsx), not a CSS class here. A class would get wiped mid-
