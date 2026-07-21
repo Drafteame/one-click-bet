@@ -627,32 +627,35 @@ export function App() {
                 </div>
               )}
 
-              {/* Action controls — Add / Remove / Reset */}
-              <div className="mx-3 mb-2 mt-3 flex gap-2">
-                <button
-                  onClick={addRandom}
-                  disabled={
-                    selections.length >= buttonProgressionConfig.maxSelections
-                  }
-                  className="flex-1 rounded-xl bg-gradient-to-r from-[#4b20ff] to-[#9730ff] px-3 py-2.5 text-[12px] font-bold text-white disabled:opacity-50"
-                >
-                  + Añadir selección
-                </button>
-                <button
-                  onClick={removeLast}
-                  disabled={selections.length === 0}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-[12px] font-bold text-white/90 disabled:opacity-30"
-                >
-                  − Quitar
-                </button>
-                <button
-                  onClick={reset}
-                  disabled={selections.length === 0}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-[12px] font-bold text-white/90 disabled:opacity-30"
-                >
-                  Reset
-                </button>
-              </div>
+              {/* Action controls — Add / Remove / Reset (dev-only, same
+                  gating as the amber debug box above; ?debug=true to use). */}
+              {debug && (
+                <div className="mx-3 mb-2 mt-3 flex gap-2">
+                  <button
+                    onClick={addRandom}
+                    disabled={
+                      selections.length >= buttonProgressionConfig.maxSelections
+                    }
+                    className="flex-1 rounded-xl bg-gradient-to-r from-[#4b20ff] to-[#9730ff] px-3 py-2.5 text-[12px] font-bold text-white disabled:opacity-50"
+                  >
+                    + Añadir selección
+                  </button>
+                  <button
+                    onClick={removeLast}
+                    disabled={selections.length === 0}
+                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-[12px] font-bold text-white/90 disabled:opacity-30"
+                  >
+                    − Quitar
+                  </button>
+                  <button
+                    onClick={reset}
+                    disabled={selections.length === 0}
+                    className="rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-[12px] font-bold text-white/90 disabled:opacity-30"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Fixed bottom: gradient fade + button slot + navbar.
