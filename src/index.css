@@ -449,6 +449,14 @@ body {
 
 .qb-hold {
   position: relative;
+  /* Prevent native text selection and copy menu during long press —
+     allows the Quick Bet gesture to take exclusive control on mobile. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  /* Suppress unwanted default long-press behavior (image dragging, etc.)
+     while preserving touch gestures. */
+  touch-action: manipulation;
   /* Progressive "charging" glow — reuses the exact selected-state palette
      (lime #d2ff72 / cyan #56deea) so it reads as an extension of that
      color, not a new accent. Applied to the REAL element (not a pseudo-
