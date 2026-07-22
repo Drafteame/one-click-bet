@@ -580,11 +580,60 @@ function useLongPress(
   // Unmount safety — stop the loop if the owning component unmounts mid-press.
   useEffect(() => stopLoop, []);
 
+  // Attach native event listeners to prevent mobile selection/callout behavior.
+  // These must be at capture phase with passive: false because React synthetic
+  // events alone don't prevent iOS/Android native long-press UI.
+  const attachNativeListeners = (el: HTMLElement | null) => {
+    if (!el) return;
+
+    const preventNative = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Prevent native text selection (selectstart fires before selection begins)
+    el.addEventListener('selectstart', preventNative, {
+      capture: true,
+      passive: false,
+    });
+
+    // Prevent native context menu (iOS/Android long-press menu)
+    el.addEventListener('contextmenu', preventNative, {
+      capture: true,
+      passive: false,
+    });
+
+    // Prevent native image/text drag (long-press drag preview)
+    el.addEventListener('dragstart', preventNative, {
+      capture: true,
+      passive: false,
+    });
+
+    // Prevent native long-press behavior on iOS Safari.
+    // Prevent default on touchstart (with guard to avoid breaking scrolls).
+    const preventTouchDefault = (e: TouchEvent) => {
+      // Only prevent if this is a single touch (not a scroll gesture)
+      if (e.touches.length === 1 && !cancelledHold.current && activeId.current !== null) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('touchstart', preventTouchDefault, {
+      capture: true,
+      passive: false,
+    });
+  };
+
   // NOT memoized (matches the pattern this replaces): recreated every render
   // so it always closes over the CURRENT onLongPress/onTap — needed because
   // App.tsx's lightningBet now depends on state (see the duplicate-entry
   // guard) and gets a new identity when that state changes.
   const bind = (id: string) => ({
+    ref: (el: HTMLButtonElement | null) => {
+      // Attach native event listeners at capture phase for mobile browsers.
+      // React synthetic handlers fire at bubble phase and may not prevent
+      // iOS/Android native selection, callout, and drag behaviors.
+      attachNativeListeners(el);
+    },
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
       // Prevent browser's native long-press behavior (context menu, text selection)
       e.preventDefault();
