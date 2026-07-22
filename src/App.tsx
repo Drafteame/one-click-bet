@@ -392,31 +392,35 @@ export function App() {
   /*  Render                                                      */
   /* ============================================================ */
   return (
-    // RESPONSIVE LAYOUT — split at 431px (phone-only breakpoint).
-    //   ≤ 430px  (real mobile browsers): full-bleed, no mockup chrome.
+    // RESPONSIVE LAYOUT — `[@media(min-width:431px)_and_(pointer:fine)]:`
+    // (inline arbitrary variant, not a named `screens` entry — Tailwind
+    // disables `min-[…]`/`max-[…]` arbitrary variants globally if `screens`
+    // contains any object value) = width ≥ 431px AND pointer: fine (real
+    // mouse). Width alone isn't reliable: some
+    // Android phones report a CSS viewport width > 430px (larger screens,
+    // OS display-scaling, landscape) and would otherwise be misclassified
+    // as "desktop" here, forcing them into the fixed 390×844 mockup box —
+    // pointer: fine reliably excludes touchscreens regardless of width.
+    //   not desktop (real mobile browsers): full-bleed, no mockup chrome.
     //                                    Inner fills 100dvh × 100vw, square
     //                                    corners, no bezel, no shadow, notch
     //                                    hidden (real device has its own).
-    //                                    430 is the widest current iPhone
-    //                                    portrait width (14 Pro Max / 15
-    //                                    Pro Max / 16 Pro Max), so the
-    //                                    cutoff fires at 431+ to make sure
-    //                                    those devices land in mobile mode.
-    //   ≥ 431px  (desktop demo + tablets): 390×844 phone mockup centered
-    //                                      with bezel, rounded corners,
-    //                                      shadow, notch — preserves the
-    //                                      original desktop preview.
+    //   desktop (desktop demo + tablets): 390×844 phone mockup (clamped to
+    //                                      the real viewport) centered with
+    //                                      bezel, rounded corners, shadow,
+    //                                      notch — preserves the original
+    //                                      desktop preview.
     //   ≥ 640px  (sm): extra outer padding so the mockup floats away
     //                  from the viewport edges.
     // 100dvh (dynamic viewport height) accounts for iOS Safari's URL bar
     // expand/collapse — uses the *current* viewport so the navbar doesn't
     // get pushed under browser chrome.
-    <div className="flex min-h-[100dvh] w-full items-stretch justify-center min-[431px]:items-center min-[431px]:p-2 min-[640px]:p-6">
+    <div className="flex min-h-[100dvh] w-full items-stretch justify-center [@media(min-width:431px)_and_(pointer:fine)]:items-center [@media(min-width:431px)_and_(pointer:fine)]:p-2 min-[640px]:p-6">
       {/* Phone frame */}
-      <div className="relative w-full min-[431px]:w-auto">
-        <div className="min-[431px]:rounded-[44px] min-[431px]:bg-black/40 min-[431px]:p-3 min-[431px]:shadow-[0_30px_80px_rgba(75,32,255,0.25)] min-[431px]:ring-1 min-[431px]:ring-white/10">
+      <div className="relative w-full [@media(min-width:431px)_and_(pointer:fine)]:w-auto">
+        <div className="[@media(min-width:431px)_and_(pointer:fine)]:rounded-[44px] [@media(min-width:431px)_and_(pointer:fine)]:bg-black/40 [@media(min-width:431px)_and_(pointer:fine)]:p-3 [@media(min-width:431px)_and_(pointer:fine)]:shadow-[0_30px_80px_rgba(75,32,255,0.25)] [@media(min-width:431px)_and_(pointer:fine)]:ring-1 [@media(min-width:431px)_and_(pointer:fine)]:ring-white/10">
           <div
-            className="relative h-[100dvh] w-full overflow-hidden min-[431px]:h-[844px] min-[431px]:w-[390px] min-[431px]:rounded-[36px]"
+            className="relative h-[100dvh] w-full overflow-hidden [@media(min-width:431px)_and_(pointer:fine)]:h-[min(844px,100dvh)] [@media(min-width:431px)_and_(pointer:fine)]:w-[min(390px,100vw)] [@media(min-width:431px)_and_(pointer:fine)]:rounded-[36px]"
             style={{
               // Matches the Figma newLeagueMarkets card bg (#000000) so the
               // chrome around the card and the card itself read as one
@@ -427,7 +431,7 @@ export function App() {
           >
             {/* Notch — desktop mockup only. On real mobile the device has
                 its own physical notch / dynamic island, so we hide ours. */}
-            <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black min-[431px]:block" />
+            <div className="absolute left-1/2 top-2 z-30 hidden h-6 w-28 -translate-x-1/2 rounded-full bg-black [@media(min-width:431px)_and_(pointer:fine)]:block" />
 
             {/* T4 SIRI-STYLE VIGNETTE.
                 Multi-color perimeter glow modeled on iOS 26 Siri

@@ -18,65 +18,82 @@ import { buttonProgressionConfig } from './buttonProgressionConfig';
 import type { Selection } from './types';
 
 /* ============================================================ */
-/*  Mock pick data — the two markets this prototype offers:       */
-/*    • Money line (PSG vs Real Madrid outcomes)                  */
-/*    • Anota gol en cualquier momento (per-player)               */
-/*  Each pick is {market, pick(selection), odds}. Higher-odds     */
-/*  player entries are additional Anota-gol variants used to reach */
-/*  the upper tiers; they carry the same market/name, only odds    */
-/*  differ.                                                        */
+/*  Match + pick data — the sports offering this prototype shows. */
+/*  FOUR matches feed the match carousel; each pick carries its   */
+/*  match's metadata (matchId/abbrevs/kickoff) so the carousel     */
+/*  and the two player-prop accordions (goals, shots) can read it   */
+/*  directly instead of a separate lookup table. Higher-odds player  */
+/*  entries on PSG-RMA are additional Anota-gol variants used to      */
+/*  reach the upper tiers; they carry the same market/name, only       */
+/*  odds differ.                                                        */
 /* ============================================================ */
-export const MOCK_PICKS: Selection[] = [
-  // Money line — PSG vs Real Madrid.
-  { id: 'psg-w', market: 'Money line', pick: 'PSG', odds: 1.75 },
-  { id: 'rma-w', market: 'Money line', pick: 'Real Madrid', odds: 2.75 },
-  { id: 'draw', market: 'Money line', pick: 'Empate', odds: 3.8 },
-  // Anota gol en cualquier momento — players (the only player market here).
-  { id: 'lewa', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 1.95 },
-  { id: 'mbappe', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 1.65 },
-  { id: 'vini', market: 'Anota gol en cualquier momento', pick: 'Vinicius', odds: 2.1 },
-  { id: 'mbappe-htrick', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 9.0 },
-  { id: 'lewa-htrick', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 11.0 },
-  { id: 'vini-htrick', market: 'Anota gol en cualquier momento', pick: 'Vinicius', odds: 16.0 },
-  { id: 'lewa-4goals', market: 'Anota gol en cualquier momento', pick: 'Lewandowski', odds: 28.0 },
-  { id: 'mbappe-4goals', market: 'Anota gol en cualquier momento', pick: 'Mbappé', odds: 60.0 },
+export const GOALS_MARKET = 'Anota gol en cualquier momento';
+export const SHOTS_MARKET = 'Tiros al arco';
+
+export type MatchInfo = {
+  matchId: string;
+  league: string;
+  homeName: string;
+  awayName: string;
+  homeAbbrev: string;
+  awayAbbrev: string;
+  matchTime: string;
+};
+
+export const MATCHES: MatchInfo[] = [
+  { matchId: 'psg-rma', league: 'Champions', homeName: 'Paris-Saint Germain', awayName: 'Real Madrid', homeAbbrev: 'PSG', awayAbbrev: 'RMA', matchTime: 'Hoy 18:00' },
+  { matchId: 'ars-rma', league: 'Champions', homeName: 'Arsenal', awayName: 'Real Madrid', homeAbbrev: 'ARS', awayAbbrev: 'RMA', matchTime: 'Hoy 20:00' },
+  { matchId: 'fcb-psg', league: 'Champions', homeName: 'Barcelona', awayName: 'Paris-Saint Germain', homeAbbrev: 'FCB', awayAbbrev: 'PSG', matchTime: 'Mañana 21:00' },
+  { matchId: 'liv-mci', league: 'Premier', homeName: 'Liverpool', awayName: 'Manchester City', homeAbbrev: 'LIV', awayAbbrev: 'MCI', matchTime: 'Mañana 14:00' },
 ];
 
-/* ============================================================ */
-/*  Status bar                                                  */
-/* ============================================================ */
-function StatusBar() {
-  return (
-    <div className="flex h-11 w-full items-center justify-between px-6 pt-1">
-      <span className="text-[14px] font-semibold tracking-tight text-white">
-        9:41
-      </span>
-      <div className="flex items-center gap-1.5 text-white">
-        {/* signal */}
-        <svg width="18" height="11" viewBox="0 0 18 11" fill="none" aria-hidden>
-          <rect x="0" y="7" width="3" height="4" rx="0.5" fill="white" />
-          <rect x="5" y="4" width="3" height="7" rx="0.5" fill="white" />
-          <rect x="10" y="2" width="3" height="9" rx="0.5" fill="white" />
-          <rect x="15" y="0" width="3" height="11" rx="0.5" fill="white" />
-        </svg>
-        {/* wifi */}
-        <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-hidden>
-          <path
-            d="M8 10.5l-1.5-1.7M8 10.5l1.5-1.7M2 5.4a8.6 8.6 0 0112 0M4.5 7.7a5 5 0 017 0"
-            stroke="white"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-        </svg>
-        {/* battery */}
-        <div className="relative ml-1 h-[10px] w-[22px] rounded-[2.5px] border border-white/80">
-          <div className="absolute inset-[1px] rounded-[1.5px] bg-white" />
-          <div className="absolute -right-[2px] top-1/2 h-[4px] w-[1.5px] -translate-y-1/2 rounded-r-sm bg-white/80" />
-        </div>
-      </div>
-    </div>
-  );
-}
+// Only the match fields carried by each Selection (league/full names live in MATCHES).
+const matchOf = (m: MatchInfo) => ({
+  matchId: m.matchId,
+  homeAbbrev: m.homeAbbrev,
+  awayAbbrev: m.awayAbbrev,
+  matchTime: m.matchTime,
+});
+const [M_PSG_RMA, M_ARS_RMA, M_FCB_PSG, M_LIV_MCI] = MATCHES.map(matchOf);
+
+export const MOCK_PICKS: Selection[] = [
+  // ===== Paris-Saint Germain vs Real Madrid =====
+  { id: 'psg-w', market: 'Money line', pick: 'PSG', odds: 1.75, ...M_PSG_RMA },
+  { id: 'draw', market: 'Money line', pick: 'Empate', odds: 3.8, ...M_PSG_RMA },
+  { id: 'rma-w', market: 'Money line', pick: 'Real Madrid', odds: 2.75, ...M_PSG_RMA },
+  { id: 'lewa', market: GOALS_MARKET, pick: 'Lewandowski', odds: 1.95, ...M_PSG_RMA },
+  { id: 'mbappe', market: GOALS_MARKET, pick: 'Mbappé', odds: 1.65, ...M_PSG_RMA },
+  { id: 'vini', market: GOALS_MARKET, pick: 'Vinicius', odds: 2.1, ...M_PSG_RMA },
+  { id: 'mbappe-htrick', market: GOALS_MARKET, pick: 'Mbappé', odds: 9.0, ...M_PSG_RMA },
+  { id: 'lewa-htrick', market: GOALS_MARKET, pick: 'Lewandowski', odds: 11.0, ...M_PSG_RMA },
+  { id: 'vini-htrick', market: GOALS_MARKET, pick: 'Vinicius', odds: 16.0, ...M_PSG_RMA },
+  { id: 'lewa-4goals', market: GOALS_MARKET, pick: 'Lewandowski', odds: 28.0, ...M_PSG_RMA },
+  { id: 'mbappe-4goals', market: GOALS_MARKET, pick: 'Mbappé', odds: 60.0, ...M_PSG_RMA },
+  { id: 'mbappe-tiros', market: SHOTS_MARKET, pick: 'Mbappé', odds: 1.55, ...M_PSG_RMA },
+  { id: 'vini-tiros', market: SHOTS_MARKET, pick: 'Vinicius', odds: 1.8, ...M_PSG_RMA },
+  { id: 'lewa-tiros', market: SHOTS_MARKET, pick: 'Lewandowski', odds: 1.7, ...M_PSG_RMA },
+  // ===== Arsenal vs Real Madrid =====
+  { id: 'ars-w', market: 'Money line', pick: 'Arsenal', odds: 2.1, ...M_ARS_RMA },
+  { id: 'ars-draw', market: 'Money line', pick: 'Empate', odds: 3.4, ...M_ARS_RMA },
+  { id: 'ars-rma', market: 'Money line', pick: 'Real Madrid', odds: 2.55, ...M_ARS_RMA },
+  { id: 'ars-saka', market: GOALS_MARKET, pick: 'Saka', odds: 2.6, ...M_ARS_RMA },
+  { id: 'ars-odegaard', market: GOALS_MARKET, pick: 'Ødegaard', odds: 3.1, ...M_ARS_RMA },
+  { id: 'ars-saka-tiros', market: SHOTS_MARKET, pick: 'Saka', odds: 1.9, ...M_ARS_RMA },
+  // ===== Barcelona vs PSG =====
+  { id: 'fcb-w', market: 'Money line', pick: 'Barcelona', odds: 2.4, ...M_FCB_PSG },
+  { id: 'fcb-draw', market: 'Money line', pick: 'Empate', odds: 3.5, ...M_FCB_PSG },
+  { id: 'fcb-psg-w', market: 'Money line', pick: 'PSG', odds: 2.3, ...M_FCB_PSG },
+  { id: 'fcb-yamal', market: GOALS_MARKET, pick: 'Yamal', odds: 2.2, ...M_FCB_PSG },
+  { id: 'fcb-mbappe', market: GOALS_MARKET, pick: 'Mbappé', odds: 1.9, ...M_FCB_PSG },
+  { id: 'fcb-yamal-tiros', market: SHOTS_MARKET, pick: 'Yamal', odds: 1.75, ...M_FCB_PSG },
+  // ===== Liverpool vs Man City =====
+  { id: 'liv-w', market: 'Money line', pick: 'Liverpool', odds: 2.55, ...M_LIV_MCI },
+  { id: 'liv-draw', market: 'Money line', pick: 'Empate', odds: 3.6, ...M_LIV_MCI },
+  { id: 'mci-w', market: 'Money line', pick: 'Manchester City', odds: 2.2, ...M_LIV_MCI },
+  { id: 'liv-salah', market: GOALS_MARKET, pick: 'Salah', odds: 2.0, ...M_LIV_MCI },
+  { id: 'mci-haaland', market: GOALS_MARKET, pick: 'Haaland', odds: 1.7, ...M_LIV_MCI },
+  { id: 'mci-haaland-tiros', market: SHOTS_MARKET, pick: 'Haaland', odds: 1.6, ...M_LIV_MCI },
+];
 
 /* ============================================================ */
 /*  Header — Draftea logo, balance, lightning, profile          */
@@ -711,151 +728,192 @@ type PromoCarouselProps = {
   onLightningBet: (id: string) => boolean;
 };
 
+type BindPick = ReturnType<typeof useLongPress>['bind'];
+
+/** One match card (Figma "newLeagueMarkets" 1624:44632) — league + tags,
+    the two teams + kickoff, and the money-line 3-way as odds buttons. */
+function MatchCard({
+  match,
+  selectedIds,
+  bindPick,
+}: {
+  match: MatchInfo;
+  selectedIds: Set<string>;
+  bindPick: BindPick;
+}) {
+  // Money-line picks for THIS match, in [home, draw, away] order.
+  const lines = MOCK_PICKS.filter(
+    (p) => p.matchId === match.matchId && p.market === 'Money line',
+  );
+  // Label by position (0 = home, draw = EMPATE, else away) — the pick names
+  // are full team names ("Paris-Saint Germain"), so we can't match them to
+  // abbrevs.
+  const labelFor = (p: Selection, i: number) =>
+    p.pick === 'Empate' ? 'EMPATE' : i === 0 ? match.homeAbbrev : match.awayAbbrev;
+
+  return (
+    // Missing asset: the decorative "light" glow blob positioned at the
+    // top of the card (imgLight in the Figma export). Skipped here —
+    // ask Javier to upload it; placeholder slot left below where it goes.
+    <div
+      className="relative w-full overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.24)] bg-black pt-2"
+      style={{ backdropFilter: 'blur(10.15px)', WebkitBackdropFilter: 'blur(10.15px)' }}
+    >
+      {/* PLACEHOLDER for the decorative "light" graphic — Figma puts
+          it at top: -36.11px overflowing slightly above the card. */}
+
+      {/* League + tags row */}
+      <div className="flex w-full items-center justify-center gap-1 px-2.5">
+        <div className="flex items-center gap-1">
+          <p
+            className="whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.5)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            {match.league}
+          </p>
+          <span
+            aria-hidden
+            className="block h-0.5 w-0.5 rounded-full bg-[rgba(251,251,251,0.5)]"
+          />
+        </div>
+        <div className="flex items-start gap-1">
+          <span
+            className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            PA
+          </span>
+          <span
+            className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            90&apos;
+          </span>
+        </div>
+      </div>
+
+      {/* Match row — Team 1 / center kickoff / Team 2 */}
+      <div className="flex w-full items-start gap-2 px-2.5 pb-2">
+        <div className="flex flex-1 flex-col items-center gap-0.5">
+          <img src={shieldIcon} alt="" aria-hidden className="h-8 w-8" />
+          <p
+            className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            {match.homeName}
+          </p>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-center self-stretch">
+          <p
+            className="whitespace-nowrap text-[12px] font-bold leading-[18px] text-[#fbfbfb]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            {match.matchTime}
+          </p>
+        </div>
+        <div className="flex flex-1 flex-col items-center justify-end gap-0.5">
+          <img src={shieldIcon} alt="" aria-hidden className="h-8 w-8" />
+          <p
+            className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
+            style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+          >
+            {match.awayName}
+          </p>
+        </div>
+      </div>
+
+      {/* Odds row — the money-line 3-way. Each toggles a MOCK_PICKS id into
+          the slip; selected state = lime→cyan gradient + bold odds. Quick
+          Bet hold-progress (qb-hold/qb-press, see useLongPress above) works
+          the same as on any other pick button. */}
+      <div className="flex w-full items-center justify-end gap-1 px-2.5 pb-2.5">
+        {lines.map((p, i) => {
+          const selected = selectedIds.has(p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              {...bindPick(p.id)}
+              className={`qb-hold qb-press flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
+                selected
+                  ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
+                  : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] hover:bg-[rgba(251,251,251,0.14)]'
+              }`}
+            >
+              <span
+                className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {labelFor(p, i)}
+              </span>
+              <span
+                className={`whitespace-nowrap text-center text-[13px] leading-4 text-[#fbfbfb] ${
+                  selected ? 'font-bold' : 'font-medium'
+                }`}
+                style={{ fontFamily: 'Red Hat Display, sans-serif' }}
+              >
+                {p.odds.toFixed(2)}x
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PromoCarousel({
   selectedIds,
   onTogglePick,
   onLightningBet,
 }: PromoCarouselProps) {
   const { bind: bindPick } = useLongPress(onLightningBet, onTogglePick);
-  // Card matches Figma "newLeagueMarkets" (1624:44632).
-  // Missing asset: the decorative "light" glow blob positioned at the
-  // top of the card (imgLight in the Figma export). Skipped here —
-  // ask Javier to upload it; placeholder slot left below where it goes.
-  // Each odds button maps to a MOCK_PICKS id so clicking it toggles the
-  // pick into the bet slip, with two visual states (default / selected)
-  // matching Figma nodes 17726:11289 (default) and 1624:44709 (selected).
-  const oddsButtons = [
-    { id: 'psg-w', l: 'PSG', v: '1.75x' },
-    { id: 'draw', l: 'EMPATE', v: '3.80x' },
-    { id: 'rma-w', l: 'RMA', v: '2.75x' },
-  ];
+  // Real horizontal scroll-snap carousel over every match on the feed.
+  // Cards snap-CENTER; the active dot tracks whichever card's center is
+  // nearest the carousel's center, measured from live rects so it stays
+  // correct for center snapping (not just a fixed-width computation).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const center = r.left + r.width / 2;
+    let best = 0;
+    let bestDist = Infinity;
+    [...el.children].forEach((k, i) => {
+      const kr = (k as HTMLElement).getBoundingClientRect();
+      const dist = Math.abs(kr.left + kr.width / 2 - center);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = i;
+      }
+    });
+    setActive(Math.max(0, Math.min(MATCHES.length - 1, best)));
+  };
+
   return (
     // pt-3 = 12px gap from the pills row above (per design spec).
-    <div className="w-full px-3 pb-2 pt-3">
+    <div className="w-full pb-2 pt-3">
       <div
-        className="relative w-full overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.24)] bg-black pt-2"
-        style={{ backdropFilter: 'blur(10.15px)', WebkitBackdropFilter: 'blur(10.15px)' }}
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="no-scrollbar flex snap-x snap-mandatory gap-2 overflow-x-auto px-3"
       >
-        {/* PLACEHOLDER for the decorative "light" graphic — Figma puts
-            it at top: -36.11px overflowing slightly above the card. */}
-
-        {/* League + tags row */}
-        <div className="flex w-full items-center justify-center gap-1 px-2.5">
-          <div className="flex items-center gap-1">
-            <p
-              className="whitespace-nowrap text-right text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.5)]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              Champions
-            </p>
-            <span
-              aria-hidden
-              className="block h-0.5 w-0.5 rounded-full bg-[rgba(251,251,251,0.5)]"
-            />
+        {MATCHES.map((m) => (
+          <div key={m.matchId} className="w-[86%] shrink-0 snap-center">
+            <MatchCard match={m} selectedIds={selectedIds} bindPick={bindPick} />
           </div>
-          <div className="flex items-start gap-1">
-            <span
-              className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              PA
-            </span>
-            <span
-              className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              90&apos;
-            </span>
-          </div>
-        </div>
-
-        {/* Match row — Team 1 / center kickoff / Team 2 */}
-        <div className="flex w-full items-start gap-2 px-2.5 pb-2">
-          <div className="flex w-[108px] flex-col items-center gap-0.5">
-            <img
-              src={shieldIcon}
-              alt=""
-              aria-hidden
-              className="h-8 w-8"
-            />
-            <p
-              className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              Paris-Saint Germain
-            </p>
-          </div>
-          <div className="flex flex-1 flex-col items-center justify-center self-stretch">
-            <p
-              className="whitespace-nowrap text-[12px] font-bold leading-[18px] text-[#fbfbfb]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              Hoy 18:00
-            </p>
-          </div>
-          <div className="flex w-[108px] flex-col items-center justify-end gap-0.5">
-            <img
-              src={shieldIcon}
-              alt=""
-              aria-hidden
-              className="h-8 w-8"
-            />
-            <p
-              className="w-full overflow-hidden text-ellipsis whitespace-nowrap text-center text-[12px] font-medium leading-4 text-[rgba(251,251,251,0.7)]"
-              style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-            >
-              Real Madrid
-            </p>
-          </div>
-        </div>
-
-        {/* Odds row — 3 buttonsPropsBets. Each toggles a MOCK_PICKS id
-            into/out of the bet slip. Selected state replaces the bg with
-            a lime→cyan gradient, swaps the border to solid #d2ff72, and
-            bumps the odds value to Bold. */}
-        <div className="flex w-full items-center justify-end gap-1 px-2.5 pb-2.5">
-          {oddsButtons.map((o) => {
-            const selected = selectedIds.has(o.id);
-            return (
-              <button
-                key={o.id}
-                type="button"
-                {...bindPick(o.id)}
-                className={`qb-hold qb-press flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
-                  selected
-                    ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
-                    : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] hover:bg-[rgba(251,251,251,0.14)]'
-                }`}
-              >
-                <span
-                  className="whitespace-nowrap text-center text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.5)]"
-                  style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-                >
-                  {o.l}
-                </span>
-                <span
-                  className={`whitespace-nowrap text-center text-[13px] leading-4 text-[#fbfbfb] ${
-                    selected ? 'font-bold' : 'font-medium'
-                  }`}
-                  style={{ fontFamily: 'Red Hat Display, sans-serif' }}
-                >
-                  {o.v}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        ))}
       </div>
 
-      {/* Carousel dots — preserved from previous implementation. The
-          Figma node is just one card; the dots belong to the carousel
-          container that holds it. */}
+      {/* Carousel dots — one per match, active dot widens. */}
       <div className="mt-2 flex justify-center gap-1.5">
-        {[0, 1, 2].map((i) => (
+        {MATCHES.map((m, i) => (
           <div
-            key={i}
-            className={`h-1.5 rounded-full ${
-              i === 0 ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
+            key={m.matchId}
+            className={`h-1.5 rounded-full transition-all duration-200 ${
+              i === active ? 'w-4 bg-white' : 'w-1.5 bg-white/40'
             }`}
           />
         ))}
@@ -872,97 +930,35 @@ function PromoCarousel({
 /*  corresponding pick into the bet slip. Selected state uses   */
 /*  the same lime-cyan visual language as the PromoCarousel.    */
 /*                                                              */
-/*  Filters to the player-goal-prop picks only (lewa, mbappe,   */
-/*  vini, mbappe-htrick). The other picks (team wins, draws,    */
-/*  combo, hat-trick variants) don't fit this layout and live   */
-/*  elsewhere (PromoCarousel + debug random add).               */
+/*  Parameterized by `title` (the market name); filters `picks`  */
+/*  to that market across every match on the feed, reading each   */
+/*  card's metadata straight off the Selection (homeAbbrev/         */
+/*  awayAbbrev/matchTime) instead of a separate lookup table —        */
+/*  rendered twice by HomeScreenChrome (goals + shots markets).        */
 /* ============================================================ */
 type MarketProps = {
+  /** Market name — also the accordion title. Picks are filtered to this. */
+  title: string;
   picks: Selection[];
   selectedIds: Set<string>;
   onTogglePick: (id: string) => void;
   onLightningBet: (id: string) => boolean;
 };
 
-type PlayerMeta = {
-  lastName: string;
-  position: string;
-  homeAbbrev: string;
-  awayAbbrev: string;
-  date: string;
-  time: string;
+// Position shown next to the player name on each card (default DEL).
+const PLAYER_POSITION: Record<string, string> = {
+  Ødegaard: 'MED',
 };
 
-const PLAYER_META: Record<string, PlayerMeta> = {
-  lewa: {
-    lastName: 'Lewandowski',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  mbappe: {
-    lastName: 'Mbappé',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  vini: {
-    lastName: 'Vinicius',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  'mbappe-htrick': {
-    lastName: 'Mbappé',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  // Tier-progression picks — each in PLAYER_META so it surfaces in
-  // the player-card grid (clickable, no need for random-add).
-  'lewa-htrick': {
-    lastName: 'Lewandowski',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  'vini-htrick': {
-    lastName: 'Vinicius',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  'lewa-4goals': {
-    lastName: 'Lewandowski',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-  'mbappe-4goals': {
-    lastName: 'Mbappé',
-    position: 'DEL',
-    homeAbbrev: 'PSG',
-    awayAbbrev: 'RMA',
-    date: 'HOY',
-    time: '18:00',
-  },
-};
+// Split a "Hoy 18:00" / "Mañana 21:00" kickoff into an uppercase date + a
+// time, for the two-line stamp in each card's top-right corner.
+function splitKickoff(matchTime: string): { date: string; time: string } {
+  const [date, ...rest] = matchTime.split(' ');
+  return { date: date.toUpperCase(), time: rest.join(' ') };
+}
 
 function MarketAccordion({
+  title,
   picks,
   selectedIds,
   onTogglePick,
@@ -973,9 +969,8 @@ function MarketAccordion({
     onLightningBet,
     onTogglePick,
   );
-  // Only show picks that are mapped to a player. Other picks (team
-  // wins / draw / combos / goleada) don't fit this layout.
-  const playerPicks = picks.filter((p) => PLAYER_META[p.id]);
+  // Player-prop cards for THIS market only, across every match on the feed.
+  const playerPicks = picks.filter((p) => p.market === title);
 
   // Collapsing the accordion unmounts the player cards below — the
   // selection being held becomes unavailable, so cancel any in-flight
@@ -998,7 +993,7 @@ function MarketAccordion({
             className="text-left text-[14px] font-bold leading-[21px] text-[#fbfbfb]"
             style={{ fontFamily: 'Red Hat Display, sans-serif' }}
           >
-            Anota gol en cualquier momento
+            {title}
           </p>
           <span
             className="flex h-[15px] min-w-5 items-center justify-center rounded-md bg-[rgba(251,251,251,0.16)] px-1 text-[10px] font-bold leading-[15px] text-[rgba(251,251,251,0.7)]"
@@ -1024,7 +1019,8 @@ function MarketAccordion({
         <div className="flex flex-col gap-1 pt-1">
           <div className="grid grid-cols-2 gap-2">
             {playerPicks.map((p) => {
-              const meta = PLAYER_META[p.id];
+              const { date, time } = splitKickoff(p.matchTime);
+              const position = PLAYER_POSITION[p.pick] ?? 'DEL';
               const selected = selectedIds.has(p.id);
               return (
                 <button
@@ -1064,26 +1060,26 @@ function MarketAccordion({
                       style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
                       <span className="font-medium text-[rgba(251,251,251,0.7)]">
-                        {meta.homeAbbrev}
+                        {p.homeAbbrev}
                       </span>
                       <span className="font-medium text-[rgba(251,251,251,0.44)]">
                         vs
                       </span>
                       <span className="font-medium text-[rgba(251,251,251,0.44)]">
-                        {meta.awayAbbrev}
+                        {p.awayAbbrev}
                       </span>
                     </div>
                     <span
                       className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]"
                       style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
-                      {meta.date}
+                      {date}
                     </span>
                     <span
                       className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]"
                       style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
-                      {meta.time}
+                      {time}
                     </span>
                   </div>
 
@@ -1113,10 +1109,10 @@ function MarketAccordion({
                       style={{ fontFamily: 'Red Hat Display, sans-serif' }}
                     >
                       <span className="text-[14px] font-medium leading-[21px] text-[#fbfbfb]">
-                        {meta.lastName}
+                        {p.pick}
                       </span>
                       <span className="text-[10px] font-medium leading-[15px] text-[rgba(251,251,251,0.44)]">
-                        {meta.position}
+                        {position}
                       </span>
                     </div>
                   </div>
@@ -1359,7 +1355,7 @@ export function HomeScreenChrome({
     <div className="flex w-full flex-col">
       {/* TOPBAR — always pinned. Opaque so content scrolls under it; the top
           decorative glow lives here (moved from App) so it stays with it. */}
-      <div ref={topbarRef} className="sticky top-0 z-30 bg-black">
+      <div ref={topbarRef} className="sticky top-0 z-30 bg-black [@media(min-width:431px)_and_(pointer:fine)]:pt-11">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-[100px]"
@@ -1370,7 +1366,6 @@ export function HomeScreenChrome({
             opacity: 0.48,
           }}
         />
-        <StatusBar />
         <Header />
       </div>
 
@@ -1395,6 +1390,14 @@ export function HomeScreenChrome({
         onLightningBet={onLightningBet}
       />
       <MarketAccordion
+        title={GOALS_MARKET}
+        picks={picks}
+        selectedIds={selectedIds}
+        onTogglePick={onTogglePick}
+        onLightningBet={onLightningBet}
+      />
+      <MarketAccordion
+        title={SHOTS_MARKET}
         picks={picks}
         selectedIds={selectedIds}
         onTogglePick={onTogglePick}
