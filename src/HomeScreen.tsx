@@ -646,6 +646,11 @@ function useLongPress(
       // Prevent browser context menu during long-press
       e.preventDefault();
     },
+    onDragStart: (e: React.DragEvent<HTMLButtonElement>) => {
+      // Prevent native image/text drag starting from inside the card
+      // (e.g. the player silhouette in MarketAccordion).
+      e.preventDefault();
+    },
   });
 
   return { bind, cancelActivePress };
@@ -767,7 +772,7 @@ function PromoCarousel({
                 key={o.id}
                 type="button"
                 {...bindPick(o.id)}
-                className={`qb-hold flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
+                className={`qb-hold qb-press flex h-11 min-w-[58px] flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border px-3 py-1 transition-all duration-200 active:scale-[0.96] ${
                   selected
                     ? 'border-[#d2ff72] bg-gradient-to-b from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]'
                     : 'border-[rgba(251,251,251,0.08)] bg-[rgba(251,251,251,0.1)] hover:bg-[rgba(251,251,251,0.14)]'
@@ -983,7 +988,12 @@ function MarketAccordion({
                   // hold-progress visual is scoped to that same odds button
                   // (data-qb-progress-target below) — the card itself stays
                   // the press TARGET (unchanged) but does not animate.
-                  className="relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.12)] bg-black p-2.5 transition-all duration-200 active:scale-[0.98]"
+                  // `qb-press` (NOT `qb-hold`, which would wrongly paint the
+                  // fill/stroke across the whole card) recursively suppresses
+                  // native text-selection/callout/drag on this card and every
+                  // descendant — the real fix for long-press triggering the
+                  // browser's native selection UI (see index.css).
+                  className="qb-press relative flex cursor-pointer flex-col items-center gap-2 overflow-hidden rounded-[20px] border border-[rgba(251,251,251,0.12)] bg-black p-2.5 transition-all duration-200 active:scale-[0.98]"
                 >
                   {/* TODO: decorative "light" glow at top of card —
                       Figma uses imgLight (no asset uploaded). */}

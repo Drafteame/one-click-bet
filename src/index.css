@@ -447,15 +447,37 @@ body {
   inherits: true;
 }
 
-.qb-hold {
-  position: relative;
-  /* Prevent native text selection and copy menu during long press —
-     allows the Quick Bet gesture to take exclusive control on mobile. */
+/* ---------------------------------------------------------------- */
+/*  QUICK BET — suppress native text selection / callout / drag       */
+/*  across the ENTIRE pressable subtree, not just the fill pill.       */
+/*                                                                      */
+/*  `.qb-hold` marks only the small odds pill that renders the actual    */
+/*  fill/stroke — in MarketAccordion that pill is a small child at the    */
+/*  BOTTOM of the card, while the real long-press TARGET (bindPick spread) */
+/*  is the whole outer card button. Player name / team / position / date/  */
+/*  time text sit as SIBLINGS of the pill, not descendants, so scoping       */
+/*  selection-prevention to `.qb-hold` alone left most of the card's text     */
+/*  — exactly where a thumb rests during a hold — natively selectable.        */
+/*                                                                               */
+/*  `.qb-press` is applied directly to the actual interactive root in both       */
+/*  PromoCarousel and MarketAccordion (see HomeScreen.tsx) and recurses via        */
+/*  the universal child selector so every current and future descendant            */
+/*  (text, icons, images) is covered regardless of DOM depth — no reliance           */
+/*  on inheritance quirks or exact nesting.                                            */
+/* ---------------------------------------------------------------- */
+.qb-press,
+.qb-press * {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-  /* Suppress unwanted default long-press behavior (image dragging, etc.)
-     while preserving touch gestures. */
+  -webkit-user-drag: none;
+}
+
+.qb-hold {
+  position: relative;
+  /* Suppress unwanted default long-press behavior while preserving pan/
+     scroll gestures. Selection/callout prevention lives on `.qb-press`
+     above (applied to the actual press-target root, not this pill). */
   touch-action: manipulation;
   /* Progressive "charging" glow — reuses the exact selected-state palette
      (lime #d2ff72 / cyan #56deea) so it reads as an extension of that
