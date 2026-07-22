@@ -586,6 +586,8 @@ function useLongPress(
   // guard) and gets a new identity when that state changes.
   const bind = (id: string) => ({
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
+      // Prevent browser's native long-press behavior (context menu, text selection)
+      e.preventDefault();
       completed.current = false;
       cancelledHold.current = false; // Fresh press — not cancelled yet
       reset(); // cancel anything else in flight before starting fresh
@@ -639,6 +641,10 @@ function useLongPress(
       }
       // Only reach here on a quick tap (too fast to engage progress)
       onTap(id);
+    },
+    onContextMenu: (e: React.MouseEvent<HTMLButtonElement>) => {
+      // Prevent browser context menu during long-press
+      e.preventDefault();
     },
   });
 
