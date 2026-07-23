@@ -462,6 +462,10 @@ function useLongPress(
   // this by checking if progress ever got above a tiny threshold (0.5%) — if
   // so, it's an engaged hold, and release means cancel, not tap.
   const cancelledHold = useRef(false);
+  // Set right before a tap is handled explicitly on `pointerup` (see below) so
+  // the `click` that follows (still needed for keyboard Enter/Space
+  // activation) doesn't run `onTap` a second time for the same interaction.
+  const handledOnPointerUp = useRef(false);
 
   const writeProgress = (el: HTMLElement | null, p: number) => {
     el?.style.setProperty('--qb-progress', String(p));
@@ -652,10 +656,19 @@ function useLongPress(
       attachNativeListeners(el);
     },
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
-      // Prevent browser's native long-press behavior (context menu, text selection)
-      e.preventDefault();
+      // Do NOT preventDefault() here: per the Pointer Events spec, calling
+      // preventDefault() on a touch-originated pointerdown tells the browser
+      // to suppress every compatibility mouse event that would normally
+      // follow — including `click`. Since tap-to-select ultimately runs on
+      // `click`/`pointerup` below, that silently broke single-tap selection
+      // on real touch devices (regression this hook's own history — see the
+      // "restore single-tap selection" fix). Native long-press UI (text
+      // selection, context menu, callout) is already suppressed separately
+      // and correctly scoped via `attachNativeListeners` below (selectstart /
+      // contextmenu / dragstart / the guarded touchstart handler).
       completed.current = false;
       cancelledHold.current = false; // Fresh press — not cancelled yet
+      handledOnPointerUp.current = false;
       reset(); // cancel anything else in flight before starting fresh
       // The interactive target (e.currentTarget — e.g. the whole player
       // card) and the visual progress target can differ: a descendant
@@ -688,15 +701,18 @@ function useLongPress(
       rafId.current = requestAnimationFrame(tick);
     },
     onPointerUp: () => {
+      // Single authority for the tap-vs-hold decision on pointer-driven
+      // interactions — don't wait on `click`: touch pointers may never
+      // produce one (see the onPointerDown comment above). Claim the
+      // interaction unconditionally (before branching) so the `click` that
+      // may still follow (mouse, or browsers that don't suppress it for
+      // touch) always finds `handledOnPointerUp` true and no-ops, regardless
+      // of which branch below actually ran — a completed or cancelled hold
+      // must be suppressed just as much as a normal tap is de-duplicated.
       if (activeId.current === id) reset();
-    },
-    onPointerLeave: () => {
-      if (activeId.current === id) reset();
-    },
-    onPointerCancel: () => {
-      if (activeId.current === id) reset();
-    },
-    onClick: () => {
+      handledOnPointerUp.current = true;
+      // `reset()` above may have just set `cancelledHold` (engaged hold
+      // released early), so these checks must run AFTER it.
       if (completed.current) {
         completed.current = false; // long-press already created the entry
         return;
@@ -705,7 +721,24 @@ function useLongPress(
         cancelledHold.current = false; // cancelled hold — don't toggle
         return;
       }
-      // Only reach here on a quick tap (too fast to engage progress)
+      // Quick tap (too fast to engage progress, or released before completion).
+      onTap(id);
+    },
+    onPointerLeave: () => {
+      if (activeId.current === id) reset();
+    },
+    onPointerCancel: () => {
+      if (activeId.current === id) reset();
+    },
+    onClick: () => {
+      // Reached only when no pointerup handled this interaction — i.e.
+      // keyboard activation (Enter/Space), which fires `click` directly with
+      // no preceding pointer events. Every pointer-driven path above already
+      // set handledOnPointerUp, so this no-ops for those.
+      if (handledOnPointerUp.current) {
+        handledOnPointerUp.current = false;
+        return;
+      }
       onTap(id);
     },
     onContextMenu: (e: React.MouseEvent<HTMLButtonElement>) => {
