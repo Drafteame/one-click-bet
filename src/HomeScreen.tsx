@@ -601,12 +601,11 @@ function useLongPress(
   // Unmount safety — stop the loop if the owning component unmounts mid-press.
   useEffect(() => stopLoop, []);
 
-  // Attach native event listeners to prevent mobile selection/callout behavior.
-  // These must be at capture phase with passive: false because React synthetic
-  // events alone don't prevent iOS/Android native long-press UI.
-  const attachNativeListeners = (el: HTMLElement | null) => {
-    if (!el) return;
-
+  // Attaches native event listeners to prevent mobile selection/callout
+  // behavior, and returns the matching cleanup. These must be at capture
+  // phase with passive: false because React synthetic events alone don't
+  // prevent iOS/Android native long-press UI.
+  const attachNativeListeners = (el: HTMLElement): (() => void) => {
     const preventNative = (e: Event) => {
       e.preventDefault();
     };
@@ -642,6 +641,47 @@ function useLongPress(
       capture: true,
       passive: false,
     });
+
+    return () => {
+      el.removeEventListener('selectstart', preventNative, { capture: true });
+      el.removeEventListener('contextmenu', preventNative, { capture: true });
+      el.removeEventListener('dragstart', preventNative, { capture: true });
+      el.removeEventListener('touchstart', preventTouchDefault, {
+        capture: true,
+      });
+    };
+  };
+
+  // STABLE per-id ref callbacks (never recreated once made), unlike `bind`
+  // below. `bind(id)` intentionally returns a fresh object every render (its
+  // onPointerDown/onClick closures must see the current onLongPress/onTap),
+  // but a ref PROP whose identity changes every render makes React detach
+  // and reattach it on every single re-render — even when the underlying DOM
+  // node hasn't changed. That used to call attachNativeListeners() again on
+  // every re-render (attach-only, no cleanup), piling up duplicate capture
+  // listeners on the same button forever — worst after a Quick Bet
+  // completion, which cascades through several re-renders in quick
+  // succession. One hook instance is shared across every pick in its group
+  // (e.g. all money-line buttons on a MatchCard), so a single ref slot isn't
+  // enough — each id needs its OWN stable callback + cleanup, else the last
+  // pick to mount in a commit would silently claim every other pick's
+  // cleanup slot. Keyed by id (not the DOM node) since ids are static and
+  // stable for the lifetime of the picks list.
+  const nativeRefs = useRef(new Map<string, (el: HTMLButtonElement | null) => void>());
+  const nativeCleanups = useRef(new Map<string, () => void>());
+  const getNativeRef = (id: string) => {
+    let ref = nativeRefs.current.get(id);
+    if (!ref) {
+      ref = (el) => {
+        nativeCleanups.current.get(id)?.();
+        nativeCleanups.current.delete(id);
+        if (el != null) {
+          nativeCleanups.current.set(id, attachNativeListeners(el));
+        }
+      };
+      nativeRefs.current.set(id, ref);
+    }
+    return ref;
   };
 
   // NOT memoized (matches the pattern this replaces): recreated every render
@@ -649,12 +689,7 @@ function useLongPress(
   // App.tsx's lightningBet now depends on state (see the duplicate-entry
   // guard) and gets a new identity when that state changes.
   const bind = (id: string) => ({
-    ref: (el: HTMLButtonElement | null) => {
-      // Attach native event listeners at capture phase for mobile browsers.
-      // React synthetic handlers fire at bubble phase and may not prevent
-      // iOS/Android native selection, callout, and drag behaviors.
-      attachNativeListeners(el);
-    },
+    ref: getNativeRef(id),
     onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
       // Do NOT preventDefault() here: per the Pointer Events spec, calling
       // preventDefault() on a touch-originated pointerdown tells the browser
