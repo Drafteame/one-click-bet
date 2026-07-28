@@ -392,44 +392,19 @@ body {
 }
 
 /* ---------------------------------------------------------------- */
-/*  QUICK BET — hold-to-confirm background fill + completion-accent   */
-/*  stroke ring.                                                       */
+/*  QUICK BET — hold progress.                                        */
 /*                                                                      */
-/*  EXPERIMENTAL background-only progress treatment                     */
-/*  (branch qb-background-only-experiment). During the hold, ONLY the    */
-/*  fill (::before, driven by --qb-progress) communicates progress —      */
-/*  the stroke (::after) stays static (0) the whole time, deliberately     */
-/*  decoupled onto its OWN custom property, --qb-stroke-progress, so it     */
-/*  can never track the hold. --qb-stroke-progress is only ever written      */
-/*  by useLongPress on SUCCESSFUL completion (a fast ~220ms accent sweep,     */
-/*  see strokeCompleteMs in buttonProgressionConfig.ts), never during the      */
-/*  hold and never on cancellation.                                            */
-/*                                                                                */
-/*  The PREVIOUS version — fill and stroke both driven by --qb-progress and      */
-/*  animating together throughout the hold — is preserved at git tag              */
-/*  pre-bg-only-qb-experiment. See the bottom of this file's Quick Bet section      */
-/*  (or CLAUDE.md) for exact revert steps.                                          */
-/*                                                                                     */
-/*  --qb-progress is written directly onto the pressed element's own DOM node          */
-/*  by useLongPress's requestAnimationFrame loop (HomeScreen.tsx) — no React            */
-/*  state involved, so this updates at 60fps with zero React re-renders. The              */
-/*  fill and the Quick Bet confirmation itself share one clock (the same                   */
-/*  elapsed-time check drives both), so they always finish in the same frame.               */
-/*                                                                                            */
-/*  Colors are the EXACT selected-state tokens (see the `selected` ternary on                */
-/*  the odds buttons in HomeScreen.tsx: border-[#d2ff72] + bg-gradient-to-b                    */
-/*  from-[rgba(210,255,114,0.16)] to-[rgba(86,222,234,0.16)]) — the loading                     */
-/*  state IS the selected state being progressively revealed, so there's no                      */
-/*  purple-to-green swap at completion. Keep these two literals in sync with                      */
-/*  that ternary if the selected-state colors ever change.                                         */
-/*                                                                                                    */
-/*  Absolutely positioned + inset:0 + pointer-events:none, so this never                              */
-/*  affects the button's own dimensions or layout.                                                     */
-/*                                                                                                        */
-/*  Treated as functional gesture feedback (not ambient decoration) —                                    */
-/*  intentionally NOT suppressed under prefers-reduced-motion, same                                       */
-/*  treatment this repo already gives SlotNumber's rolls / the entry/exit                                  */
-/*  mount transition.                                                                                        */
+/*  The inline background-fill + completion-accent stroke ring that       */
+/*  used to render on the pressed selection itself are RETIRED — hold       */
+/*  progress now renders ONLY in the floating pill (OneClickBetPill.tsx),    */
+/*  fed by `session.progress` from useOneClickBetSession                     */
+/*  (oneClickBetSession.ts). See CLAUDE.md's "floating pill" landmark.         */
+/*                                                                               */
+/*  --qb-progress / --qb-stroke-progress remain registered below because        */
+/*  the Quick Bet ONBOARDING demo loop (OnboardingSheet.tsx's                    */
+/*  QuickBetDemoLoop, `.qb-demo-*` classes further down this file) still          */
+/*  drives them via its own self-contained CSS keyframe timeline — that is        */
+/*  NOT a real press, so it isn't affected by this retirement.                     */
 /* ---------------------------------------------------------------- */
 @property --qb-progress {
   syntax: '<number>';
@@ -477,50 +452,9 @@ body {
   position: relative;
   /* Suppress unwanted default long-press behavior while preserving pan/
      scroll gestures. Selection/callout prevention lives on `.qb-press`
-     above (applied to the actual press-target root, not this pill). */
+     above (applied to the actual press-target root, not this pill). No
+     progress visual lives here anymore — see the retirement note above. */
   touch-action: manipulation;
-  /* Progressive "charging" glow — reuses the exact selected-state palette
-     (lime #d2ff72 / cyan #56deea) so it reads as an extension of that
-     color, not a new accent. Applied to the REAL element (not a pseudo-
-     element) so it isn't clipped by the fill's own scaleX box and isn't
-     squashed as the fill grows — box-shadow on a small element is cheap on
-     mobile GPUs, and no separate transition is needed since --qb-progress
-     is already written every frame (or interpolated during the reverse/
-     cancel transition), so this simply recomputes alongside it for free.
-
-     Intensity uses --qb-progress SQUARED (progress*progress), not linear —
-     at low progress (little filled) the glow stays almost off, then builds
-     noticeably as the fill grows, so it reads as "hugging" how much is
-     actually filled rather than a flat halo that's equally present around
-     the whole button regardless of fill amount. Kept soft/diffused (wide
-     blur, small spread, moderate alpha ceiling, no saturated neon color)
-     — it should be clearly noticeable by mid-hold, not blend into nothing,
-     while never becoming a bright ring around the button's full perimeter. */
-  box-shadow:
-    0 0 calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 14px)
-      calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 2px)
-      rgba(210, 255, 114, calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 0.45)),
-    0 0 calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 24px)
-      calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 3px)
-      rgba(86, 222, 234, calc(var(--qb-progress, 0) * var(--qb-progress, 0) * 0.28));
-}
-
-/* PromoCarousel's odds buttons additionally carry Tailwind's
-   `transition-all duration-200` (for their own hover:bg / active:scale
-   polish — unrelated to Quick Bet). "all" unintentionally also catches the
-   box-shadow glow above: since --qb-progress is rewritten every ~16ms by
-   the rAF loop, a transitioned box-shadow would perpetually chase a target
-   that keeps moving and never visually catch up to the true instantaneous
-   value. Scoped to the COMPOUND class `.qb-hold.transition-all` (only
-   PromoCarousel's buttons carry both classes — MarketAccordion's pill has
-   no transition class at all and is untouched by this rule) so the fix
-   applies only where the conflict actually exists, without introducing a
-   transition anywhere that didn't already have one. Higher specificity
-   than either single class, so no !important needed. */
-.qb-hold.transition-all {
-  transition-property: background-color, border-color, color, opacity,
-    transform, box-shadow;
-  transition-duration: 200ms, 200ms, 200ms, 200ms, 200ms, 0s;
 }
 
 /* ---------------------------------------------------------------- */
@@ -724,94 +658,64 @@ body {
   }
 }
 
-/* Cancellation reverse (early release / pointer leave / cancel) is applied
-   via an INLINE `transition` set directly in useLongPress's `reset()`
-   (HomeScreen.tsx), not a CSS class here. A class would get wiped mid-
-   animation whenever the release also falls through to a normal toggle,
-   since that re-renders this element with a brand-new `className` string
-   (React only manages className on these buttons, never `style`, so the
-   inline transition survives that re-render while a class would not).
-   Because --qb-progress is a registered <number> custom property
-   (@property above), the browser can smoothly interpolate it like any
-   other animatable value once transitioned — driving BOTH the fill
-   (::before's scaleX) and the stroke (::after's conic-gradient angle)
-   together, since they both read the same interpolating variable. */
+/* The inline fill (::before) + completion-accent stroke ring (::after) that
+   used to render on `.qb-hold` here are retired — see the retirement note
+   near `@property --qb-progress` above. Hold progress now renders only in
+   the floating pill (OneClickBetPill.tsx). */
 
-.qb-hold::before,
-.qb-hold::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+/* ---------------------------------------------------------------- */
+/*  ONE CLICK BET FLOATING PILL — internal energy particles.         */
+/*  Each `.ocb-pill-particle` spans the pill's FULL width (so its own  */
+/*  transform:translateX(%) travels a full container-width, not just    */
+/*  its own tiny size) and paints a small radial-gradient dot via         */
+/*  `background-position`/`background-size` — the dot's on-screen          */
+/*  position comes entirely from the parent's translateX, so the whole      */
+/*  element only ever animates `transform` (GPU-compositable, no layout      */
+/*  or paint cost from the travel itself). Left→right, looped, staggered      */
+/*  per-particle via `animation-delay` (see buttonProgressionConfig.ts's       */
+/*  ocbVfx.particles). Visibility/density is controlled entirely by the        */
+/*  wrapping div's `opacity` style (set from the live progress value in         */
+/*  OneClickBetPill.tsx) — this animation itself never reads progress,           */
+/*  so nothing here needs a per-frame JS write.                                   */
+/* ---------------------------------------------------------------- */
+.ocb-pill-particle {
+  width: 100%;
+  /* White-hot core fading through the purple accent into transparent — a
+     subtle glow rather than a flat purple dot. `background-size` is wider
+     than `--ocb-particle-size` itself so the outer glow ring has room to
+     fall off softly before hitting transparent. */
+  background-image: radial-gradient(
+    circle,
+    #ffffff 0%,
+    rgba(255, 255, 255, 0.85) 18%,
+    rgba(143, 46, 255, 0.9) 45%,
+    rgba(143, 46, 255, 0) 78%
+  );
+  background-repeat: no-repeat;
+  background-size: calc(var(--ocb-particle-size) * 2.4)
+    calc(var(--ocb-particle-size) * 2.4);
+  background-position: 10% center;
+  animation-name: ocbParticleTravel;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  /* Belt-and-suspenders alongside the negative `animation-delay`s in
+     buttonProgressionConfig.ts: guarantees the element always renders at a
+     keyframe position, never its un-animated resting spot. */
+  animation-fill-mode: both;
+  will-change: transform;
 }
 
-/* Background fill — left-to-right via transform:scaleX (not width/clip),
-   so it stays on the compositor thread. transform-origin:left anchors the
-   growth to the left edge. Deliberately NOT `border-radius: inherit`: a
-   scaleX'd box with its OWN rounded corners would squash them into an
-   ellipse on the leading edge mid-animation. Instead this stays a plain
-   rectangle and relies on the button's own `overflow-hidden` + border-
-   radius (already present on every .qb-hold target) to clip it to the
-   correct rounded shape — so the corners stay circular throughout.
-
-   Two extra touches layered on TOP of the base gradient, both driven by
-   the same --qb-progress value so they need no separate JS/timing:
-     - An INSET glow biased toward the trailing (right) edge — the actual
-       boundary between filled and unfilled, since this box IS the fill.
-       Reads as the fill's own edge "hugging" a soft light rather than a
-       halo around the whole button (that's the OUTER glow above, on
-       .qb-hold), reinforcing that the glow belongs to the filled portion
-       specifically. Contained within this box, so unaffected by the
-       parent's overflow-hidden.
-     - A very slight extra `scale()` composed into the SAME transform,
-       barely growing the fill as progress climbs (max +1.5%). Deliberately
-       NOT applied to the real button element — PromoCarousel's odds
-       buttons already use `active:scale-[0.96]` on `:active`, which is
-       true for the button's entire held duration and would completely
-       override any scale applied there. Scaling this pseudo-element
-       instead sidesteps that conflict everywhere .qb-hold is used.
-   Saturation nudges up slightly near completion via `filter` — cheap (no
-   blur), just a color-matrix op, negligible cost at this element size. */
-.qb-hold::before {
-  z-index: 4;
-  background: linear-gradient(
-    to bottom,
-    rgba(210, 255, 114, 0.16),
-    rgba(86, 222, 234, 0.16)
-  );
-  box-shadow: inset -10px 0 14px -6px
-    rgba(210, 255, 114, calc(var(--qb-progress, 0) * 0.5));
-  filter: saturate(calc(1 + var(--qb-progress, 0) * 0.35));
-  transform: scaleX(var(--qb-progress, 0))
-    scale(calc(1 + var(--qb-progress, 0) * 0.015));
-  transform-origin: left center;
+@keyframes ocbParticleTravel {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
-/* Stroke ring — a conic-gradient wedge masked down to a thin border via
-   the standard padding + mask-composite:exclude "ring" trick, so it
-   automatically conforms to the button's own border-radius with zero
-   size measurement (no ResizeObserver — sidesteps the shellSize-is-0-on-
-   first-render gotcha noted elsewhere in this repo). Unlike the fill, this
-   DOES need `border-radius: inherit` — the ring's own inner+outer edges
-   are what need rounding, not just its outer clip. #d2ff72 matches the
-   selected-state border color; 1px matches that border's actual width, so
-   the ring hands off to the real border with no visible thickness jump.
-
-   Reads --qb-stroke-progress, NOT --qb-progress — deliberately decoupled
-   (see the Quick Bet comment block above) so this stays static during the
-   hold and only sweeps on useLongPress's fast completion-accent transition. */
-.qb-hold::after {
-  z-index: 5;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from -90deg,
-    #d2ff72 calc(var(--qb-stroke-progress, 0) * 360deg),
-    transparent calc(var(--qb-stroke-progress, 0) * 360deg)
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+@media (prefers-reduced-motion: reduce) {
+  .ocb-pill-particle {
+    animation: none;
+  }
 }
