@@ -110,6 +110,13 @@ type Props = {
   onClose: () => void;
   quickBetAmount: string;
   onQuickBetAmountChange: (value: string) => void;
+  /** Fired ONLY when "Jugar ahora" succeeds (valid amount + odds-change
+   *  checkbox accepted) — additive, informational: lets a caller persist
+   *  the odds-change preference / mark setup complete (see
+   *  oneClickBetOnboarding.ts) without this component owning that
+   *  persistence itself. `onClose` still fires right after, exactly as
+   *  before — this doesn't change what closes the sheet or when. */
+  onSetupComplete?: (acceptOddsChange: boolean) => void;
 };
 
 /** Tracks the on-screen keyboard's footprint via `window.visualViewport` —
@@ -160,6 +167,7 @@ export function OnboardingSheet({
   onClose,
   quickBetAmount,
   onQuickBetAmountChange,
+  onSetupComplete,
 }: Props) {
   const [isPresent, safeToRemove] = usePresence();
   const y = useMotionValue(OFFSCREEN_Y);
@@ -420,6 +428,7 @@ export function OnboardingSheet({
       checkboxRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       return;
     }
+    onSetupComplete?.(oddsAccepted);
     onClose();
   };
 
@@ -808,11 +817,12 @@ function QuickBetDemoLoop() {
       className="pointer-events-none absolute inset-0 flex items-center justify-center"
       aria-hidden
     >
-      {/* Fixed-size stage sized to the ticket's own box (233×108) — both
-          the pill/pointer group and the ticket center inside it via the
-          SAME box, so neither layer shifts the layout as the loop swaps
-          between them (no bottom-sheet height change during playback). */}
-      <div className="relative h-[108px] w-[233px]">
+      {/* Fixed-size stage sized to the ticket's own box (~155×61,
+          Figma 35252:75429) — both the pill/pointer group and the ticket
+          center inside it via the SAME box, so neither layer shifts the
+          layout as the loop swaps between them (no bottom-sheet height
+          change during playback). */}
+      <div className="relative h-[61px] w-[154.975px]">
         {/* Pill + pointer group — the single selection, and the circular
             touch indicator pressing it. Fades out as a unit once the
             pointer has released, handing off to the ticket below. */}

@@ -9,20 +9,31 @@ import compartirIcon from './assets/compartir.svg';
 import reusarIcon from './assets/reusar.svg';
 import { BetSlipFullSheet } from './BetSlipFullSheet';
 import { BetSlipSheet } from './BetSlipSheet';
-import { EntryCreatedOverlay } from './EntryCreatedOverlay';
+import { EntryCreatedOverlay, type Rect } from './EntryCreatedOverlay';
 import { OnboardingSheet } from './OnboardingSheet';
-import { useQuickBetAmount } from './quickBetSettings';
+import {
+  OneClickBetPill,
+  type OneClickBetPillState,
+} from './OneClickBetPill';
+import { computePotentialWin, useOneClickBetSession } from './oneClickBetSession';
+import { useOneClickBetOnboarding } from './oneClickBetOnboarding';
 import type { Selection, Tier } from './types';
 
 // Lightning bet: how long the pressed pick shows its selected state before the
-// entry-creation animation starts.
+// entry-creation animation starts. Also feeds the OneClickBetSession's
+// acceptToSubmitMs (see useOneClickBetSession() below) — same clock, not a
+// duplicated number.
 const LIGHTNING_SELECT_MS = 320;
 
-// QUICK BET ONBOARDING — shown once per browser session (sessionStorage, so
-// it clears on tab/browser close but survives a same-tab reload). Bumping the
-// suffix (v1) invalidates every previously-stored session if the sheet's
-// content changes enough to warrant re-showing it.
-const ONBOARDING_STORAGE_KEY = 'qb:onboarding-shown:v1';
+// ONE CLICK BET — dev-preview demo stake (same fixed-demo-stake convention as
+// BetSlipSheet's own `STAKE`), used ONLY by the `?debug=true` OCB dev buttons
+// (debugOcbState/debugOcbProgress) when no real Quick Bet hold is active. The
+// real hold-driven pill instead reads amount/potentialWin from the session.
+const ONE_CLICK_BET_DEMO_STAKE = 200;
+
+// QUICK BET ONBOARDING — "seen" state now lives in `useOneClickBetOnboarding`
+// (oneClickBetOnboarding.ts), which still uses the exact same sessionStorage
+// key/mechanism this comment used to describe directly.
 // Delay before the sheet auto-opens on first load — lets the entry
 // animations (slip mount, etc.) settle first so it doesn't fight them.
 const ONBOARDING_AUTO_OPEN_DELAY_MS = 600;
@@ -114,14 +125,31 @@ export function App() {
   // itself) alongside the OS-level reduced-motion preference.
   const reducedMotion =
     useReducedMotion() || !buttonProgressionConfig.animationsEnabled;
+  // OS-level preference ONLY (no master-switch OR) — the OCB floating
+  // pill's squash-and-stretch enter/exit, like BetSlipSheet's own
+  // appear/collapse pulses, isn't gated by `cfg.animationsEnabled`: it's
+  // core entry/exit feedback, not an ambient tier effect, so it keeps
+  // playing even with the master switch off (matching BetSlipSheet/
+  // BetSlipShell, which reference no reduced-motion flag at all for their
+  // entry/exit motion). Only real prefers-reduced-motion simplifies it.
+  const osReducedMotion = useReducedMotion();
   const [selections, setSelections] = useState<Selection[]>([]);
   // QUICK BET ONBOARDING — auto-opens once per session (see the effect below);
   // `?forceOnboarding=true` or the debug-overlay button can reopen it anytime.
   const [onboardingOpen, setOnboardingOpen] = useState(false);
-  // Quick Bet default stake — lifted here (not local to OnboardingSheet) so
-  // it survives the sheet's own mount/unmount and is restored on reopen.
-  // Persisted in localStorage by the hook itself; see quickBetSettings.ts.
-  const [quickBetAmount, setQuickBetAmount] = useQuickBetAmount();
+  // Quick Bet default stake + the separated intro/setup onboarding state
+  // (see oneClickBetOnboarding.ts) — `quickBetAmount` survives the sheet's
+  // own mount/unmount and is restored on reopen, persisted in localStorage
+  // by the underlying hook; see quickBetSettings.ts.
+  const {
+    hasSeenIntro: ocbHasSeenIntro,
+    quickBetAmount,
+    setQuickBetAmount,
+    readiness: ocbOnboardingReadiness,
+    markIntroSeen: markOcbIntroSeen,
+    markSetupComplete: markOcbSetupComplete,
+    saveConfiguration: saveOcbConfiguration,
+  } = useOneClickBetOnboarding();
   const [speedScale, setSpeedScale] = useState(1);
   const [live, setLive] = useState<ButtonLiveState | null>(null);
   // PASS 3 — Tier 3 odds effect selector (default flames; toggled in debug).
@@ -148,6 +176,21 @@ export function App() {
   // beat later. See lightningBet().
   const [lightning, setLightning] = useState(false);
 
+  // ONE CLICK BET — floating progress pill (see OneClickBetPill.tsx). The
+  // REAL hold-driven values come from the OneClickBetSession (ocbSession,
+  // defined below); `debugOcbState`/`debugOcbProgress` only drive the pill
+  // when no real Quick Bet hold is active (`?debug=true` dev controls,
+  // preview-only). 'hidden' means the region shows the normal bet-slip
+  // pill/summarized slip as usual.
+  const [debugOcbState, setDebugOcbState] =
+    useState<OneClickBetPillState>('hidden');
+  const [debugOcbProgress, setDebugOcbProgress] = useState(0);
+  // Dev-only override so the `?debug=true` controls can preview the
+  // (production-retired, see CLAUDE.md "pill-only bet slip") summarized
+  // slip alongside the new pill without touching the real `expanded={false}`
+  // wiring below.
+  const [debugSlipExpanded, setDebugSlipExpanded] = useState(false);
+
   // QUICK BET ONBOARDING — auto-open once per browser session. Mount-only
   // (empty deps): reads sessionStorage + the dev override once, then waits
   // ONBOARDING_AUTO_OPEN_DELAY_MS before opening so it doesn't fight the
@@ -158,13 +201,7 @@ export function App() {
   // sheet over another in-flight overlay (no retry: this is a first-load
   // courtesy, not a persistent nag).
   useEffect(() => {
-    let alreadyShown = false;
-    try {
-      alreadyShown = sessionStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
-    } catch {
-      // Storage unavailable (e.g. private-mode edge cases) — treat as unseen.
-    }
-    if (alreadyShown && !forceOnboarding) return;
+    if (ocbHasSeenIntro && !forceOnboarding) return;
     const t = window.setTimeout(() => {
       if (listOpen || success || lightning) return;
       setOnboardingOpen(true);
@@ -176,16 +213,26 @@ export function App() {
   // Dismissal (× button, backdrop tap, swipe-down, or the primary CTA) —
   // persists "seen" for the rest of this browser session so it doesn't
   // reappear on a same-tab reload or route change, then unmounts the sheet
-  // (AnimatePresence plays the close animation first).
+  // (AnimatePresence plays the close animation first). Still the ONE thing
+  // every dismissal path does, exactly as before — only "setup complete" is
+  // new, and it's a separate call fired from `onSetupComplete` below, only
+  // on the "Jugar ahora" (valid amount + accepted odds) path.
   const closeOnboarding = useCallback(() => {
-    try {
-      sessionStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
-    } catch {
-      // Storage unavailable — the sheet just won't persist across reloads
-      // this session; still closes correctly for the current view.
-    }
+    markOcbIntroSeen();
     setOnboardingOpen(false);
-  }, []);
+  }, [markOcbIntroSeen]);
+
+  // Fired ONLY when OnboardingSheet's "Jugar ahora" succeeds (valid amount +
+  // odds-change accepted) — persists the odds-change preference and marks
+  // setup complete, independent of `closeOnboarding`'s intro-seen flag.
+  // Purely additive: does not change what the sheet shows or when it closes.
+  const handleOcbSetupComplete = useCallback(
+    (acceptOddsChange: boolean) => {
+      saveOcbConfiguration({ acceptOddsChange });
+      markOcbSetupComplete();
+    },
+    [saveOcbConfiguration, markOcbSetupComplete],
+  );
 
   const [entryCount, setEntryCount] = useState(0);
   const [entryBump, setEntryBump] = useState(0); // Mis entradas icon "catch" bump
@@ -302,57 +349,164 @@ export function App() {
     setSuccess(true);
   }, []);
 
+  // Mirrors `selections` for callbacks that need the latest value without
+  // widening their own dependency list (onAccept/onSubmit must stay stable
+  // across renders so the memoized OneClickBetSession `bind` doesn't churn).
+  const selectionsRef = useRef(selections);
+  selectionsRef.current = selections;
+
+  // The selections that existed BEFORE a Quick Bet gesture overwrote them
+  // with just the pressed pick — restored once the gesture resolves (success
+  // OR failure), per "existing bet-slip restoration": a Quick Bet is a
+  // straight bet that bypasses the slip, it must not permanently discard
+  // whatever parlay the user already had building.
+  const preLightningSelectionsRef = useRef<Selection[]>([]);
+
+  // Measures the floating pill the instant it finishes submitting, so the
+  // success ticket can morph in from its exact rect (see
+  // EntryCreatedOverlay's `originRect`) instead of appearing unrelated.
+  const ocbPillRef = useRef<HTMLDivElement>(null);
+  const [ocbOriginRect, setOcbOriginRect] = useState<Rect | null>(null);
+
+  // Dev-only one-shot: forces the NEXT Quick Bet submission to fail, so the
+  // failure path (restore selections, dismiss pill, no success animation,
+  // failure toast) can be verified without a real backend.
+  const [debugForceOcbFailure, setDebugForceOcbFailure] = useState(false);
+  const [ocbFailureToast, setOcbFailureToast] = useState(false);
+  useEffect(() => {
+    if (!ocbFailureToast) return;
+    const t = window.setTimeout(() => setOcbFailureToast(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [ocbFailureToast]);
+
   // Fired when the green ticket has flown into Mis entradas — settles the
-  // entry (badge bump, count, "¿Reusar?" prompt) and returns to idle.
-  // Defined before lightningBet, which can also call this directly (see
-  // below) to settle a previous entry early.
+  // entry (badge bump, count, "¿Reusar?" prompt) and returns to idle. Also
+  // resets the OneClickBetSession (see the EntryCreatedOverlay onDone call
+  // site below, which fires both together) so a completed Quick Bet leaves
+  // no lingering session state behind. A Quick Bet (`lightning`) restores
+  // whatever selections existed before the gesture instead of clearing them
+  // — only the regular swipe-to-confirm flow clears the slip (a placed bet).
   const finishEntryCreated = useCallback(() => {
     setSuccess(false);
+    if (lightning) {
+      setSelections(preLightningSelectionsRef.current);
+      preLightningSelectionsRef.current = [];
+    } else {
+      setSelections([]);
+    }
     setLightning(false);
-    setSelections([]);
+    setOcbOriginRect(null);
     setEntryCount((c) => c + 1);
     setPromptOpen(true);
-  }, []);
+  }, [lightning]);
 
-  // LIGHTNING STRAIGHT BET — long-press a pick to create the entry instantly.
-  // First applies the SELECTED state to the pressed pick (add it, so its button
-  // lights up) while suppressing the slip via `lightning`; a beat later plays
-  // only the green success animation. `finishEntryCreated` then runs the usual
-  // post-entry actions (badge bump, count, "¿Reusar?" prompt) and clears it.
+  // ONE CLICK BET SESSION — gesture-complete and entry-creation are two
+  // separate phases the session (src/oneClickBetSession.ts) calls at the
+  // right moments, replacing the old single lightningBet() function:
   //
-  // Returns whether the bet was actually accepted. useLongPress's completion
-  // path (HomeScreen.tsx) uses this to decide whether to play the fast
-  // completion-stroke accent (accepted) or reverse the fill same as a
-  // cancellation (rejected) — the visual never claims success this function
-  // didn't actually deliver.
-  const lightningBet = useCallback(
-    (id: string): boolean => {
-      const pick = MOCK_PICKS.find((p) => p.id === id);
-      if (!pick) return false;
-      // A previous Quick Bet can still be mid-flight (selected-state hold or
-      // success animation still playing) when THIS one completes — e.g. two
-      // Quick Bets held back-to-back. Rather than silently dropping the new
-      // one (which left the pressed button's fill/stroke completing with no
-      // resulting selection — the bug this guard used to cause), settle the
-      // previous entry immediately so every completed 3-second hold reliably
-      // produces exactly one entry. This cuts the previous entry's success
-      // animation short, but its count/badge still land correctly — an
-      // acceptable trade-off given the user has already moved on to a new
-      // hold. EntryCreatedOverlay reads no selection-specific data, so
-      // interrupting it here is visually safe.
+  // `onAccept` fires synchronously the instant a hold reaches 100% — applies
+  // the SELECTED state to the pressed pick (so its button lights up) while
+  // suppressing the slip via `lightning`. Same pre-emptive-settle guard as
+  // before: a previous Quick Bet can still be mid-flight when this one
+  // completes (two holds back-to-back) — settle it immediately so every
+  // completed hold reliably produces exactly one entry.
+  //
+  // `onSubmit` fires after the session's own acceptToSubmitMs delay (the
+  // pressed pick's brief "selected" hold) — plays the success animation,
+  // same as lightningBet's tail end. `finishEntryCreated` (above) still runs
+  // the actual post-entry actions once EntryCreatedOverlay finishes.
+  const onAccept = useCallback(
+    (pick: Selection) => {
       if (success || lightning) {
         finishEntryCreated();
+      } else {
+        // First Quick Bet in this window — remember whatever was already in
+        // the slip so it can come back once this gesture resolves.
+        preLightningSelectionsRef.current = selectionsRef.current;
       }
       playSelectionHaptic();
       setListOpen(false);
       setLightning(true);
       setSelections([{ ...pick, id: `${pick.id}-0` }]); // button → selected
-      // Hold the selected state briefly, then create the entry.
-      window.setTimeout(() => setSuccess(true), LIGHTNING_SELECT_MS);
-      return true;
     },
     [success, lightning, finishEntryCreated],
   );
+
+  const onSubmit = useCallback((): boolean => {
+    if (debugForceOcbFailure) {
+      // Simulated failure (?debug=true only) — no success animation, roll
+      // the slip back to what it was before this gesture, dismiss the pill
+      // (handled by the session's cancelActive() once this returns false),
+      // and surface the existing error color as a brief toast.
+      setDebugForceOcbFailure(false);
+      setLightning(false);
+      setSelections(preLightningSelectionsRef.current);
+      preLightningSelectionsRef.current = [];
+      setOcbFailureToast(true);
+      return false;
+    }
+    setOcbOriginRect(ocbPillRef.current?.getBoundingClientRect() ?? null);
+    setSuccess(true);
+    return true;
+  }, [debugForceOcbFailure]);
+
+  const {
+    session: ocbSession,
+    bind: bindPick,
+    cancelActive: cancelOcbSession,
+  } = useOneClickBetSession(togglePick, {
+    holdDurationMs: buttonProgressionConfig.longPress.durationMs,
+    engageMs: 150,
+    reverseMs: buttonProgressionConfig.longPress.reverseMs,
+    // Kept in lockstep with the pill's own exit-animation duration (see
+    // OneClickBetPill.tsx / buttonProgressionConfig.ocbPillMotion.exit) so
+    // the session only resets — restoring the bet slip — once the pill's
+    // squash/stretch exit has visually finished.
+    exitMs: osReducedMotion
+      ? buttonProgressionConfig.ocbPillMotion.exit.reducedDurationMs
+      : buttonProgressionConfig.ocbPillMotion.exit.durationMs,
+    cancelTolerancePx: buttonProgressionConfig.longPress.cancelTolerancePx,
+    // quickBetAmount is the raw (string) onboarding text-field value —
+    // coerce once here, the ONE place Quick Bet's numeric stake is derived.
+    amount: Number(quickBetAmount) || 0,
+    onAccept,
+    acceptToSubmitMs: LIGHTNING_SELECT_MS,
+    onSubmit,
+    // Informational only (see oneClickBetOnboarding.ts) — the session
+    // doesn't gate or alter gesture behavior on this yet; it's exposed so a
+    // future onboarding redesign (or the pill) can query readiness without
+    // this hook needing to own any onboarding UI.
+    onboardingReadiness: ocbOnboardingReadiness,
+  });
+
+  // Real vs. debug-preview pill data. `ocbSession.pillVisible` is the
+  // session's own visibility field (true only once an engaged hold — see
+  // oneClickBetSession.ts's `engageMs` — is in progress, and stays true
+  // through completed/submitting/success so the pill doesn't blink out
+  // mid-flight); real session data always wins over the debug controls
+  // when a hold is actually happening.
+  const realOcbActive = ocbSession.pillVisible;
+  // Hidden once `success` flips true — at that instant EntryCreatedOverlay
+  // mounts with `ocbOriginRect` (captured a moment earlier in onSubmit) as
+  // its morph-in origin, so the pill and the ticket are never both on
+  // screen at once (see the "One Click Bet V2 transform" landmark).
+  const oneClickBetPillVisible =
+    (realOcbActive || debugOcbState !== 'hidden') && !success;
+  const ocbPillState: OneClickBetPillState = !realOcbActive
+    ? debugOcbState
+    : ocbSession.phase === 'candidate' || ocbSession.phase === 'pressing'
+      ? 'pressing'
+      : ocbSession.phase === 'reversing'
+        ? 'reversing'
+        : ocbSession.phase === 'exiting'
+          ? 'exiting'
+          : 'filled'; // completed / submitting / success
+  const ocbPillProgress = realOcbActive ? ocbSession.progress : debugOcbProgress;
+  const ocbOdds = realOcbActive ? (ocbSession.odds ?? 0) : cumulativeOdds;
+  const ocbAmount = realOcbActive ? ocbSession.amount : ONE_CLICK_BET_DEMO_STAKE;
+  const ocbPotentialWin = realOcbActive
+    ? (ocbSession.potentialWin ?? 0)
+    : computePotentialWin(cumulativeOdds, ONE_CLICK_BET_DEMO_STAKE);
 
   /* ---------- tier-crossing haptic ---------- */
   // Watch `tier` for changes. On any transition between adjacent tiers
@@ -552,8 +706,8 @@ export function App() {
               <HomeScreenChrome
                 picks={MOCK_PICKS}
                 selectedIds={baseSelectedIds}
-                onTogglePick={togglePick}
-                onLightningBet={lightningBet}
+                bindPick={bindPick}
+                cancelActivePress={cancelOcbSession}
                 headerCollapsed={navCompact}
               />
               {/* Debug controls inline (only visible with ?debug=true) */}
@@ -602,6 +756,115 @@ export function App() {
                     className="mt-1.5 w-full rounded-md bg-white/10 px-2 py-1.5 text-[11px] font-bold text-white"
                   >
                     Show onboarding sheet
+                  </button>
+                </div>
+              )}
+
+              {/* DEV CONTROLS — One Click Bet floating pill preview.
+                  Real gesture state now (see ocbSession above); the debug
+                  buttons below only drive the pill when no real hold is
+                  active. Never rendered outside ?debug=true. */}
+              {debug && (
+                <div className="mx-3 mb-2 mt-3 rounded-xl border border-[#4b20ff]/40 bg-[#4b20ff]/10 p-3">
+                  <div className="mb-2 text-[11px] font-bold text-[#b18bff]">
+                    DEBUG · one click bet pill
+                  </div>
+                  <div className="mb-1.5 grid grid-cols-2 gap-1.5">
+                    <button
+                      onClick={() => {
+                        setDebugOcbState('hidden');
+                        setDebugSlipExpanded(false);
+                      }}
+                      className={`rounded-md px-2 py-1.5 text-[11px] font-bold ${
+                        debugOcbState === 'hidden' && !debugSlipExpanded
+                          ? 'bg-[#b18bff] text-black'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      Bet-slip pill
+                    </button>
+                    <button
+                      onClick={() => {
+                        setDebugOcbState('hidden');
+                        setDebugSlipExpanded(true);
+                      }}
+                      disabled={selections.length === 0}
+                      className={`rounded-md px-2 py-1.5 text-[11px] font-bold disabled:opacity-30 ${
+                        debugOcbState === 'hidden' && debugSlipExpanded
+                          ? 'bg-[#b18bff] text-black'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      Summarized slip
+                    </button>
+                    <button
+                      onClick={() => setDebugOcbState('default')}
+                      disabled={selections.length === 0}
+                      className={`rounded-md px-2 py-1.5 text-[11px] font-bold disabled:opacity-30 ${
+                        debugOcbState === 'default'
+                          ? 'bg-[#b18bff] text-black'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      OCB: default
+                    </button>
+                    <button
+                      onClick={() => setDebugOcbState('filled')}
+                      disabled={selections.length === 0}
+                      className={`rounded-md px-2 py-1.5 text-[11px] font-bold disabled:opacity-30 ${
+                        debugOcbState === 'filled'
+                          ? 'bg-[#b18bff] text-black'
+                          : 'bg-white/10 text-white'
+                      }`}
+                    >
+                      OCB: filled
+                    </button>
+                  </div>
+                  {/* "pressing" progress scrub — only meaningful once the
+                      pill is in the 'pressing' state. */}
+                  <div className="mb-1.5 flex gap-1.5">
+                    {[0, 0.25, 0.5, 0.75].map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          setDebugOcbState('pressing');
+                          setDebugOcbProgress(p);
+                        }}
+                        disabled={selections.length === 0}
+                        className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-bold disabled:opacity-30 ${
+                          debugOcbState === 'pressing' && debugOcbProgress === p
+                            ? 'bg-[#b18bff] text-black'
+                            : 'bg-white/10 text-white'
+                        }`}
+                      >
+                        {Math.round(p * 100)}%
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setDebugOcbState('default')}
+                    disabled={selections.length === 0}
+                    className="mb-1.5 w-full rounded-md bg-white/10 px-2 py-1.5 text-[11px] font-bold text-white disabled:opacity-30"
+                  >
+                    ▶ Transition: bet slip → One Click Bet
+                  </button>
+                  <button
+                    onClick={() => setDebugOcbState('hidden')}
+                    className="w-full rounded-md bg-white/10 px-2 py-1.5 text-[11px] font-bold text-white"
+                  >
+                    ◀ Restore previous bet slip
+                  </button>
+                  <button
+                    onClick={() => setDebugForceOcbFailure((v) => !v)}
+                    className={`mt-1.5 w-full rounded-md px-2 py-1.5 text-[11px] font-bold ${
+                      debugForceOcbFailure
+                        ? 'bg-[#ff6b6b] text-black'
+                        : 'bg-white/10 text-white'
+                    }`}
+                  >
+                    {debugForceOcbFailure
+                      ? 'Armed — next Quick Bet hold fails'
+                      : 'Simulate next Quick Bet failure'}
                   </button>
                 </div>
               )}
@@ -701,30 +964,51 @@ export function App() {
                   className="relative transition-[height] duration-300 ease-out"
                   style={{
                     height:
-                      betSlipVisible || promptMounted
+                      betSlipVisible || promptMounted || oneClickBetPillVisible
                         ? buttonProgressionConfig.slotReservedHeightPx
                         : 0,
                   }}
                 >
                   {/* BET SLIP — pill-only now (the summarized purple-glass
                       expand is retired, see `checkpoint-pre-pill-only-slip`).
-                      `expanded` is always false, so BetSlipSheet never morphs
-                      into the glass card; tapping/swiping the pill always
-                      opens the "Resumen" floating card (BetSlipFullSheet)
-                      via onExpand/onOpenList instead. onCollapse/onKeepAlive
-                      are unreachable no-ops — BetSlipSheet only fires them
-                      from gestures on its expanded content. Anchored to the
-                      slot's bottom baseline; the 8px gap above the navbar
-                      comes from the pill's own pb-2. Only one bet-slip
-                      element ever exists, so nothing shows behind it. */}
-                  <div className="absolute inset-x-0 bottom-0 z-10">
+                      `expanded` is normally always false, so BetSlipSheet
+                      never morphs into the glass card in production; the
+                      `debug && debugSlipExpanded` override only ever fires
+                      from the `?debug=true` "Summarized slip" dev button
+                      above, purely to preview that dormant layout — tapping/
+                      swiping the pill still always opens the "Resumen"
+                      floating card (BetSlipFullSheet) via onExpand/onOpenList.
+                      onCollapse/onKeepAlive are unreachable no-ops —
+                      BetSlipSheet only fires them from gestures on its
+                      expanded content. Anchored to the slot's bottom
+                      baseline; the 8px gap above the navbar comes from the
+                      pill's own pb-2. Only one bet-slip element ever exists,
+                      so nothing shows behind it.
+
+                      ONE CLICK BET VISIBILITY ARBITRATION — when the OCB
+                      floating pill is visible (`oneClickBetPillVisible`),
+                      this whole wrapper (slip + post-success prompt) is
+                      hidden via `visibility:hidden`, NOT unmounted: the slip
+                      stays mounted with all its state (selections, collapse
+                      position, etc.) untouched and plays no exit animation,
+                      so restoring is just flipping visibility back — never
+                      recreated from scratch. */}
+                  <div
+                    className="absolute inset-x-0 bottom-0 z-10"
+                    style={
+                      oneClickBetPillVisible
+                        ? { visibility: 'hidden', pointerEvents: 'none' }
+                        : undefined
+                    }
+                    aria-hidden={oneClickBetPillVisible}
+                  >
                     <AnimatePresence>
                       {betSlipVisible && (
                         <BetSlipSheet
                           key="bet-slip-sheet"
                           selections={selections}
                           cumulativeOdds={cumulativeOdds}
-                          expanded={false}
+                          expanded={debug && debugSlipExpanded}
                           onExpand={() => setListOpen(true)}
                           onCollapse={() => {}}
                           onRemove={removeSelection}
@@ -783,6 +1067,33 @@ export function App() {
                       </div>
                     )}
                   </div>
+
+                  {/* ONE CLICK BET — floating progress pill. Occupies the
+                      EXACT same slot as the bet-slip pill above (same
+                      px-4/pb-2/pt-2 padding as ButtonPreviewMomios's own root,
+                      same z-10 stacking, same bottom-anchored container) so it
+                      never introduces a new position or extra layout height.
+                      Fed real OneClickBetSession data whenever a hold is
+                      actually in progress (see ocbPillState/ocbOdds/etc.
+                      above); falls back to the `?debug=true` preview
+                      controls otherwise. Still pointer-events-none — no
+                      tap/hold handlers live on the pill itself, the gesture
+                      is bound to the pick buttons via `bindPick`. */}
+                  {oneClickBetPillVisible && (
+                    <div
+                      ref={ocbPillRef}
+                      className="pointer-events-none absolute inset-x-0 bottom-0 z-10 w-full px-4 pb-2 pt-2"
+                    >
+                      <OneClickBetPill
+                        odds={ocbOdds}
+                        amount={ocbAmount}
+                        potentialWin={ocbPotentialWin}
+                        state={ocbPillState}
+                        progress={ocbPillProgress}
+                        reducedMotion={osReducedMotion}
+                      />
+                    </div>
+                  )}
                 </div>
                 <Navbar
                   entryCount={entryCount}
@@ -815,13 +1126,39 @@ export function App() {
 
             {/* Swipe-to-confirm success — green "Entrada creada" card that
                 flies into Mis entradas, then finishEntryCreated() pops the
-                badge + "¿Reusar?" prompt. */}
+                badge + "¿Reusar?" prompt. Also resets the OneClickBetSession
+                (cancelOcbSession) so a completed Quick Bet leaves no
+                lingering session state — a no-op for the normal
+                swipe-to-confirm flow, which never touched the session. */}
             {success && (
               <EntryCreatedOverlay
+                originRect={ocbOriginRect}
                 onCatch={() => setEntryBump((n) => n + 1)}
-                onDone={finishEntryCreated}
+                onDone={() => {
+                  finishEntryCreated();
+                  cancelOcbSession();
+                }}
               />
             )}
+
+            {/* Quick Bet submission-failure toast — reuses the app's one
+                existing error color (OnboardingSheet's ERROR_COLOR). Shown
+                only via the ?debug=true "simulate failure" control, since
+                there's no real backend to fail against yet. */}
+            <AnimatePresence>
+              {ocbFailureToast && (
+                <motion.div
+                  key="ocb-failure-toast"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ duration: 0.2 }}
+                  className="pointer-events-none absolute inset-x-4 bottom-[100px] z-50 rounded-2xl border border-[rgba(255,107,107,0.4)] bg-[#1a1010]/95 px-4 py-3 text-center text-[13px] font-semibold text-[#ff6b6b]"
+                >
+                  No se pudo crear la entrada. Intenta de nuevo.
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Quick Bet onboarding — first-visit info sheet for the
                 long-press gesture (see the auto-open effect above). Mounted
@@ -837,6 +1174,7 @@ export function App() {
                   onClose={closeOnboarding}
                   quickBetAmount={quickBetAmount}
                   onQuickBetAmountChange={setQuickBetAmount}
+                  onSetupComplete={handleOcbSetupComplete}
                 />
               )}
             </AnimatePresence>

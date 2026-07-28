@@ -93,8 +93,146 @@ export const buttonProgressionConfig = {
   /* --------------------------------------------------------------- */
   longPress: {
     durationMs: 3000,
-    reverseMs: 300,
+    reverseMs: 600,
+    // Same curve the old inline-button fill reversal used (a CSS
+    // transition on --qb-progress) — reused by the floating pill's own
+    // CSS transition so the reverse animation reads identically.
+    reverseEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
     strokeCompleteMs: 220,
+    // Movement tolerance (px) for the candidate/pressing hold — a pointer
+    // moving further than this before release is classified as a scroll or
+    // carousel drag, not a hold, and cancels the session (see
+    // oneClickBetSession.ts's onPointerMove). Standard touch-slop range.
+    cancelTolerancePx: 10,
+  },
+
+  /* --------------------------------------------------------------- */
+  /*  ONE CLICK BET FLOATING PILL — mount/cancel motion. Squash &      */
+  /*  stretch entrance/exit, same spring language as BetSlipSheet's    */
+  /*  appear/collapse pulses (ENTRY_PULSE_SCALE_x / PULSE_SPRING in     */
+  /*  BetSlipSheet.tsx) adapted to a scale-in-from-compressed mount     */
+  /*  instead of an in-place pulse, since the pill has no prior on-      */
+  /*  screen shape to morph from.                                        */
+  /* --------------------------------------------------------------- */
+  ocbPillMotion: {
+    // Entrance — from a compressed state, overshoots slightly, settles.
+    enter: {
+      fromScaleX: 0.9,
+      fromScaleY: 0.72,
+      overshootScaleX: 1.04,
+      overshootScaleY: 1.08,
+      // Same family as BetSlipSheet's ENTRY_PULSE_SPRING (stiffness 320,
+      // damping 12) — a touch more damped so the overshoot reads as
+      // "subtle" per spec, not a bounce.
+      spring: { stiffness: 320, damping: 14 },
+      // Reduced-motion fallback: no overshoot, just a short scale+opacity
+      // tween straight to rest.
+      reducedDurationMs: 140,
+    },
+    // Exit — plays ONLY after a cancelled hold's fill has finished
+    // reversing to 0 (session phase 'exiting'), never on successful
+    // completion. Compresses vertically, stretches slightly horizontally,
+    // fades out near the end.
+    exit: {
+      toScaleX: 1.05,
+      toScaleY: 0.82,
+      durationMs: 180,
+      easing: [0.4, 0, 1, 1] as const, // ease-in — a compress-and-fade-away
+      reducedDurationMs: 120,
+    },
+  },
+
+  /* --------------------------------------------------------------- */
+  /*  ONE CLICK BET FLOATING PILL — progress VFX (moving edge glow,     */
+  /*  outer glow, internal particles). All driven by the SAME             */
+  /*  `progress` value the pill already receives every rAF frame from      */
+  /*  the session — no separate timers, no extra React state. Primary       */
+  /*  accent is #8F2EFF (new Figma energy color), distinct from the           */
+  /*  retired inline hold's lime/cyan selected-state palette (that palette     */
+  /*  belonged to the selection button itself, not this pill, so it wasn't      */
+  /*  transferred — see CLAUDE.md).                                              */
+  /* --------------------------------------------------------------- */
+  ocbVfx: {
+    energyColor: '#8F2EFF',
+    // Moving edge — reworked from the retired inline hold's own trailing-
+    // edge treatment (`.qb-hold::before`'s `box-shadow: inset -10px 0 14px
+    // -6px rgba(...progress*0.5)`), NOT the free-floating radial band this
+    // originally shipped with. That band was centered ON the fill/unfilled
+    // boundary and bled a soft halo across it in both directions, which
+    // read as a blurry border and made the true completion point hard to
+    // judge. The inline hold's version stayed INSET — glowing inward from
+    // the edge, never past it — because an `inset` shadow can't escape its
+    // own element's box. Reproduced here the same way: `insetGlow` is
+    // applied directly to the fill div (which is exactly `progress`-wide),
+    // so it's always masked to the already-filled track and can never
+    // bleed into unfilled territory. `cap` adds a crisp (non-blurred)
+    // bright line flush with the fill's true right edge on top of that
+    // glow, so the exact completion boundary stays legible even while the
+    // soft glow is going.
+    edge: {
+      insetGlow: {
+        offsetPx: -14,
+        blurPx: 20,
+        spreadPx: -6,
+        maxAlpha: 0.55,
+      },
+      cap: {
+        // Widened from an initial 3px + hard-edged gradient (which, once
+        // masked flush with the fill's clipped edge, read as a rigid
+        // vertical LINE rather than a glow) to a wider, multi-stop gradient
+        // + a small blur so it feathers into a genuine soft glow instead —
+        // still fully contained by the fill div's own `overflow-hidden`,
+        // same as the inset glow above.
+        widthPx: 26,
+        blurPx: 3,
+        maxOpacity: 0.95,
+        // Fraction of progress over which the cap fades in from 0 — avoids
+        // a static bright line sitting at the pill's start the instant a
+        // hold begins.
+        fadeInEnd: 0.05,
+      },
+    },
+    // Outer glow — layered box-shadow on the pill root, intensity mapped
+    // from progress^glowExponent (matches the retired inline hold's
+    // progress-squared curve: stays nearly invisible early, builds
+    // noticeably by mid-hold). No independent animation — recomputed
+    // every render alongside the progress prop.
+    glow: {
+      glowExponent: 2,
+      innerBlurPx: 18,
+      innerSpreadPx: 1,
+      innerMaxAlpha: 0.55,
+      outerBlurPx: 32,
+      outerSpreadPx: 2,
+      outerMaxAlpha: 0.35,
+    },
+    // Internal energy particles — small fixed pool, CSS-driven travel
+    // (no per-frame JS/state). Each has a size/duration/delay so the set
+    // reads as varied without generating random values on every render.
+    // `delayMs` is deliberately NEGATIVE for every particle: a positive
+    // `animation-delay` holds the element at its un-animated resting spot
+    // (roughly mid-pill, since the animation's own "from" transform hasn't
+    // applied yet) until the delay elapses — with 5 staggered positive
+    // delays that read as particles frozen in place at the start of every
+    // hold, only "waking up" one by one. A negative delay instead starts
+    // the animation as if it were already that far into its cycle, so on
+    // the very first rendered frame every particle is already mid-flight
+    // (different position per particle, since the offsets differ) rather
+    // than static.
+    particles: [
+      { sizePx: 3, topPct: 30, durationMs: 1400, delayMs: -200 },
+      { sizePx: 2, topPct: 60, durationMs: 1700, delayMs: -900 },
+      { sizePx: 4, topPct: 45, durationMs: 1550, delayMs: -300 },
+      { sizePx: 2, topPct: 72, durationMs: 1900, delayMs: -1400 },
+      { sizePx: 3, topPct: 18, durationMs: 1650, delayMs: -700 },
+    ],
+    // Particle opacity floor/ceiling — interpolated by progress so density
+    // *reads* as increasing slightly as the hold advances, per spec. Bumped
+    // up from an initial 0.25/0.7 — the white-cored glow below reads softer
+    // than the original flat-purple dot, so it needed more opacity headroom
+    // to stay clearly visible rather than washing out.
+    particleMinOpacity: 0.35,
+    particleMaxOpacity: 0.9,
   },
 
   /* --------------------------------------------------------------- */
