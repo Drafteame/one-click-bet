@@ -68,11 +68,13 @@ const cfg = {
   // Explosion "pop" on the ticket when the reveal completes (fires with the
   // burst): a subtle squash & stretch that springs back with overshoot, plus
   // a green glow flash that decays. Reads as something detonating inside.
+  // Glow decay tuned to settle with the spring (stiffness 300 + damping 17
+  // settles ~450ms) for unified visual completion.
   pop: {
     scaleX: 1.035, // initial stretch (springs back to 1 with a gentle overshoot)
     scaleY: 0.965,
     spring: { stiffness: 300, damping: 17 },
-    glowDecayMs: 620, // glow flashes to peak, then eases back to base
+    glowDecayMs: 480, // matches spring settle time for coherent finish
   },
   genie: {
     // Fast, snappy flight — movement + shrink reach the tab in ~215ms.
@@ -111,15 +113,16 @@ const cfg = {
   // `greenCircleIn` reveal with a transform/opacity tween FROM the pill's
   // exact position+size TO the ticket's resting rect, so completing a hold
   // reads as one object changing shape rather than the pill vanishing and
-  // an unrelated ticket appearing. `ease` matches
-  // buttonProgressionConfig's `longPress.reverseEasing` curve so every
-  // "settling" motion in the Quick Bet flow feels like the same material.
+  // an unrelated ticket appearing. Easing matches the reverseEasing curve
+  // so every "settling" motion in the Quick Bet flow feels like the same
+  // smooth material.
   morphIn: {
     durationMs: 280,
-    ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+    ease: [0.4, 0, 0.2, 1] as [number, number, number, number], // matches reverseEasing
     // Fraction of durationMs (at the END of the tween) spent crossfading the
-    // pill-colored echo out and the ticket face in.
-    crossfadeFraction: 0.45,
+    // pill-colored echo out and the ticket face in. Start crossfade earlier
+    // (from 55%) so the echo visibly fades while morphing, not just at the end.
+    crossfadeFraction: 0.48,
   },
 };
 

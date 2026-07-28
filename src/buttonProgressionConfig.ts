@@ -93,11 +93,11 @@ export const buttonProgressionConfig = {
   /* --------------------------------------------------------------- */
   longPress: {
     durationMs: 3000,
-    reverseMs: 600,
-    // Same curve the old inline-button fill reversal used (a CSS
-    // transition on --qb-progress) — reused by the floating pill's own
-    // CSS transition so the reverse animation reads identically.
-    reverseEasing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+    reverseMs: 500,
+    // Smooth deceleration for the reverse-fill animation. The old inline
+    // button's 0.16,1,0.3,1 elastic curve felt bouncy for reversals —
+    // this is a cleaner ease-out that decelerates smoothly without overshoot.
+    reverseEasing: 'cubic-bezier(0.4, 0, 0.2, 1)',
     strokeCompleteMs: 220,
     // Movement tolerance (px) for the candidate/pressing hold — a pointer
     // moving further than this before release is classified as a scroll or
@@ -132,12 +132,12 @@ export const buttonProgressionConfig = {
     // Exit — plays ONLY after a cancelled hold's fill has finished
     // reversing to 0 (session phase 'exiting'), never on successful
     // completion. Compresses vertically, stretches slightly horizontally,
-    // fades out near the end.
+    // fades out near the end. Smooth ease-in for a controlled, natural exit.
     exit: {
       toScaleX: 1.05,
       toScaleY: 0.82,
-      durationMs: 180,
-      easing: [0.4, 0, 1, 1] as const, // ease-in — a compress-and-fade-away
+      durationMs: 160,
+      easing: [0.5, 0, 0.3, 1] as const, // smooth ease-in
       reducedDurationMs: 120,
     },
   },
